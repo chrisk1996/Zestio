@@ -13,16 +13,13 @@ const RATE_WINDOW = 60 * 60 * 1000; // 1 hour
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
   const record = rateLimitMap.get(ip);
-  
   if (!record || now > record.resetTime) {
     rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_WINDOW });
     return true;
   }
-  
   if (record.count >= RATE_LIMIT) {
     return false;
   }
-  
   record.count++;
   return true;
 }
@@ -30,10 +27,10 @@ function checkRateLimit(ip: string): boolean {
 export async function POST(request: NextRequest) {
   try {
     // Get client IP for rate limiting
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
-               request.headers.get('x-real-ip') || 
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+               request.headers.get('x-real-ip') ||
                'unknown';
-    
+
     if (!checkRateLimit(ip)) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please try again later.' },
@@ -48,7 +45,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Image is required' }, { status: 400 });
     }
 
-    let output: unknown;
     let prompt: string;
 
     // Set prompt based on enhancement type
@@ -66,39 +62,38 @@ export async function POST(request: NextRequest) {
         prompt = "professional real estate photography, enhanced, high quality, vibrant colors, sharp details, well-lit";
     }
 
-    // Use Replicate's image-to-image model for enhancement
-    // Using a stable, working model
+    // Use Replicate's SDXL model for image-to-image enhancement
+    // Model: stability-ai/sdxl (version: 39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b)
     const result = await replicate.run(
-      "stability-ai/sdxl-img2img:d2e5446e6db43c5f3c5c5c5c5c5c5c5c" as `${string}/${string}:${string}`,
+      "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
       {
         input: {
           image: image,
           prompt: prompt,
           negative_prompt: "blurry, low quality, distorted, overexposed, underexposed, noisy, pixelated",
           num_inference_steps: 30,
-          strength: 0.6,
+          prompt_strength: 0.6,
           guidance_scale: 7.5,
+          refine: "expert_ensemble_refiner",
         }
       }
     );
 
-    output = result;
-
     // Handle different output formats from Replicate
     let resultUrl: string;
-    if (typeof output === 'string') {
-      resultUrl = output;
-    } else if (Array.isArray(output) && output.length > 0) {
-      resultUrl = String(output[0]);
-    } else if (output && typeof output === 'object') {
-      const out = output as Record<string, unknown>;
-      resultUrl = String(out.url || out.output || JSON.stringify(output));
+    if (typeof result === 'string') {
+      resultUrl = result;
+    } else if (Array.isArray(result) && result.length > 0) {
+      resultUrl = String(result[0]);
+    } else if (result && typeof result === 'object') {
+      const out = result as Record<string, unknown>;
+      resultUrl = String(out.url || out.output || JSON.stringify(result));
     } else {
-      resultUrl = String(output);
+      resultUrl = String(result);
     }
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       output: resultUrl,
     });
 
