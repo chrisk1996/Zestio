@@ -146,13 +146,13 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', job.id);
 
-      // Deduct credit (video costs 2 credits)
+      // Deduct credits (video costs 3 credits - most expensive operation)
       if (userData) {
         await supabase
           .from('propertypix_users')
           .update({
-            credits_remaining: Math.max(0, userData.credits_remaining - 2),
-            credits_used: userData.credits_used + 2,
+            credits_remaining: Math.max(0, userData.credits_remaining - 3),
+            credits_used: userData.credits_used + 3,
           })
           .eq('id', user.id);
       }

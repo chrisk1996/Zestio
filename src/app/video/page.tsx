@@ -285,7 +285,7 @@ export default function VideoPage() {
                   ) : (
                     <>
                       <Play className="w-5 h-5" />
-                      Generate Video
+                      Generate Video (3 credits)
                     </>
                   )}
                 </button>

@@ -199,13 +199,13 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', job.id);
 
-      // Deduct credit
+      // Deduct credits (virtual staging costs 2 credits - more expensive due to complex prompts)
       if (userData) {
         await supabase
           .from('propertypix_users')
           .update({
-            credits_remaining: Math.max(0, userData.credits_remaining - 1),
-            credits_used: userData.credits_used + 1,
+            credits_remaining: Math.max(0, userData.credits_remaining - 2),
+            credits_used: userData.credits_used + 2,
           })
           .eq('id', user.id);
       }
