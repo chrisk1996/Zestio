@@ -66,7 +66,7 @@ export default function VideoPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [jobId, setJobId] = useState<string | null>(null);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -106,7 +106,6 @@ export default function VideoPage() {
       setUploadedImage(event.target?.result as string);
       setVideoUrl(null);
       setProgress(0);
-      setJobId(null);
     };
     reader.readAsDataURL(file);
   };
@@ -148,7 +147,7 @@ export default function VideoPage() {
 
       setProgress(100);
       setVideoUrl(data.output);
-      setJobId(data.jobId);
+      
     } catch (err) {
       clearInterval(progressInterval);
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -183,7 +182,6 @@ export default function VideoPage() {
     setVideoUrl(null);
     setProgress(0);
     setError(null);
-    setJobId(null);
     setSelectedMotion('pan_left');
   };
 

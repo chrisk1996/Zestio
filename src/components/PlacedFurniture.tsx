@@ -1,8 +1,5 @@
 'use client';
-
-import { useRef, useState, useEffect } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
-import { Text } from '@react-three/drei';
+import { useRef, useState } from 'react';
 import * as THREE from 'three';
 import type { FurnitureItem } from './FurnitureLibrary';
 
@@ -28,7 +25,7 @@ function FurnitureMesh({ piece }: { piece: PlacedFurniturePiece }) {
   const scaledWidth = width * scale;
   const scaledHeight = height * scale;
   const scaledDepth = depth * scale;
-  
+
   // Special rendering for certain furniture types
   switch (furniture.id) {
     case 'sofa':
@@ -46,7 +43,7 @@ function FurnitureMesh({ piece }: { piece: PlacedFurniturePiece }) {
           </mesh>
         </group>
       );
-      
+
     case 'bed':
       return (
         <group>
@@ -67,7 +64,7 @@ function FurnitureMesh({ piece }: { piece: PlacedFurniturePiece }) {
           </mesh>
         </group>
       );
-      
+
     case 'bathtub':
       return (
         <group>
@@ -83,7 +80,7 @@ function FurnitureMesh({ piece }: { piece: PlacedFurniturePiece }) {
           </mesh>
         </group>
       );
-      
+
     case 'bookshelf':
       return (
         <group>
@@ -101,7 +98,7 @@ function FurnitureMesh({ piece }: { piece: PlacedFurniturePiece }) {
           ))}
         </group>
       );
-      
+
     case 'refrigerator':
       return (
         <group>
@@ -122,7 +119,7 @@ function FurnitureMesh({ piece }: { piece: PlacedFurniturePiece }) {
           </mesh>
         </group>
       );
-      
+
     case 'chair':
     case 'office-chair':
       return (
@@ -146,7 +143,7 @@ function FurnitureMesh({ piece }: { piece: PlacedFurniturePiece }) {
           ))}
         </group>
       );
-      
+
     default:
       return (
         <mesh position={[0, scaledHeight * 0.5, 0]} castShadow>
@@ -157,13 +154,12 @@ function FurnitureMesh({ piece }: { piece: PlacedFurniturePiece }) {
   }
 }
 
-export default function PlacedFurniture({ piece, isSelected, onSelect, onUpdate }: PlacedFurnitureProps) {
+export default function PlacedFurniture({ piece, isSelected, onSelect }: PlacedFurnitureProps) {
   const groupRef = useRef<THREE.Group>(null);
   const [isHovered, setIsHovered] = useState(false);
-  
   const { furniture, position, rotation } = piece;
   const scaledHeight = furniture.dimensions.height * piece.scale;
-  
+
   return (
     <group
       ref={groupRef}
@@ -185,16 +181,18 @@ export default function PlacedFurniture({ piece, isSelected, onSelect, onUpdate 
       }}
     >
       <FurnitureMesh piece={piece} />
-      
+
       {/* Selection outline */}
       {isSelected && (
         <group position={[0, scaledHeight * 0.5, 0]}>
           <mesh>
-            <boxGeometry args={[
-              furniture.dimensions.width * piece.scale + 0.05,
-              furniture.dimensions.height * piece.scale + 0.05,
-              furniture.dimensions.depth * piece.scale + 0.05
-            ]} />
+            <boxGeometry
+              args={[
+                furniture.dimensions.width * piece.scale + 0.05,
+                furniture.dimensions.height * piece.scale + 0.05,
+                furniture.dimensions.depth * piece.scale + 0.05,
+              ]}
+            />
             <meshBasicMaterial color="#4f46e5" wireframe />
           </mesh>
           {/* Rotation indicator */}
@@ -204,15 +202,17 @@ export default function PlacedFurniture({ piece, isSelected, onSelect, onUpdate 
           </mesh>
         </group>
       )}
-      
+
       {/* Hover effect */}
       {isHovered && !isSelected && (
         <mesh position={[0, scaledHeight * 0.5, 0]}>
-          <boxGeometry args={[
-            furniture.dimensions.width * piece.scale + 0.02,
-            furniture.dimensions.height * piece.scale + 0.02,
-            furniture.dimensions.depth * piece.scale + 0.02
-          ]} />
+          <boxGeometry
+            args={[
+              furniture.dimensions.width * piece.scale + 0.02,
+              furniture.dimensions.height * piece.scale + 0.02,
+              furniture.dimensions.depth * piece.scale + 0.02,
+            ]}
+          />
           <meshBasicMaterial color="#ffffff" wireframe opacity={0.5} transparent />
         </mesh>
       )}

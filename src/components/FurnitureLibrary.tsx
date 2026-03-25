@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Sofa, Bed, UtensilsCrossed, Bath, Armchair, Coffee, Tv, BookOpen } from 'lucide-react';
+import { Sofa, Bed, UtensilsCrossed, Bath, BookOpen } from 'lucide-react';
 
 export interface FurnitureItem {
   id: string;
