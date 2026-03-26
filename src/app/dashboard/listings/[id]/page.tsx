@@ -20,7 +20,7 @@ import {
   XCircle,
   RefreshCw,
   Share2,
-  Link2,
+  Archive,
 } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';

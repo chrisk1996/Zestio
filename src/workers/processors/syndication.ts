@@ -1,7 +1,7 @@
 // Syndication Processor
 // Handles posting listings to real estate portals
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { SyndicationJob } from '../../lib/queue';
 
 interface PortalConfig {
@@ -121,9 +121,20 @@ export async function processSyndication(
   }
 }
 
+interface ListingData {
+  id: string;
+  title?: string;
+  [key: string]: unknown;
+}
+
+interface Credentials {
+  expires_at?: string;
+  [key: string]: unknown;
+}
+
 async function syndicateViaFeed(
-  listing: any,
-  credentials: any,
+  listing: ListingData,
+  credentials: Credentials,
   config: PortalConfig
 ): Promise<{ portalListingId: string; portalListingUrl?: string }> {
   // For feed-based portals, the listing is already included in the OpenImmo feed
@@ -142,8 +153,8 @@ async function syndicateViaFeed(
 }
 
 async function syndicateViaAPI(
-  listing: any,
-  credentials: any,
+  listing: ListingData,
+  credentials: Credentials,
   config: PortalConfig
 ): Promise<{ portalListingId: string; portalListingUrl?: string }> {
   console.log(`[Syndication] API-based syndication for ${config.name}`);
