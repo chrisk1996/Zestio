@@ -12,6 +12,24 @@ const FloorPlan3DViewer = dynamic(
   { ssr: false }
 );
 
+interface Wall {
+  start: [number, number];
+  end: [number, number];
+  type: 'exterior' | 'interior';
+}
+
+interface Door {
+  position: [number, number];
+  rotation: number;
+  room: string;
+}
+
+interface Window {
+  position: [number, number];
+  width: number;
+  wall: 'exterior';
+}
+
 interface Room {
   name: string;
   x: number;
@@ -23,9 +41,9 @@ interface Room {
 
 interface FloorPlanData {
   rooms: Room[];
-  walls: unknown[];
-  doors: unknown[];
-  windows: unknown[];
+  walls: Wall[];
+  doors: Door[];
+  windows: Window[];
   totalArea: number;
   bedroomCount: number;
   bathroomCount: number;
