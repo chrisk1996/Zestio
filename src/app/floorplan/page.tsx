@@ -2,8 +2,39 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { Header } from '@/components/Header';
-import { Upload, FileImage, Box, Loader2 } from 'lucide-react';
+import { Upload, FileImage, Box, Loader2, Download, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
+
+// Dynamically import 3D viewer to avoid SSR issues
+const FloorPlan3DViewer = dynamic(
+  () => import('@/components/FloorPlan3DViewer'),
+  { ssr: false }
+);
+
+interface Room {
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  type: string;
+}
+
+interface FloorPlanData {
+  rooms: Room[];
+  walls: unknown[];
+  doors: unknown[];
+  windows: unknown[];
+  totalArea: number;
+  bedroomCount: number;
+  bathroomCount: number;
+  metadata?: {
+    analyzedAt: string;
+    fallback?: boolean;
+    error?: string;
+  };
+}
 
 export default function FloorPlanPage() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -11,6 +42,8 @@ export default function FloorPlanPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [floorPlanData, setFloorPlanData] = useState<FloorPlanData | null>(null);
+  const [analysisText, setAnalysisText] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -46,9 +79,10 @@ export default function FloorPlanPage() {
       setError('File size must be less than 20MB');
       return;
     }
-
     setError(null);
     setUploadedFile(file);
+    setFloorPlanData(null);
+    setAnalysisText(null);
 
     // Create preview
     if (file.type.startsWith('image/')) {
@@ -64,28 +98,52 @@ export default function FloorPlanPage() {
   };
 
   const handleGenerate3D = async () => {
-    if (!uploadedFile) return;
-
+    if (!preview) return;
+    
     setIsProcessing(true);
     setError(null);
 
     try {
-      // Simulate processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      // In production, this would call /api/floorplan/process
-      alert('3D generation coming soon! This is a preview.');
-    } catch {
-      setError('Failed to generate 3D model');
+      const response = await fetch('/api/floorplan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: preview }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to process floor plan');
+      }
+
+      setFloorPlanData(data.modelData);
+      setAnalysisText(data.analysis);
+    } catch (err) {
+      console.error('Floor plan processing error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to generate 3D model');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleReset = () => {
+    setUploadedFile(null);
+    setPreview(null);
+    setFloorPlanData(null);
+    setAnalysisText(null);
+    setError(null);
+  };
+
+  const handleExportGLB = () => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('export-glb'));
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-purple-100 rounded-full text-purple-700 text-sm font-medium mb-4">
@@ -96,102 +154,175 @@ export default function FloorPlanPage() {
             Convert Floor Plans to 3D Models
           </h1>
           <p className="text-gray-600">
-            Upload a 2D floor plan and we'll generate an interactive 3D model
+            Upload a 2D floor plan and we&apos;ll generate an interactive 3D model
           </p>
         </div>
 
-        {/* Upload Area */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 mb-6">
-          <div
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            className={`border-2 border-dashed rounded-xl p-12 text-center transition-colors ${
-              isDragging
-                ? 'border-purple-500 bg-purple-50'
-                : 'border-gray-300 hover:border-purple-400'
-            }`}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,.pdf"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
+        <div className="grid lg:grid-cols-2 gap-8">
+          {/* Upload Section */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Upload Floor Plan</h2>
+            
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
+                isDragging
+                  ? 'border-purple-500 bg-purple-50'
+                  : 'border-gray-300 hover:border-purple-400'
+              }`}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,.pdf"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
 
-            {!uploadedFile ? (
-              <>
-                <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-lg font-medium text-gray-700 mb-2">
-                  Drop your floor plan here
-                </p>
-                <p className="text-sm text-gray-500 mb-4">
-                  Supports PNG, JPG, PDF (max 20MB)
-                </p>
+              {!uploadedFile ? (
+                <>
+                  <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-lg font-medium text-gray-700 mb-2">
+                    Drop your floor plan here
+                  </p>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Supports PNG, JPG, PDF (max 20MB)
+                  </p>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                  >
+                    Browse files
+                  </button>
+                </>
+              ) : (
+                <div className="space-y-4">
+                  {preview ? (
+                    <img
+                      src={preview}
+                      alt="Floor plan preview"
+                      className="max-h-48 mx-auto rounded-lg shadow-md"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center gap-3 p-6 bg-gray-100 rounded-lg">
+                      <FileImage className="w-8 h-8 text-gray-400" />
+                      <span className="text-gray-600">{uploadedFile.name}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {error && (
+              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                {error}
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            {uploadedFile && (
+              <div className="mt-6 flex gap-3">
                 <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                  onClick={handleGenerate3D}
+                  disabled={isProcessing}
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-purple-600 text-white font-medium rounded-xl hover:bg-purple-700 transition-colors disabled:opacity-50"
                 >
-                  Browse files
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Box className="w-5 h-5" />
+                      Generate 3D Model
+                    </>
+                  )}
                 </button>
-              </>
-            ) : (
-              <div className="space-y-4">
-                {preview ? (
-                  <img
-                    src={preview}
-                    alt="Floor plan preview"
-                    className="max-h-64 mx-auto rounded-lg shadow-md"
-                  />
-                ) : (
-                  <div className="flex items-center justify-center gap-3 p-8 bg-gray-100 rounded-lg">
-                    <FileImage className="w-8 h-8 text-gray-400" />
-                    <span className="text-gray-600">{uploadedFile.name}</span>
-                  </div>
-                )}
                 <button
-                  onClick={() => {
-                    setUploadedFile(null);
-                    setPreview(null);
-                  }}
-                  className="text-sm text-purple-600 hover:text-purple-700"
+                  onClick={handleReset}
+                  className="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors"
                 >
-                  Upload different file
+                  <RotateCcw className="w-5 h-5" />
                 </button>
+              </div>
+            )}
+
+            {/* Analysis Results */}
+            {analysisText && (
+              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                <h3 className="font-medium text-gray-900 mb-2">Analysis</h3>
+                <p className="text-sm text-gray-600 whitespace-pre-wrap">{analysisText}</p>
+              </div>
+            )}
+
+            {/* Stats */}
+            {floorPlanData && (
+              <div className="mt-6 grid grid-cols-3 gap-4">
+                <div className="bg-purple-50 rounded-lg p-4 text-center">
+                  <p className="text-2xl font-bold text-purple-700">{floorPlanData.rooms.length}</p>
+                  <p className="text-sm text-purple-600">Rooms</p>
+                </div>
+                <div className="bg-blue-50 rounded-lg p-4 text-center">
+                  <p className="text-2xl font-bold text-blue-700">{floorPlanData.bedroomCount}</p>
+                  <p className="text-sm text-blue-600">Bedrooms</p>
+                </div>
+                <div className="bg-cyan-50 rounded-lg p-4 text-center">
+                  <p className="text-2xl font-bold text-cyan-700">{floorPlanData.bathroomCount}</p>
+                  <p className="text-sm text-cyan-600">Bathrooms</p>
+                </div>
               </div>
             )}
           </div>
 
-          {error && (
-            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-              {error}
-            </div>
-          )}
-        </div>
-
-        {/* Action Buttons */}
-        {uploadedFile && (
-          <div className="flex justify-center gap-4">
-            <button
-              onClick={handleGenerate3D}
-              disabled={isProcessing}
-              className="flex items-center gap-2 px-8 py-3 bg-purple-600 text-white font-medium rounded-xl hover:bg-purple-700 transition-colors disabled:opacity-50"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Box className="w-5 h-5" />
-                  Generate 3D Model
-                </>
+          {/* 3D Viewer Section */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">3D Model</h2>
+              {floorPlanData && (
+                <button
+                  onClick={handleExportGLB}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                >
+                  <Download className="w-4 h-4" />
+                  Export GLB
+                </button>
               )}
-            </button>
+            </div>
+            
+            <div className="h-[400px] bg-gray-100 rounded-xl overflow-hidden">
+              {floorPlanData ? (
+                <FloorPlan3DViewer floorPlanData={floorPlanData} />
+              ) : (
+                <div className="h-full flex items-center justify-center text-gray-400">
+                  <div className="text-center">
+                    <Box className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                    <p>Upload a floor plan to see the 3D model</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Room Legend */}
+            {floorPlanData && floorPlanData.rooms.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Rooms:</h3>
+                <div className="flex flex-wrap gap-2">
+                  {floorPlanData.rooms.map((room, index) => (
+                    <span
+                      key={index}
+                      className="px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-700"
+                    >
+                      {room.name} ({room.width}m × {room.height}m)
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Info Section */}
         <div className="mt-12 bg-purple-50 rounded-xl p-6">
@@ -207,7 +338,7 @@ export default function FloorPlanPage() {
             </li>
             <li className="flex items-start gap-2">
               <span className="w-5 h-5 bg-purple-200 rounded-full flex items-center justify-center text-xs font-medium">3</span>
-              Get an interactive 3D model you can explore and edit
+              Get an interactive 3D model you can explore and export
             </li>
           </ol>
         </div>
