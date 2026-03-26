@@ -3,11 +3,19 @@
 // This processes jobs from BullMQ queues
 
 import { Worker, Job } from 'bullmq';
+import Redis from 'ioredis';
 import { createClient } from '@supabase/supabase-js';
-import { redisConnection, QUEUES, SyndicationJob, VideoJob, StagingJob } from '../lib/queue';
+import { QUEUES, SyndicationJob, VideoJob, StagingJob } from '../lib/queue';
 import { processSyndication } from './processors/syndication';
 import { processVideo } from './processors/video';
 import { processStaging } from './processors/staging';
+
+// Redis connection for workers
+const redisConnection = new Redis({
+  host: process.env.REDIS_HOST || 'localhost',
+  port: parseInt(process.env.REDIS_PORT || '6379'),
+  maxRetriesPerRequest: null,
+});
 
 // Supabase client for workers (service role)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
