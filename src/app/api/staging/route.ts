@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     // Check user credits
     const { data: userData, error: userError } = await supabase
       .from('propertypix_users')
-      .select('credits_remaining, credits_used, plan')
+      .select('credits, used_credits, subscription_tier')
       .eq('id', user.id)
       .single();
 
@@ -88,16 +88,15 @@ export async function POST(request: NextRequest) {
         .from('propertypix_users')
         .insert({
           id: user.id,
-          email: user.email || '',
-          credits_remaining: 5, // Free tier default
-          credits_used: 0,
-          plan: 'free'
+          credits: 5, // Free tier default
+          used_credits: 0,
+          subscription_tier: 'free'
         });
 
       if (insertError) {
         return NextResponse.json({ error: 'Failed to create user record' }, { status: 500 });
       }
-    } else if (userData && userData.credits_remaining <= 0) {
+    } else if (userData && userData.credits <= 0) {
       return NextResponse.json(
         { error: 'No credits remaining. Please upgrade your plan.' },
         { status: 402 }
@@ -207,8 +206,8 @@ export async function POST(request: NextRequest) {
         await supabase
           .from('propertypix_users')
           .update({
-            credits_remaining: Math.max(0, userData.credits_remaining - 2),
-            credits_used: userData.credits_used + 2,
+            credits: Math.max(0, userData.credits - 2),
+            used_credits: userData.used_credits + 2,
           })
           .eq('id', user.id);
       }
