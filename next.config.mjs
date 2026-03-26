@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Removed 'output: export' - app needs API routes which require server
-  distDir: 'dist',
+  // Use default .next directory for Vercel compatibility
   images: {
     unoptimized: true,
   },
