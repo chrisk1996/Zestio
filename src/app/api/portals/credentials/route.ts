@@ -1,6 +1,9 @@
 // Portal Credentials API
 // GET /api/portals/credentials - Get all portal credentials for current user
 
+// Force dynamic rendering - uses cookies/auth
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 

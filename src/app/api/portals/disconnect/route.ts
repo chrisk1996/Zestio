@@ -1,6 +1,9 @@
 // Portal Disconnect Route
 // Revokes OAuth credentials for a portal
 
+// Force dynamic rendering - uses cookies/auth
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 

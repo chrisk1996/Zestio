@@ -1,6 +1,9 @@
 // Portal OAuth Connection Routes
 // Handles OAuth flow for real estate portals (ImmoScout24, Homegate, etc.)
 
+// Force dynamic rendering - uses cookies/auth
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 

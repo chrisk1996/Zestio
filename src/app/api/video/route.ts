@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Replicate from 'replicate';
+
+// Force dynamic rendering - uses cookies/auth
+export const dynamic = 'force-dynamic';
 import { createClient } from '@/utils/supabase/server';
 
 const replicate = new Replicate({

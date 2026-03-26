@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+
+// Force dynamic rendering - uses cookies/auth
+export const dynamic = 'force-dynamic';
 import Stripe from 'stripe';
 
 // Lazy-load Stripe to avoid build-time errors

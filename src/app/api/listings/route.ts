@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 
+// Force dynamic rendering - uses cookies/auth
+export const dynamic = 'force-dynamic';
+
 // GET /api/listings - List all listings for the authenticated agent
 export async function GET(request: NextRequest) {
   try {
