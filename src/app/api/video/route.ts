@@ -203,7 +203,7 @@ export async function GET(request: NextRequest) {
 
     const { data: job, error } = await supabase
       .from('propertypix_jobs')
-      .select('id, status, enhanced_image, created_at, completed_at')
+      .select('id, status, output_url, created_at, completed_at')
       .eq('id', jobId)
       .eq('user_id', user.id)
       .single();

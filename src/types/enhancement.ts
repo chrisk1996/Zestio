@@ -18,7 +18,7 @@ export interface EnhancementJob {
   id: string;
   upload_id: string;
   user_id: string;
-  enhancement_type: EnhancementType;
+  job_type: EnhancementType;
   status: JobStatus;
   progress: number;
   error_message?: string;

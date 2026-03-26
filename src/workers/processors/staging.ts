@@ -55,7 +55,7 @@ export async function processStaging(
       .from('propertypix_jobs')
       .update({
         status: 'completed',
-        enhanced_image: stagedImageUrl,
+        output_url: stagedImageUrl,
         completed_at: new Date().toISOString(),
       })
       .eq('id', jobId);

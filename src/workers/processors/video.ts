@@ -54,7 +54,7 @@ export async function processVideo(
       .from('propertypix_jobs')
       .update({
         status: 'completed',
-        enhanced_image: videoUrl,
+        output_url: videoUrl,
         completed_at: new Date().toISOString(),
       })
       .eq('id', jobId);

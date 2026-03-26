@@ -9,9 +9,9 @@ import { createClient } from '@/utils/supabase/client';
 interface EnhancementJob {
   id: string;
   user_id: string;
-  original_image: string;
-  enhanced_image: string | null;
-  enhancement_type: string;
+  input_url: string;
+  output_url: string | null;
+  job_type: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   created_at: string;
   completed_at: string | null;
@@ -54,21 +54,21 @@ export default function HistoryPage() {
   };
 
   const handleDownload = async (job: EnhancementJob) => {
-    if (!job.enhanced_image) return;
+    if (!job.output_url) return;
     
     try {
-      const response = await fetch(job.enhanced_image);
+      const response = await fetch(job.output_url);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `enhanced-${job.enhancement_type}-${job.id}.png`;
+      a.download = `enhanced-${job.job_type}-${job.id}.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
     } catch {
-      window.open(job.enhanced_image, '_blank');
+      window.open(job.output_url, '_blank');
     }
   };
 
@@ -181,15 +181,15 @@ export default function HistoryPage() {
               <div key={job.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 {/* Image Preview */}
                 <div className="relative aspect-video bg-gray-100">
-                  {job.enhanced_image ? (
+                  {job.output_url ? (
                     <img
-                      src={job.enhanced_image}
+                      src={job.output_url}
                       alt="Enhanced"
                       className="w-full h-full object-cover"
                     />
-                  ) : job.original_image ? (
+                  ) : job.input_url ? (
                     <img
-                      src={job.original_image}
+                      src={job.input_url}
                       alt="Original"
                       className="w-full h-full object-cover opacity-50"
                     />
@@ -207,7 +207,7 @@ export default function HistoryPage() {
                 {/* Details */}
                 <div className="p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-medium text-gray-900">{getTypeLabel(job.enhancement_type)}</h3>
+                    <h3 className="font-medium text-gray-900">{getTypeLabel(job.job_type)}</h3>
                     <span className="flex items-center gap-1 text-xs text-gray-500">
                       <Clock className="w-3 h-3" />
                       {formatDate(job.created_at)}
@@ -215,7 +215,7 @@ export default function HistoryPage() {
                   </div>
 
                   {/* Actions */}
-                  {job.status === 'completed' && job.enhanced_image && (
+                  {job.status === 'completed' && job.output_url && (
                     <div className="flex gap-2 mt-3">
                       <button
                         onClick={() => handleDownload(job)}
