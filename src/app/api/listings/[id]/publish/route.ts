@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { queueSyndication } from '@/lib/queue';
 
 // POST /api/listings/[id]/publish - Trigger syndication to portals
 export async function POST(
@@ -21,6 +22,7 @@ export async function POST(
     // Validate portals
     const validPortals = ['immobilienscout24', 'immowelt', 'ebay_kleinanzeigen', 'immobilier'];
     const invalidPortals = portals.filter((p: string) => !validPortals.includes(p));
+
     if (invalidPortals.length > 0) {
       return NextResponse.json(
         { error: `Invalid portals: ${invalidPortals.join(', ')}` },
@@ -43,6 +45,7 @@ export async function POST(
     // Validate listing has required fields for publishing
     const requiredFields = ['title', 'description', 'price', 'living_area', 'city'];
     const missingFields = requiredFields.filter(field => !listing[field]);
+
     if (missingFields.length > 0) {
       return NextResponse.json(
         { error: `Missing required fields for publishing: ${missingFields.join(', ')}` },
@@ -67,7 +70,7 @@ export async function POST(
 
     if (unconnectedPortals.length > 0) {
       return NextResponse.json(
-        { 
+        {
           error: `Not connected to portals: ${unconnectedPortals.join(', ')}`,
           hint: 'Connect your portal accounts first via /api/portals/connect'
         },
@@ -121,9 +124,16 @@ export async function POST(
       .update({ publish_status: 'pending' })
       .eq('id', id);
 
-    // In a real implementation, this would trigger a background job
-    // to process the syndication via BullMQ or similar
-    // For now, we just create the pending logs
+    // Queue background jobs for each portal
+    const queuePromises = syndicationLogs.map(log =>
+      queueSyndication({
+        listingId: id,
+        agentId: user.id,
+        portalName: log.portal_name,
+        syndicationLogId: log.id,
+      })
+    );
+    await Promise.all(queuePromises);
 
     return NextResponse.json({
       success: true,
@@ -131,9 +141,9 @@ export async function POST(
       syndication: syndicationLogs.map(log => ({
         id: log.id,
         portal: log.portal_name,
-        status: log.status
+        status: log.status,
       })),
-      note: 'Syndication will be processed in the background. Check status via GET /api/listings/[id]'
+      note: 'Syndication will be processed in the background. Check status via GET /api/listings/[id]',
     });
   } catch (error) {
     console.error('Publish error:', error);
