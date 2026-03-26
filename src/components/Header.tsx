@@ -17,7 +17,7 @@ export function Header() {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, session: { user: { email: string } } | null) => {
       setUser(session?.user ? { email: session.user.email || '' } : null);
     });
 
