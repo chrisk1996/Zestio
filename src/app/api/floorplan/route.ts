@@ -207,26 +207,30 @@ export async function POST(request: NextRequest) {
     console.log(`Using model: ${modelName} (${modelId.split(':')[0]})`);
 
     // Use LLaVA vision model via Replicate to analyze the floor plan
-    const analysisPrompt = `Analyze this floor plan image and describe:
-1. How many bedrooms and bathrooms are shown
-2. The overall layout (living room, kitchen, dining area locations)
-3. Approximate room sizes if visible
-4. Any notable features (balcony, garage, etc.)
+const analysisPrompt = `Analyze this floor plan image and extract room layout information.
 
-Respond with a JSON object in this exact format:
+IMPORTANT COORDINATE RULES:
+1. Rooms must be ADJACENT - NO GAPS between rooms
+2. Walls are SHARED - if two rooms touch, their coordinates should overlap at the boundary
+3. Build a CONTINUOUS floor plan where all rooms connect
+
+Coordinate system:
+- x: horizontal position (0 = left)
+- y: vertical position (0 = top)
+- width: room width in meters
+- height: room height in meters
+
+Example of CORRECT adjacent layout (no gaps):
+{"name": "Bedroom 1", "x": 0, "y": 0, "width": 4, "height": 3}
+{"name": "Bedroom 2", "x": 4, "y": 0, "width": 3, "height": 3}  <- x=4 means it starts where Bedroom 1 ends
+{"name": "Kitchen", "x": 0, "y": 3, "width": 4, "height": 3}    <- y=3 means it starts below Bedroom 1
+
+Respond ONLY with JSON:
 {
-  "rooms": [
-    {"name": "Living Room", "x": 0, "y": 0, "width": 5, "height": 4, "type": "living"},
-    {"name": "Kitchen", "x": 5, "y": 0, "width": 3, "height": 4, "type": "kitchen"}
-  ],
-  "walls": [],
-  "doors": [],
-  "windows": [],
-  "totalArea": 50,
-  "bedroomCount": 2,
-  "bathroomCount": 1
-}
-Use coordinates where each unit = 1 meter. Start rooms from origin (0,0) and arrange logically.`;
+  "rooms": [{"name": "Room Name", "x": 0, "y": 0, "width": 4, "height": 3, "type": "bedroom"}],
+  "walls": [], "doors": [], "windows": [],
+  "totalArea": 100, "bedroomCount": 2, "bathroomCount": 1
+}`;
 
     console.log('Analyzing floor plan with vision model...');
 
