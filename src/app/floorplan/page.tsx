@@ -62,6 +62,7 @@ export default function FloorPlanPage() {
   const [error, setError] = useState<string | null>(null);
   const [floorPlanData, setFloorPlanData] = useState<FloorPlanData | null>(null);
   const [analysisText, setAnalysisText] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<'llava' | 'llama32'>('llama32');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -125,7 +126,7 @@ export default function FloorPlanPage() {
       const response = await fetch('/api/floorplan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: preview }),
+        body: JSON.stringify({ image: preview, model: selectedModel }),
       });
 
       const data = await response.json();

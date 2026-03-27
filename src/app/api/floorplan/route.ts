@@ -188,11 +188,23 @@ export async function POST(request: NextRequest) {
     // }
 
     const body = await request.json();
-    const { image } = body;
+    const { image, model: requestedModel } = body;
 
     if (!image) {
       return NextResponse.json({ error: 'Floor plan image is required' }, { status: 400 });
     }
+
+    // Model selection: 'llama32' (default) or 'llava'
+    const useLlama32 = requestedModel !== 'llava';
+    const modelName = useLlama32 ? 'llama-3.2-vision-90b' : 'llava-13b';
+
+    // Use Llama 3.2 Vision 90B for better floor plan analysis (default)
+    // Or LLaVA 13B for faster/cheaper processing
+    const modelId = useLlama32
+      ? modelId
+      : "yorickvp/llava-13b:80537f9eead1a5bfa72d5ac6ea6414379be41d4d4f6679fd776e9535d1eb58bb";
+
+    console.log(`Using model: ${modelName} (${modelId.split(':')[0]})`);
 
     // Use LLaVA vision model via Replicate to analyze the floor plan
     const analysisPrompt = `Analyze this floor plan image and describe:
@@ -255,7 +267,7 @@ Use coordinates where each unit = 1 meter. Start rooms from origin (0,0) and arr
 
     // Use LLaVA-13B for vision analysis (latest version)
     const result = await replicate.run(
-      "lucataco/ollama-llama3.2-vision-90b:54202b223d5351c5afe5c0c9dba2b3042293b839d022e76f53d66ab30b9dc814",
+      modelId,
       {
         input: {
           image: image,
@@ -286,7 +298,7 @@ Use coordinates where each unit = 1 meter. Start rooms from origin (0,0) and arr
     const modelMetadata = {
       analyzedAt: new Date().toISOString(),
       userId: user?.id || 'anonymous',
-      modelUsed: 'llava-13b',
+      model: modelName,
       rawAnalysis: analysisText.substring(0, 1000),
     };
 
