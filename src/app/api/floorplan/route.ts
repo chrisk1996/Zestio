@@ -197,40 +197,33 @@ export async function POST(request: NextRequest) {
     // Model selection: 'llama32' (default) or 'llava'
     const useLlama32 = requestedModel !== 'llava';
     const modelName = useLlama32 ? 'llama-3.2-vision-90b' : 'llava-13b';
-
-    // Use Llama 3.2 Vision 90B for better floor plan analysis (default)
-    // Or LLaVA 13B for faster/cheaper processing
     const modelId = useLlama32
-      ? modelId
+      ? "lucataco/ollama-llama3.2-vision-90b:54202b223d5351c5afe5c0c9dba2b3042293b839d022e76f53d66ab30b9dc814"
       : "yorickvp/llava-13b:80537f9eead1a5bfa72d5ac6ea6414379be41d4d4f6679fd776e9535d1eb58bb";
 
     console.log(`Using model: ${modelName} (${modelId.split(':')[0]})`);
 
     // Use LLaVA vision model via Replicate to analyze the floor plan
-const analysisPrompt = `Analyze this floor plan image and extract room layout information.
+    const analysisPrompt = `Analyze this floor plan image and describe:
+1. How many bedrooms and bathrooms are shown
+2. The overall layout (living room, kitchen, dining area locations)
+3. Approximate room sizes if visible
+4. Any notable features (balcony, garage, etc.)
 
-IMPORTANT COORDINATE RULES:
-1. Rooms must be ADJACENT - NO GAPS between rooms
-2. Walls are SHARED - if two rooms touch, their coordinates should overlap at the boundary
-3. Build a CONTINUOUS floor plan where all rooms connect
-
-Coordinate system:
-- x: horizontal position (0 = left)
-- y: vertical position (0 = top)
-- width: room width in meters
-- height: room height in meters
-
-Example of CORRECT adjacent layout (no gaps):
-{"name": "Bedroom 1", "x": 0, "y": 0, "width": 4, "height": 3}
-{"name": "Bedroom 2", "x": 4, "y": 0, "width": 3, "height": 3}  <- x=4 means it starts where Bedroom 1 ends
-{"name": "Kitchen", "x": 0, "y": 3, "width": 4, "height": 3}    <- y=3 means it starts below Bedroom 1
-
-Respond ONLY with JSON:
+Respond with a JSON object in this exact format:
 {
-  "rooms": [{"name": "Room Name", "x": 0, "y": 0, "width": 4, "height": 3, "type": "bedroom"}],
-  "walls": [], "doors": [], "windows": [],
-  "totalArea": 100, "bedroomCount": 2, "bathroomCount": 1
-}`;
+  "rooms": [
+    {"name": "Living Room", "x": 0, "y": 0, "width": 5, "height": 4, "type": "living"},
+    {"name": "Kitchen", "x": 5, "y": 0, "width": 3, "height": 4, "type": "kitchen"}
+  ],
+  "walls": [],
+  "doors": [],
+  "windows": [],
+  "totalArea": 50,
+  "bedroomCount": 2,
+  "bathroomCount": 1
+}
+Use coordinates where each unit = 1 meter. Start rooms from origin (0,0) and arrange logically.`;
 
     console.log('Analyzing floor plan with vision model...');
 
@@ -238,38 +231,31 @@ Respond ONLY with JSON:
     if (user?.id) {
       const { data: userData, error: userError } = await supabase
         .from('propertypix_users')
-        .select('credits_remaining, credits_used')
+        .select('credits_remaining')
         .eq('id', user.id)
         .single();
 
-      interface UserCredits {
-        credits_remaining: number;
-        credits_used: number;
-      }
-
       if (userError || !userData) {
         console.warn('Could not fetch user credits, proceeding anyway');
-      } else if ((userData as UserCredits).credits_remaining <= 0) {
+      } else if (userData.credits_remaining <= 0) {
         return NextResponse.json(
           { error: 'Insufficient credits. Please upgrade your plan.' },
           { status: 402 }
         );
       } else {
         // Deduct 1 credit
-        const credits = userData as UserCredits;
-        const currentUsed = credits.credits_used || 0;
         await supabase
           .from('propertypix_users')
           .update({
-            credits_remaining: credits.credits_remaining - 1,
-            credits_used: currentUsed + 1,
+            credits_remaining: userData.credits_remaining - 1,
+            credits_used: userData.credits_used ? userData.credits_used + 1 : 1,
           })
           .eq('id', user.id);
-        console.log(`Deducted 1 credit for floor plan analysis. Remaining: ${credits.credits_remaining - 1}`);
+        console.log(`Deducted 1 credit for floor plan analysis. Remaining: ${userData.credits_remaining - 1}`);
       }
     }
 
-    // Use LLaVA-13B for vision analysis (latest version)
+    // Use selected vision model for analysis
     const result = await replicate.run(
       modelId,
       {
@@ -302,7 +288,7 @@ Respond ONLY with JSON:
     const modelMetadata = {
       analyzedAt: new Date().toISOString(),
       userId: user?.id || 'anonymous',
-      model: modelName,
+      modelUsed: 'llava-13b',
       rawAnalysis: analysisText.substring(0, 1000),
     };
 
