@@ -222,27 +222,28 @@ Use coordinates where each unit = 1 meter. Start rooms from origin (0,0) and arr
     if (user?.id) {
       const { data: userData, error: userError } = await supabase
         .from('propertypix_users')
-        .select('credits_remaining')
+        .select('credits_remaining, credits_used')
         .eq('id', user.id)
         .single();
 
       if (userError || !userData) {
         console.warn('Could not fetch user credits, proceeding anyway');
-      } else if (userData.credits_remaining <= 0) {
+      } else if ((userData as any).credits_remaining <= 0) {
         return NextResponse.json(
           { error: 'Insufficient credits. Please upgrade your plan.' },
           { status: 402 }
         );
       } else {
         // Deduct 1 credit
+        const currentUsed = (userData as any).credits_used || 0;
         await supabase
           .from('propertypix_users')
           .update({
-            credits_remaining: userData.credits_remaining - 1,
-            credits_used: userData.credits_used ? userData.credits_used + 1 : 1,
+            credits_remaining: (userData as any).credits_remaining - 1,
+            credits_used: currentUsed + 1,
           })
           .eq('id', user.id);
-        console.log(`Deducted 1 credit for floor plan analysis. Remaining: ${userData.credits_remaining - 1}`);
+        console.log(`Deducted 1 credit for floor plan analysis. Remaining: ${(userData as any).credits_remaining - 1}`);
       }
     }
 
