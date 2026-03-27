@@ -218,6 +218,34 @@ Use coordinates where each unit = 1 meter. Start rooms from origin (0,0) and arr
 
     console.log('Analyzing floor plan with vision model...');
 
+    // Deduct credits before calling Replicate (1 credit per floor plan analysis)
+    if (user?.id) {
+      const { data: userData, error: userError } = await supabase
+        .from('propertypix_users')
+        .select('credits_remaining')
+        .eq('id', user.id)
+        .single();
+
+      if (userError || !userData) {
+        console.warn('Could not fetch user credits, proceeding anyway');
+      } else if (userData.credits_remaining <= 0) {
+        return NextResponse.json(
+          { error: 'Insufficient credits. Please upgrade your plan.' },
+          { status: 402 }
+        );
+      } else {
+        // Deduct 1 credit
+        await supabase
+          .from('propertypix_users')
+          .update({
+            credits_remaining: userData.credits_remaining - 1,
+            credits_used: userData.credits_used ? userData.credits_used + 1 : 1,
+          })
+          .eq('id', user.id);
+        console.log(`Deducted 1 credit for floor plan analysis. Remaining: ${userData.credits_remaining - 1}`);
+      }
+    }
+
     // Use LLaVA-13B for vision analysis (latest version)
     const result = await replicate.run(
       "yorickvp/llava-13b:80537f9eead1a5bfa72d5ac6ea6414379be41d4d4f6679fd776e9535d1eb58bb",
