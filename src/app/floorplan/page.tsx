@@ -129,6 +129,7 @@ export default function FloorPlanPage() {
       });
 
       const data = await response.json();
+      console.log('API response:', { status: response.status, success: data.success, fallback: data.modelData?.metadata?.fallback });
 
       if (!response.ok) {
         throw new Error(data.error || 'Failed to process floor plan');
