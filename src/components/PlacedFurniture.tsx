@@ -20,31 +20,26 @@ interface PlacedFurnitureProps {
   onUpdate: (id: string, updates: Partial<PlacedFurniturePiece>) => void;
 }
 
-// GLTF Model Component
+// GLTF Model Component - hook must be called unconditionally
 function GLTFModel({ path, scale }: { path: string; scale: number }) {
-  try {
-    const { scene } = useGLTF(path);
-    const clonedScene = scene.clone();
-    
-    // Kenney models are in meters, scale to match our dimensions
-    // Most Kenney models are ~2m tall, we want them at furniture scale
-    const modelScale = scale * 0.8;
-    clonedScene.scale.setScalar(modelScale);
-    clonedScene.position.set(0, 0, 0);
-    
-    // Enable shadows on all meshes
-    clonedScene.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
-      }
-    });
-    
-    return <primitive object={clonedScene} />;
-  } catch (e) {
-    console.error('Error loading GLTF model:', path, e);
-    return null;
-  }
+  const { scene } = useGLTF(path);
+  const clonedScene = scene.clone();
+  
+  // Kenney models are in meters, scale to match our dimensions
+  // Most Kenney models are ~2m tall, we want them at furniture scale
+  const modelScale = scale * 0.8;
+  clonedScene.scale.setScalar(modelScale);
+  clonedScene.position.set(0, 0, 0);
+
+  // Enable shadows on all meshes
+  clonedScene.traverse((child) => {
+    if (child instanceof THREE.Mesh) {
+      child.castShadow = true;
+      child.receiveShadow = true;
+    }
+  });
+
+  return <primitive object={clonedScene} />;
 }
 
 // Fallback box geometry when GLTF fails or not available
@@ -103,14 +98,6 @@ function FurnitureMesh({ piece }: { piece: PlacedFurniturePiece }) {
   const { width, height, depth } = furniture.dimensions;
   const scaledHeight = height * scale;
 
-  // Debug logging
-  console.log('FurnitureMesh:', {
-    id: furniture.id,
-    useGLTF: furniture.useGLTF,
-    modelPath: furniture.modelPath,
-    willUseGLTF: furniture.useGLTF && furniture.modelPath
-  });
-
   if (furniture.useGLTF && furniture.modelPath) {
     return (
       <Suspense fallback={
@@ -127,11 +114,7 @@ function FurnitureMesh({ piece }: { piece: PlacedFurniturePiece }) {
   return <FallbackBox piece={piece} />;
 }
 
-export default function PlacedFurniture({
-  piece,
-  isSelected,
-  onSelect,
-}: PlacedFurnitureProps) {
+export default function PlacedFurniture({ piece, isSelected, onSelect }: PlacedFurnitureProps) {
   const groupRef = useRef<THREE.Group>(null);
   const [isHovered, setIsHovered] = useState(false);
   const { furniture, position, rotation } = piece;
@@ -170,14 +153,16 @@ export default function PlacedFurniture({
             <boxGeometry args={[w + 0.2, h + 0.2, d + 0.2]} />
             <meshBasicMaterial color="#4f46e5" transparent opacity={0.15} />
           </mesh>
+
           {/* Wireframe box */}
           <mesh>
             <boxGeometry args={[w + 0.1, h + 0.1, d + 0.1]} />
             <meshBasicMaterial color="#818cf8" wireframe />
           </mesh>
+
           {/* Corner spheres for visibility */}
-          {[[-1,-1], [1,-1], [-1,1], [1,1]].map(([x, z], i) => (
-            <mesh key={i} position={[x * (w/2 + 0.1), 0, z * (d/2 + 0.1)]}>
+          {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, z], i) => (
+            <mesh key={i} position={[x * (w / 2 + 0.1), 0, z * (d / 2 + 0.1)]}>
               <sphereGeometry args={[0.12, 16, 16]} />
               <meshBasicMaterial color="#22c55e" />
             </mesh>
@@ -220,10 +205,6 @@ const MODEL_PATHS = [
 ];
 
 // Preload models for faster rendering
-MODEL_PATHS.forEach(path => {
-  try {
-    useGLTF.preload(path);
-  } catch (e) {
-    // Ignore preload errors - model may not exist yet
-  }
+MODEL_PATHS.forEach((path) => {
+  useGLTF.preload(path);
 });

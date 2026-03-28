@@ -246,17 +246,15 @@ export default function FloorPlanPage() {
               </div>
             ) : (
               <FloorPlan3DViewer
-                floorPlanData={floorPlanData}
-                previewImage={preview}
-                cameraPreset={cameraPreset}
-                lightingMode={lightingMode}
-                isFirstPerson={isFirstPerson}
-                placedFurniture={placedFurniture}
+                floorPlanData={floorPlanData ?? undefined}
+                furniture={placedFurniture}
                 selectedPieceId={selectedPieceId}
                 onFurniturePlace={handleFurniturePlace}
                 onFurnitureSelect={handleFurnitureSelect}
                 onFurnitureUpdate={handleFurnitureUpdate}
-                onFurnitureDelete={handleFurnitureDelete}
+                cameraPreset={cameraPreset}
+                lightingMode={lightingMode}
+                firstPerson={isFirstPerson}
               />
             )}
 
@@ -377,7 +375,7 @@ export default function FloorPlanPage() {
           <div className="flex-1 overflow-y-auto">
             <FurnitureLibrary
               selectedFurniture={selectedFurnitureItem}
-              onSelect={setSelectedFurnitureItem}
+              onSelectFurniture={setSelectedFurnitureItem}
             />
           </div>
         </div>
