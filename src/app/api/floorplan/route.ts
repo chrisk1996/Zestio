@@ -231,7 +231,7 @@ Use coordinates where each unit = 1 meter. Start rooms from origin (0,0) and arr
     if (user?.id) {
       const { data: userData, error: userError } = await supabase
         .from('propertypix_users')
-        .select('credits_remaining')
+        .select('credits_remaining, credits_used')
         .eq('id', user.id)
         .single();
 
