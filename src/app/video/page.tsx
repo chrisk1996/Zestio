@@ -1,390 +1,248 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
-import { Header } from '@/components/Header';
-import { 
-  Upload, 
-  Play, 
-  Download, 
-  RotateCcw, 
-  ArrowLeft, 
-  ArrowRight, 
-  ZoomIn, 
-  ZoomOut, 
-  Orbit, 
-  AlertCircle,
-  Loader2
-} from 'lucide-react';
+import { useState, useRef } from 'react';
+import { AppLayout } from '@/components/layout';
 
-type MotionType = 'pan_left' | 'pan_right' | 'zoom_in' | 'zoom_out' | 'orbit';
+const videoStyles = [
+  { id: 'cinematic', name: 'Cinematic Tour', icon: 'movie', description: 'Hollywood-style property showcase' },
+  { id: 'drone', name: 'Drone Flyover', icon: 'flight', description: 'Aerial exterior footage' },
+  { id: 'walkthrough', name: 'Walkthrough', icon: 'directions_walk', description: 'Room-by-room interior tour' },
+  { id: 'lifestyle', name: 'Lifestyle', icon: 'wb_sunny', description: 'Living experience focus' },
+];
 
-interface MotionOption {
-  id: MotionType;
-  label: string;
-  icon: React.ReactNode;
-  description: string;
-}
-
-const motionOptions: MotionOption[] = [
-  {
-    id: 'pan_left',
-    label: 'Pan Left',
-    icon: <ArrowLeft className="w-5 h-5" />,
-    description: 'Smooth camera pan to the left'
-  },
-  {
-    id: 'pan_right',
-    label: 'Pan Right',
-    icon: <ArrowRight className="w-5 h-5" />,
-    description: 'Smooth camera pan to the right'
-  },
-  {
-    id: 'zoom_in',
-    label: 'Zoom In',
-    icon: <ZoomIn className="w-5 h-5" />,
-    description: 'Cinematic zoom into the scene'
-  },
-  {
-    id: 'zoom_out',
-    label: 'Zoom Out',
-    icon: <ZoomOut className="w-5 h-5" />,
-    description: 'Reveal more of the property'
-  },
-  {
-    id: 'orbit',
-    label: 'Orbit',
-    icon: <Orbit className="w-5 h-5" />,
-    description: '360° orbital movement'
-  },
+const durationOptions = [
+  { id: '30s', label: '30 sec' },
+  { id: '60s', label: '60 sec' },
+  { id: '90s', label: '90 sec' },
+  { id: '2m', label: '2 min' },
 ];
 
 export default function VideoPage() {
-  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [selectedMotion, setSelectedMotion] = useState<MotionType>('pan_left');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [selectedStyle, setSelectedStyle] = useState('cinematic');
+  const [duration, setDuration] = useState('60s');
+  const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) {
-      processFile(file);
-    }
-  }, []);
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      processFile(file);
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const newImages = Array.from(files).map(file => URL.createObjectURL(file));
+      setUploadedImages(prev => [...prev, ...newImages]);
     }
   };
 
-  const processFile = (file: File) => {
-    if (file.size > 10 * 1024 * 1024) {
-      setError('File size must be less than 10MB');
-      return;
-    }
-    setError(null);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setUploadedImage(event.target?.result as string);
-      setVideoUrl(null);
-      setProgress(0);
-    };
-    reader.readAsDataURL(file);
+  const removeImage = (index: number) => {
+    setUploadedImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleGenerateVideo = async () => {
-    if (!uploadedImage) return;
-
-    setIsProcessing(true);
+  const handleGenerate = () => {
+    setIsGenerating(true);
     setProgress(0);
-    setError(null);
-
-    // Simulate progress for UX (video generation takes longer)
-    const progressInterval = setInterval(() => {
+    const interval = setInterval(() => {
       setProgress(prev => {
-        if (prev >= 95) {
-          clearInterval(progressInterval);
-          return 95;
+        if (prev >= 100) {
+          clearInterval(interval);
+          setIsGenerating(false);
+          return 100;
         }
-        return prev + Math.random() * 8;
+        return prev + 5;
       });
-    }, 800);
-
-    try {
-      const response = await fetch('/api/video', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          image: uploadedImage,
-          motionType: selectedMotion,
-        }),
-      });
-
-      const data = await response.json();
-      clearInterval(progressInterval);
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate video');
-      }
-
-      setProgress(100);
-      setVideoUrl(data.output);
-      
-    } catch (err) {
-      clearInterval(progressInterval);
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      setProgress(0);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleDownload = async () => {
-    if (!videoUrl) return;
-
-    try {
-      const response = await fetch(videoUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `property-video-${Date.now()}.mp4`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    } catch {
-      // Fallback: open in new tab
-      window.open(videoUrl, '_blank');
-    }
-  };
-
-  const resetUpload = () => {
-    setUploadedImage(null);
-    setVideoUrl(null);
-    setProgress(0);
-    setError(null);
-    setSelectedMotion('pan_left');
+    }, 200);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Video Generation</h1>
-          <p className="text-gray-600">
-            Transform your property photos into cinematic videos with AI-powered motion
+    <AppLayout title="Video Creator">
+      <div className="max-w-[1400px] mx-auto p-12">
+        {/* Header */}
+        <header className="mb-12">
+          <span className="text-purple-600 font-bold tracking-widest uppercase text-xs mb-2 block">AI Video Production</span>
+          <h1 className="font-['Plus_Jakarta_Sans'] text-5xl text-slate-900 font-bold tracking-tighter leading-none mb-4">Video Creator</h1>
+          <p className="max-w-xl text-slate-600 leading-relaxed">
+            Generate cinematic drone-style tours and walkthrough videos from your property images automatically.
           </p>
-        </div>
+        </header>
 
-        {/* Error Display */}
-        {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-red-800 font-medium">Error</p>
-              <p className="text-red-700 text-sm">{error}</p>
-            </div>
-          </div>
-        )}
+        <div className="grid grid-cols-12 gap-10">
+          {/* Left Column */}
+          <div className="col-span-12 lg:col-span-7 space-y-8">
+            {/* Upload Section */}
+            <section className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+              <h3 className="font-['Plus_Jakarta_Sans'] font-bold text-lg text-slate-900 mb-6">Upload Images</h3>
+              
+              {/* Upload Area */}
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full aspect-video bg-slate-50 rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-purple-500 hover:bg-purple-50/50 transition-all mb-6"
+              >
+                <span className="material-symbols-outlined text-5xl text-slate-400">add_photo_alternate</span>
+                <div className="text-center">
+                  <p className="font-semibold text-slate-700">Drop your property images here</p>
+                  <p className="text-sm text-slate-500">or click to browse (min 5 images)</p>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleUpload}
+                  className="hidden"
+                />
+              </div>
 
-        {/* Upload Area */}
-        {!uploadedImage && (
-          <div
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all duration-200 ${
-              isDragging
-                ? 'border-purple-500 bg-purple-50 scale-[1.02]'
-                : 'border-gray-300 hover:border-purple-400 hover:bg-purple-50/50'
-            }`}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-            <div className="w-16 h-16 bg-purple-100 rounded-full mx-auto mb-4 flex items-center justify-center">
-              <Upload className="w-8 h-8 text-purple-600" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Upload your property photo</h3>
-            <p className="text-gray-500 mb-4">Drag and drop or click to browse</p>
-            <p className="text-sm text-gray-400">Supports JPG, PNG, WebP up to 10MB</p>
-          </div>
-        )}
-
-        {/* Video Generation Interface */}
-        {uploadedImage && (
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            {/* Motion Options Sidebar */}
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sticky top-4">
-                <h3 className="font-semibold text-gray-900 mb-4">Motion Type</h3>
-                <div className="space-y-2">
-                  {motionOptions.map((motion) => (
-                    <button
-                      key={motion.id}
-                      onClick={() => setSelectedMotion(motion.id)}
-                      disabled={isProcessing}
-                      className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
-                        selectedMotion === motion.id
-                          ? 'bg-purple-50 border-2 border-purple-500 text-purple-700'
-                          : 'bg-gray-50 border-2 border-transparent text-gray-700 hover:bg-gray-100'
-                      } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      <div className={selectedMotion === motion.id ? 'text-purple-600' : 'text-gray-400'}>
-                        {motion.icon}
-                      </div>
-                      <div className="text-left">
-                        <div className="font-medium">{motion.label}</div>
-                        <div className="text-xs text-gray-500">{motion.description}</div>
-                      </div>
-                    </button>
+              {/* Uploaded Images Grid */}
+              {uploadedImages.length > 0 && (
+                <div className="grid grid-cols-4 gap-3">
+                  {uploadedImages.map((img, idx) => (
+                    <div key={idx} className="relative aspect-square rounded-lg overflow-hidden group">
+                      <img src={img} alt={`Upload ${idx + 1}`} className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => removeImage(idx)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <span className="material-symbols-outlined text-sm">close</span>
+                      </button>
+                    </div>
                   ))}
                 </div>
+              )}
+            </section>
 
-                {/* Generate Button */}
-                <button
-                  onClick={handleGenerateVideo}
-                  disabled={isProcessing}
-                  className={`w-full mt-6 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
-                    isProcessing
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-purple-600 text-white hover:bg-purple-700'
-                  }`}
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-5 h-5" />
-                      Generate Video (3 credits)
-                    </>
-                  )}
-                </button>
-
-                {/* Progress Bar */}
-                {isProcessing && (
-                  <div className="mt-4">
-                    <div className="flex justify-between text-sm text-gray-600 mb-1">
-                      <span>Creating video</span>
-                      <span>{Math.round(progress)}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-purple-600 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Video generation takes ~30-60 seconds
-                    </p>
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                {videoUrl && !isProcessing && (
-                  <div className="mt-4 space-y-2">
-                    <button
-                      onClick={handleDownload}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                      <Download className="w-4 h-4" />
-                      Download Video
-                    </button>
-                    <button
-                      onClick={resetUpload}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      Upload New Photo
-                    </button>
-                  </div>
-                )}
+            {/* Video Style */}
+            <section className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+              <h3 className="font-['Plus_Jakarta_Sans'] font-bold text-lg text-slate-900 mb-6">Video Style</h3>
+              <div className="grid grid-cols-2 gap-4">
+                {videoStyles.map((style) => (
+                  <button
+                    key={style.id}
+                    onClick={() => setSelectedStyle(style.id)}
+                    className={`p-6 rounded-xl border-2 transition-all text-left ${
+                      selectedStyle === style.id
+                        ? 'border-purple-600 bg-purple-50'
+                        : 'border-slate-200 hover:border-purple-300'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-3xl text-purple-600 mb-3">{style.icon}</span>
+                    <h4 className="font-bold text-slate-900">{style.name}</h4>
+                    <p className="text-sm text-slate-500 mt-1">{style.description}</p>
+                  </button>
+                ))}
               </div>
-            </div>
+            </section>
 
-            {/* Preview Area */}
-            <div className="lg:col-span-3">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                {!videoUrl ? (
-                  /* Image Preview */
-                  <div className="relative">
-                    <img
-                      src={uploadedImage}
-                      alt="Uploaded property"
-                      className="w-full h-auto rounded-lg"
-                    />
-                    <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg text-sm font-medium">
-                      Original Photo
+            {/* Duration */}
+            <section className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+              <h3 className="font-['Plus_Jakarta_Sans'] font-bold text-lg text-slate-900 mb-6">Duration</h3>
+              <div className="flex gap-3">
+                {durationOptions.map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setDuration(opt.id)}
+                    className={`px-6 py-3 rounded-xl font-bold text-sm transition-all ${
+                      duration === opt.id
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          {/* Right Column - Preview */}
+          <div className="col-span-12 lg:col-span-5">
+            <div className="sticky top-24">
+              {/* Preview Card */}
+              <div className="bg-slate-900 rounded-2xl overflow-hidden shadow-2xl">
+                {/* Video Preview Area */}
+                <div className="aspect-video bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center relative">
+                  {uploadedImages.length > 0 ? (
+                    <div className="absolute inset-0 grid grid-cols-2 gap-1 p-2 opacity-50">
+                      {uploadedImages.slice(0, 4).map((img, idx) => (
+                        <img key={idx} src={img} alt="" className="w-full h-full object-cover rounded" />
+                      ))}
                     </div>
-                    {isProcessing && (
-                      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center rounded-lg">
-                        <div className="bg-white rounded-xl p-6 text-center shadow-xl">
-                          <Loader2 className="w-12 h-12 text-purple-600 animate-spin mx-auto mb-3" />
-                          <p className="font-medium text-gray-900">Generating video...</p>
-                          <p className="text-sm text-gray-500">This may take 30-60 seconds</p>
-                        </div>
+                  ) : null}
+                  
+                  <div className="relative z-10 flex flex-col items-center">
+                    <span className="material-symbols-outlined text-6xl text-white/80">play_circle</span>
+                    <span className="text-white/60 text-sm mt-2">Preview</span>
+                  </div>
+
+                  {/* Progress Overlay */}
+                  {isGenerating && (
+                    <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center">
+                      <div className="w-48 h-2 bg-slate-700 rounded-full overflow-hidden mb-4">
+                        <div
+                          className="h-full bg-purple-500 transition-all duration-200"
+                          style={{ width: `${progress}%` }}
+                        />
                       </div>
-                    )}
-                  </div>
-                ) : (
-                  /* Video Player */
-                  <div className="relative">
-                    <video
-                      src={videoUrl}
-                      controls
-                      autoPlay
-                      loop
-                      className="w-full h-auto rounded-lg"
-                    />
-                    <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium">
-                      Video Ready
+                      <span className="text-white text-sm">Generating video... {progress}%</span>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
 
-                {/* Tips */}
-                {videoUrl && (
-                  <div className="mt-4 bg-purple-50 rounded-lg p-4">
-                    <p className="text-sm text-purple-700">
-                      <strong>Tip:</strong> Videos are generated at 6fps for 6 seconds. 
-                      Use the download button to save the MP4 file.
-                    </p>
+                {/* Video Info */}
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-bold text-white">Property Tour</h4>
+                    <span className="text-sm text-slate-400">{duration}</span>
                   </div>
-                )}
+                  <div className="flex gap-4 text-sm text-slate-400">
+                    <span className="flex items-center gap-1">
+                      <span className="material-symbols-outlined text-sm">videocam</span>
+                      4K Cinematic
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="material-symbols-outlined text-sm">graphic_eq</span>
+                      AI Voice
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Generate Button */}
+              <button
+                onClick={handleGenerate}
+                disabled={uploadedImages.length < 5 || isGenerating}
+                className="w-full mt-6 py-5 bg-purple-600 text-white rounded-xl font-bold text-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg shadow-purple-600/20"
+              >
+                <span className="material-symbols-outlined">auto_awesome</span>
+                {isGenerating ? 'Generating...' : 'Generate Video'}
+              </button>
+
+              {uploadedImages.length < 5 && (
+                <p className="text-center text-sm text-slate-500 mt-3">
+                  Upload at least {5 - uploadedImages.length} more images to generate
+                </p>
+              )}
+
+              {/* Export Options */}
+              <div className="mt-8 p-6 bg-slate-100 rounded-xl border border-slate-200">
+                <h4 className="font-bold text-slate-900 mb-4">Export Options</h4>
+                <div className="space-y-3">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" defaultChecked className="text-purple-600 focus:ring-purple-600 rounded" />
+                    <span className="text-sm text-slate-700">Include background music</span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" defaultChecked className="text-purple-600 focus:ring-purple-600 rounded" />
+                    <span className="text-sm text-slate-700">Add property branding</span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" className="text-purple-600 focus:ring-purple-600 rounded" />
+                    <span className="text-sm text-slate-700">Include contact overlay</span>
+                  </label>
+                </div>
               </div>
             </div>
           </div>
-        )}
-      </main>
-    </div>
+        </div>
+      </div>
+    </AppLayout>
   );
 }
