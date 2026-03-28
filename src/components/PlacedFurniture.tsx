@@ -1,6 +1,8 @@
 'use client';
-import { useRef, useState } from 'react';
+
+import { useRef, useState, Suspense } from 'react';
 import * as THREE from 'three';
+import { useGLTF } from '@react-three/drei';
 import type { FurnitureItem } from './FurnitureLibrary';
 
 export interface PlacedFurniturePiece {
@@ -18,8 +20,19 @@ interface PlacedFurnitureProps {
   onUpdate: (id: string, updates: Partial<PlacedFurniturePiece>) => void;
 }
 
-// Furniture renderer based on type
-function FurnitureMesh({ piece }: { piece: PlacedFurniturePiece }) {
+// GLTF Model Component
+function GLTFModel({ path, scale }: { path: string; scale: number }) {
+  const { scene } = useGLTF(path);
+  const clonedScene = scene.clone();
+  
+  // Apply scale
+  clonedScene.scale.setScalar(scale * 0.5); // Kenney models are ~2m, scale down
+  
+  return <primitive object={clonedScene} />;
+}
+
+// Fallback box geometry when GLTF fails or not available
+function FallbackBox({ piece }: { piece: PlacedFurniturePiece }) {
   const { furniture, scale } = piece;
   const { width, height, depth } = furniture.dimensions;
   const scaledWidth = width * scale;
@@ -31,119 +44,33 @@ function FurnitureMesh({ piece }: { piece: PlacedFurniturePiece }) {
     case 'sofa':
       return (
         <group>
-          {/* Base */}
           <mesh position={[0, scaledHeight * 0.35, 0]} castShadow>
             <boxGeometry args={[scaledWidth, scaledHeight * 0.7, scaledDepth]} />
             <meshStandardMaterial color={furniture.color} />
           </mesh>
-          {/* Back rest */}
           <mesh position={[0, scaledHeight * 0.7, -scaledDepth * 0.35]} castShadow>
             <boxGeometry args={[scaledWidth, scaledHeight * 0.6, scaledDepth * 0.3]} />
             <meshStandardMaterial color={furniture.color} />
           </mesh>
         </group>
       );
-
     case 'bed':
       return (
         <group>
-          {/* Mattress */}
           <mesh position={[0, scaledHeight * 0.25, 0]} castShadow>
             <boxGeometry args={[scaledWidth, scaledHeight * 0.5, scaledDepth]} />
             <meshStandardMaterial color={furniture.color} />
           </mesh>
-          {/* Headboard */}
           <mesh position={[0, scaledHeight * 0.7, -scaledDepth * 0.45]} castShadow>
             <boxGeometry args={[scaledWidth, scaledHeight * 0.9, scaledDepth * 0.1]} />
             <meshStandardMaterial color="#5c6bc0" />
           </mesh>
-          {/* Pillow */}
           <mesh position={[0, scaledHeight * 0.35, -scaledDepth * 0.3]} castShadow>
             <boxGeometry args={[scaledWidth * 0.8, scaledHeight * 0.15, scaledDepth * 0.25]} />
             <meshStandardMaterial color="#fff" />
           </mesh>
         </group>
       );
-
-    case 'bathtub':
-      return (
-        <group>
-          {/* Tub */}
-          <mesh position={[0, scaledHeight * 0.3, 0]} castShadow>
-            <boxGeometry args={[scaledWidth, scaledHeight * 0.6, scaledDepth]} />
-            <meshStandardMaterial color={furniture.color} />
-          </mesh>
-          {/* Inner */}
-          <mesh position={[0, scaledHeight * 0.35, 0]}>
-            <boxGeometry args={[scaledWidth * 0.9, scaledHeight * 0.4, scaledDepth * 0.85]} />
-            <meshStandardMaterial color="#e3f2fd" />
-          </mesh>
-        </group>
-      );
-
-    case 'bookshelf':
-      return (
-        <group>
-          {/* Main frame */}
-          <mesh position={[0, scaledHeight * 0.5, 0]} castShadow>
-            <boxGeometry args={[scaledWidth, scaledHeight, scaledDepth]} />
-            <meshStandardMaterial color={furniture.color} />
-          </mesh>
-          {/* Shelves */}
-          {[0.25, 0.5, 0.75].map((yRatio, i) => (
-            <mesh key={i} position={[0, scaledHeight * yRatio, 0]}>
-              <boxGeometry args={[scaledWidth * 0.95, 0.02, scaledDepth * 0.9]} />
-              <meshStandardMaterial color="#8d6e63" />
-            </mesh>
-          ))}
-        </group>
-      );
-
-    case 'refrigerator':
-      return (
-        <group>
-          {/* Main body */}
-          <mesh position={[0, scaledHeight * 0.5, 0]} castShadow>
-            <boxGeometry args={[scaledWidth, scaledHeight, scaledDepth]} />
-            <meshStandardMaterial color={furniture.color} />
-          </mesh>
-          {/* Door line */}
-          <mesh position={[0, scaledHeight * 0.35, scaledDepth * 0.51]}>
-            <boxGeometry args={[scaledWidth * 0.98, scaledHeight * 0.65, 0.01]} />
-            <meshStandardMaterial color="#90a4ae" />
-          </mesh>
-          {/* Handle */}
-          <mesh position={[scaledWidth * 0.4, scaledHeight * 0.45, scaledDepth * 0.52]}>
-            <boxGeometry args={[0.02, scaledHeight * 0.2, 0.02]} />
-            <meshStandardMaterial color="#37474f" />
-          </mesh>
-        </group>
-      );
-
-    case 'chair':
-    case 'office-chair':
-      return (
-        <group>
-          {/* Seat */}
-          <mesh position={[0, scaledHeight * 0.45, 0]} castShadow>
-            <boxGeometry args={[scaledWidth, scaledHeight * 0.1, scaledDepth]} />
-            <meshStandardMaterial color={furniture.color} />
-          </mesh>
-          {/* Back */}
-          <mesh position={[0, scaledHeight * 0.75, -scaledDepth * 0.4]} castShadow>
-            <boxGeometry args={[scaledWidth, scaledHeight * 0.5, scaledDepth * 0.1]} />
-            <meshStandardMaterial color={furniture.color} />
-          </mesh>
-          {/* Legs */}
-          {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, z], i) => (
-            <mesh key={i} position={[x * scaledWidth * 0.35, scaledHeight * 0.2, z * scaledDepth * 0.35]}>
-              <cylinderGeometry args={[0.02, 0.02, scaledHeight * 0.4]} />
-              <meshStandardMaterial color="#37474f" />
-            </mesh>
-          ))}
-        </group>
-      );
-
     default:
       return (
         <mesh position={[0, scaledHeight * 0.5, 0]} castShadow>
@@ -154,7 +81,33 @@ function FurnitureMesh({ piece }: { piece: PlacedFurniturePiece }) {
   }
 }
 
-export default function PlacedFurniture({ piece, isSelected, onSelect }: PlacedFurnitureProps) {
+// Furniture renderer - uses GLTF if available, falls back to geometry
+function FurnitureMesh({ piece }: { piece: PlacedFurniturePiece }) {
+  const { furniture, scale } = piece;
+  const { width, height, depth } = furniture.dimensions;
+  const scaledHeight = height * scale;
+
+  if (furniture.useGLTF && furniture.modelPath) {
+    return (
+      <Suspense fallback={
+        <mesh position={[0, scaledHeight * 0.5, 0]} castShadow>
+          <boxGeometry args={[width * scale, scaledHeight, depth * scale]} />
+          <meshStandardMaterial color={furniture.color} transparent opacity={0.5} />
+        </mesh>
+      }>
+        <GLTFModel path={furniture.modelPath} scale={scale} />
+      </Suspense>
+    );
+  }
+
+  return <FallbackBox piece={piece} />;
+}
+
+export default function PlacedFurniture({
+  piece,
+  isSelected,
+  onSelect,
+}: PlacedFurnitureProps) {
   const groupRef = useRef<THREE.Group>(null);
   const [isHovered, setIsHovered] = useState(false);
   const { furniture, position, rotation } = piece;
@@ -219,3 +172,35 @@ export default function PlacedFurniture({ piece, isSelected, onSelect }: PlacedF
     </group>
   );
 }
+
+// Preload all furniture models
+const MODEL_PATHS = [
+  '/models/furniture/loungeSofa.glb',
+  '/models/furniture/tableCoffee.glb',
+  '/models/furniture/cabinetTelevision.glb',
+  '/models/furniture/loungeChair.glb',
+  '/models/furniture/bedDouble.glb',
+  '/models/furniture/sideTable.glb',
+  '/models/furniture/bookcaseClosed.glb',
+  '/models/furniture/cabinetBedDrawer.glb',
+  '/models/furniture/table.glb',
+  '/models/furniture/chairCushion.glb',
+  '/models/furniture/kitchenBar.glb',
+  '/models/furniture/kitchenFridge.glb',
+  '/models/furniture/toilet.glb',
+  '/models/furniture/bathroomSink.glb',
+  '/models/furniture/bathtub.glb',
+  '/models/furniture/shower.glb',
+  '/models/furniture/desk.glb',
+  '/models/furniture/chairDesk.glb',
+  '/models/furniture/bookcaseOpen.glb',
+];
+
+// Preload models for faster rendering
+MODEL_PATHS.forEach(path => {
+  try {
+    useGLTF.preload(path);
+  } catch (e) {
+    // Ignore preload errors - model may not exist yet
+  }
+});

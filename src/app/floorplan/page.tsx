@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { Header } from '@/components/Header';
-import { Upload, FileImage, Box, Loader2, Download, RotateCcw } from 'lucide-react';
+import { Upload, FileImage, Box, Loader2, Download, RotateCcw, Camera, Sun, Moon, Eye } from 'lucide-react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 
@@ -63,6 +63,9 @@ export default function FloorPlanPage() {
   const [floorPlanData, setFloorPlanData] = useState<FloorPlanData | null>(null);
   const [analysisText, setAnalysisText] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<'llava' | 'llama32'>('llama32');
+  const [cameraPreset, setCameraPreset] = useState<'perspective' | 'top' | 'front' | 'side' | 'walkthrough'>('perspective');
+  const [lightingMode, setLightingMode] = useState<'day' | 'night'>('day');
+  const [isFirstPerson, setIsFirstPerson] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -302,20 +305,39 @@ export default function FloorPlanPage() {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900">3D Model</h2>
-              {floorPlanData && (
-                <button
-                  onClick={handleExportGLB}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-                >
-                  <Download className="w-4 h-4" />
-                  Export GLB
-                </button>
-              )}
-            </div>
-            
-            <div className="h-[400px] bg-gray-100 rounded-xl overflow-hidden">
+ {floorPlanData && (
+ <div className="flex gap-2">
+ <div className="flex gap-1">
+ {['perspective', 'top', 'front', 'side'].map((p) => (
+ <button
+ key={p}
+ onClick={() => setCameraPreset(p as any)}
+ className={`p-2 rounded-lg ${cameraPreset === p ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+ >
+ <Camera className="w-4 h-4" />
+ </button>
+ ))}
+ </div>
+ <button
+ onClick={() => setLightingMode(lightingMode === 'day' ? 'night' : 'day')}
+ className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200"
+ >
+ {lightingMode === 'day' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+ </button>
+ <button
+ onClick={handleExportGLB}
+ className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+ >
+ <Download className="w-4 h-4" />
+ Export
+ </button>
+ </div>
+ )}
+ </div>
+ 
+ <div className="h-[400px] bg-gray-100 rounded-xl overflow-hidden">
               {floorPlanData ? (
-                <FloorPlan3DViewer floorPlanData={floorPlanData} />
+                <FloorPlan3DViewer floorPlanData={floorPlanData} cameraPreset={cameraPreset} lightingMode={lightingMode} firstPerson={isFirstPerson} />
               ) : (
                 <div className="h-full flex items-center justify-center text-gray-400">
                   <div className="text-center">

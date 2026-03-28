@@ -1,8 +1,8 @@
 'use client';
 
-import { Canvas, useThree } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera, Grid, Environment, Text } from '@react-three/drei';
-import { useMemo, useCallback, useRef, useEffect } from 'react';
+import { Canvas, useThree, useFrame } from '@react-three/fiber';
+import { OrbitControls, PerspectiveCamera, Grid, Environment, Text, FirstPersonControls } from '@react-three/drei';
+import { useMemo, useCallback, useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import PlacedFurniture, { type PlacedFurniturePiece } from './PlacedFurniture';
@@ -92,10 +92,12 @@ function RoomMesh({ room }: { room: Room }) {
         <boxGeometry args={[room.width, wallHeight, wallThickness]} />
         <meshStandardMaterial color={wallColor} />
       </mesh>
+
       <mesh position={[room.width / 2, wallHeight / 2, room.height]} castShadow receiveShadow>
         <boxGeometry args={[room.width, wallHeight, wallThickness]} />
         <meshStandardMaterial color={wallColor} />
       </mesh>
+
       <mesh
         position={[0, wallHeight / 2, room.height / 2]}
         rotation={[0, Math.PI / 2, 0]}
@@ -105,6 +107,7 @@ function RoomMesh({ room }: { room: Room }) {
         <boxGeometry args={[room.height, wallHeight, wallThickness]} />
         <meshStandardMaterial color={wallColor} />
       </mesh>
+
       <mesh
         position={[room.width, wallHeight / 2, room.height / 2]}
         rotation={[0, Math.PI / 2, 0]}
@@ -144,19 +147,16 @@ function FloorClickHandler({
 
   useEffect(() => {
     const handleClick = (event: MouseEvent) => {
-      // Calculate mouse position in normalized device coordinates
       const rect = gl.domElement.getBoundingClientRect();
       mouse.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
       raycaster.setFromCamera(mouse.current, camera);
 
-      // Create a plane at y=0 (floor)
       const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
       const intersection = new THREE.Vector3();
 
       if (raycaster.ray.intersectPlane(floorPlane, intersection)) {
-        // Check if click is within any room bounds
         const isInRoom = rooms.some(
           (room) =>
             intersection.x >= room.x &&
@@ -183,17 +183,11 @@ function ExportHandler({ scene }: { scene: THREE.Scene }) {
   useEffect(() => {
     const handleExport = () => {
       const exporter = new GLTFExporter();
-
-      // Create a clone of the scene for export (remove helpers, grids, etc.)
       const exportScene = new THREE.Scene();
 
-      // Copy children we want to export (rooms, furniture, etc.)
       scene.traverse((child) => {
         if (child.type === 'Mesh' || child.type === 'Group') {
-          // Skip grid and helper objects
-          if (child.userData.noExport) return;
-
-          // Clone the object
+          if ((child as any).userData?.noExport) return;
           const cloned = child.clone();
           exportScene.add(cloned);
         }
@@ -202,7 +196,6 @@ function ExportHandler({ scene }: { scene: THREE.Scene }) {
       exporter.parse(
         exportScene,
         (gltf) => {
-          // Create and download the file
           const blob = new Blob([gltf as ArrayBuffer], { type: 'application/octet-stream' });
           const url = URL.createObjectURL(blob);
           const link = document.createElement('a');
@@ -225,17 +218,17 @@ function ExportHandler({ scene }: { scene: THREE.Scene }) {
   return null;
 }
 
-function Lights() {
+function Lights({ mode = 'day' }: { mode?: 'day' | 'night' }) {
   return (
     <>
-      <ambientLight intensity={0.4} />
+      <ambientLight intensity={mode === 'day' ? 0.4 : 0.15} />
       <directionalLight
         position={[5, 10, 5]}
-        intensity={0.8}
+        intensity={mode === 'day' ? 0.8 : 0.2}
         castShadow
         shadow-mapSize={[2048, 2048]}
       />
-      <pointLight position={[0, 2.5, 0]} intensity={0.3} />
+      <pointLight position={[0, 2.5, 0]} intensity={mode === 'day' ? 0.3 : 0.8} />
     </>
   );
 }
@@ -249,6 +242,9 @@ interface FloorPlan3DViewerProps {
   onFurniturePlace?: (position: [number, number, number]) => void;
   onFurnitureSelect?: (id: string) => void;
   onFurnitureUpdate?: (id: string, updates: Partial<PlacedFurniturePiece>) => void;
+  cameraPreset?: 'perspective' | 'top' | 'front' | 'side' | 'walkthrough';
+  lightingMode?: 'day' | 'night';
+  firstPerson?: boolean;
 }
 
 function Scene({
@@ -259,11 +255,22 @@ function Scene({
   onFurniturePlace,
   onFurnitureSelect,
   onFurnitureUpdate,
+  cameraPreset = 'perspective',
+  lightingMode = 'day',
+  firstPerson = false,
 }: FloorPlan3DViewerProps) {
   const { scene } = useThree();
   const rooms = floorPlanData?.rooms || [];
 
-  // Calculate bounding box for camera positioning
+  // Camera positions for presets
+  const cameraPositions: Record<string, { pos: [number, number, number]; target: [number, number, number] }> = {
+    perspective: { pos: [bounds.maxX * 1.5, 8, bounds.maxZ * 1.5], target: [0, 0, 0] },
+    top: { pos: [0, 15, 0.01], target: [0, 0, 0] },
+    front: { pos: [0, 5, 12], target: [0, 0, 0] },
+    side: { pos: [12, 5, 0], target: [0, 0, 0] },
+    walkthrough: { pos: [0, 1.7, 0], target: [3, 1.7, 0] },
+  };
+
   const bounds = useMemo(() => {
     if (rooms.length === 0) return { maxX: 10, maxZ: 10 };
     let maxX = 0,
@@ -278,7 +285,6 @@ function Scene({
   const handleFloorClick = useCallback(
     (point: THREE.Vector3) => {
       if (selectedFurnitureItem && onFurniturePlace) {
-        // Snap to grid (0.5m increments)
         const snapX = Math.round(point.x * 2) / 2;
         const snapZ = Math.round(point.z * 2) / 2;
         onFurniturePlace([snapX, 0, snapZ]);
@@ -287,22 +293,27 @@ function Scene({
     [selectedFurnitureItem, onFurniturePlace]
   );
 
+  const { pos, target } = cameraPositions[cameraPreset] || cameraPositions.perspective;
+
   return (
     <>
-      <PerspectiveCamera
-        makeDefault
-        position={[bounds.maxX * 1.5, 8, bounds.maxZ * 1.5]}
-        fov={50}
-      />
-      <OrbitControls
-        enablePan={true}
-        enableZoom={true}
-        enableRotate={true}
-        minDistance={3}
-        maxDistance={30}
-        maxPolarAngle={Math.PI / 2}
-      />
-      <Lights />
+      <PerspectiveCamera makeDefault position={pos} fov={50} />
+
+      {firstPerson ? (
+        <FirstPersonControls movementSpeed={1} lookSpeed={0.1} />
+      ) : (
+        <OrbitControls
+          enablePan={true}
+          enableZoom={true}
+          enableRotate={true}
+          minDistance={3}
+          maxDistance={30}
+          maxPolarAngle={Math.PI / 2}
+          target={target}
+        />
+      )}
+
+      <Lights mode={lightingMode} />
 
       {/* Export handler */}
       <ExportHandler scene={scene} />
@@ -368,7 +379,8 @@ function Scene({
         followCamera={false}
         userData={{ noExport: true }}
       />
-      <Environment preset="apartment" />
+
+      <Environment preset={lightingMode === 'day' ? 'apartment' : 'night'} />
     </>
   );
 }
@@ -382,6 +394,9 @@ export default function FloorPlan3DViewer({
   onFurniturePlace,
   onFurnitureSelect,
   onFurnitureUpdate,
+  cameraPreset = 'perspective',
+  lightingMode = 'day',
+  firstPerson = false,
 }: FloorPlan3DViewerProps) {
   return (
     <div className={className} style={{ width: '100%', height: '100%', minHeight: '400px' }}>
@@ -394,6 +409,9 @@ export default function FloorPlan3DViewer({
           onFurniturePlace={onFurniturePlace}
           onFurnitureSelect={onFurnitureSelect}
           onFurnitureUpdate={onFurnitureUpdate}
+          cameraPreset={cameraPreset}
+          lightingMode={lightingMode}
+          firstPerson={firstPerson}
         />
       </Canvas>
     </div>
