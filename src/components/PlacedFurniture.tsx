@@ -26,9 +26,19 @@ function GLTFModel({ path, scale }: { path: string; scale: number }) {
     const { scene } = useGLTF(path);
     const clonedScene = scene.clone();
     
-    // Apply scale - Kenney models are ~2m, scale down
-    clonedScene.scale.setScalar(scale * 0.5);
+    // Kenney models are in meters, scale to match our dimensions
+    // Most Kenney models are ~2m tall, we want them at furniture scale
+    const modelScale = scale * 0.8;
+    clonedScene.scale.setScalar(modelScale);
     clonedScene.position.set(0, 0, 0);
+    
+    // Enable shadows on all meshes
+    clonedScene.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
     
     return <primitive object={clonedScene} />;
   } catch (e) {
