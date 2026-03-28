@@ -204,6 +204,20 @@ export default function FloorPlanPage() {
  ↻ Right
  </button>
  </div>
+ <div className="flex gap-2">
+ <button 
+ onClick={() => handleFurnitureUpdate(selectedPieceId, { scale: Math.max(0.5, (placedFurniture.find(p => p.id === selectedPieceId)?.scale || 1) - 0.25) })}
+ className="flex-1 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
+ >
+ − Smaller
+ </button>
+ <button 
+ onClick={() => handleFurnitureUpdate(selectedPieceId, { scale: Math.min(2, (placedFurniture.find(p => p.id === selectedPieceId)?.scale || 1) + 0.25) })}
+ className="flex-1 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
+ >
+ + Larger
+ </button>
+ </div>
  <button 
  onClick={handleDeleteSelected}
  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
