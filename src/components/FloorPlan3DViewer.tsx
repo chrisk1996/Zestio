@@ -133,26 +133,58 @@ function RoomMesh({ room }: { room: Room }) {
   );
 }
 
-// Floor click handler for placing furniture
+// Floor click handler with hover preview
 function FloorClickHandler({
   onFloorClick,
   rooms,
+  selectedFurnitureItem,
 }: {
   onFloorClick: (point: THREE.Vector3) => void;
   rooms: Room[];
+  selectedFurnitureItem?: FurnitureItem | null;
 }) {
   const { camera, gl } = useThree();
   const raycaster = useMemo(() => new THREE.Raycaster(), []);
   const mouse = useRef(new THREE.Vector2());
+  const [hoverPoint, setHoverPoint] = useState<THREE.Vector3 | null>(null);
 
   useEffect(() => {
+    const handleMove = (event: MouseEvent) => {
+      if (!selectedFurnitureItem) {
+        setHoverPoint(null);
+        return;
+      }
+      const rect = gl.domElement.getBoundingClientRect();
+      mouse.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse.current, camera);
+      const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+      const intersection = new THREE.Vector3();
+
+      if (raycaster.ray.intersectPlane(floorPlane, intersection)) {
+        const isInRoom = rooms.some(
+          (room) =>
+            intersection.x >= room.x &&
+            intersection.x <= room.x + room.width &&
+            intersection.z >= room.y &&
+            intersection.z <= room.y + room.height
+        );
+
+        if (isInRoom || rooms.length === 0) {
+          setHoverPoint(intersection.clone());
+        } else {
+          setHoverPoint(null);
+        }
+      }
+    };
+
     const handleClick = (event: MouseEvent) => {
       const rect = gl.domElement.getBoundingClientRect();
       mouse.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
       raycaster.setFromCamera(mouse.current, camera);
-
       const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
       const intersection = new THREE.Vector3();
 
@@ -172,10 +204,39 @@ function FloorClickHandler({
     };
 
     gl.domElement.addEventListener('click', handleClick);
-    return () => gl.domElement.removeEventListener('click', handleClick);
-  }, [camera, gl, rooms, onFloorClick, raycaster]);
+    gl.domElement.addEventListener('mousemove', handleMove);
+    return () => {
+      gl.domElement.removeEventListener('click', handleClick);
+      gl.domElement.removeEventListener('mousemove', handleMove);
+    };
+  }, [camera, gl, rooms, onFloorClick, raycaster, selectedFurnitureItem]);
 
-  return null;
+  // Render placement preview at cursor position
+  if (!selectedFurnitureItem || !hoverPoint) return null;
+
+  return (
+    <group position={[hoverPoint.x, 0, hoverPoint.z]}>
+      <mesh position={[0, selectedFurnitureItem.dimensions.height / 2, 0]}>
+        <boxGeometry
+          args={[
+            selectedFurnitureItem.dimensions.width,
+            selectedFurnitureItem.dimensions.height,
+            selectedFurnitureItem.dimensions.depth,
+          ]}
+        />
+        <meshStandardMaterial
+          color={selectedFurnitureItem.color}
+          transparent
+          opacity={0.6}
+        />
+      </mesh>
+      {/* Green ring indicator */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+        <ringGeometry args={[0.3, 0.4, 32]} />
+        <meshBasicMaterial color="#22c55e" transparent opacity={0.8} />
+      </mesh>
+    </group>
+  );
 }
 
 // Export handler component
@@ -261,11 +322,12 @@ function Scene({
 }: FloorPlan3DViewerProps) {
   const { scene } = useThree();
   const rooms = floorPlanData?.rooms || [];
-  
+
   // Calculate bounds for dynamic camera
   const bounds = useMemo(() => {
     if (rooms.length === 0) return { maxX: 10, maxZ: 10 };
-    let maxX = 0, maxZ = 0;
+    let maxX = 0,
+      maxZ = 0;
     rooms.forEach((room) => {
       maxX = Math.max(maxX, room.x + room.width);
       maxZ = Math.max(maxZ, room.y + room.height);
@@ -318,8 +380,12 @@ function Scene({
       {/* Export handler */}
       <ExportHandler scene={scene} />
 
-      {/* Floor click handler */}
-      <FloorClickHandler onFloorClick={handleFloorClick} rooms={rooms} />
+      {/* Floor click handler with hover preview */}
+      <FloorClickHandler
+        onFloorClick={handleFloorClick}
+        rooms={rooms}
+        selectedFurnitureItem={selectedFurnitureItem}
+      />
 
       {/* Render rooms */}
       {rooms.map((room, index) => (
@@ -350,22 +416,6 @@ function Scene({
           onUpdate={onFurnitureUpdate || (() => {})}
         />
       ))}
-
-      {/* Placement preview */}
-      {selectedFurnitureItem && (
-        <group>
-          <mesh position={[0, selectedFurnitureItem.dimensions.height / 2, 0]}>
-            <boxGeometry
-              args={[
-                selectedFurnitureItem.dimensions.width,
-                selectedFurnitureItem.dimensions.height,
-                selectedFurnitureItem.dimensions.depth,
-              ]}
-            />
-            <meshStandardMaterial color={selectedFurnitureItem.color} transparent opacity={0.5} />
-          </mesh>
-        </group>
-      )}
 
       {/* Grid */}
       <Grid

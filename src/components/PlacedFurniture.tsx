@@ -112,6 +112,9 @@ export default function PlacedFurniture({
   const [isHovered, setIsHovered] = useState(false);
   const { furniture, position, rotation } = piece;
   const scaledHeight = furniture.dimensions.height * piece.scale;
+  const w = furniture.dimensions.width * piece.scale;
+  const h = furniture.dimensions.height * piece.scale;
+  const d = furniture.dimensions.depth * piece.scale;
 
   return (
     <group
@@ -135,38 +138,34 @@ export default function PlacedFurniture({
     >
       <FurnitureMesh piece={piece} />
 
-      {/* Selection outline */}
+      {/* Selection outline - MORE VISIBLE */}
       {isSelected && (
-        <group position={[0, scaledHeight * 0.5, 0]}>
+        <group position={[0, h * 0.5, 0]}>
+          {/* Outer glow */}
           <mesh>
-            <boxGeometry
-              args={[
-                furniture.dimensions.width * piece.scale + 0.05,
-                furniture.dimensions.height * piece.scale + 0.05,
-                furniture.dimensions.depth * piece.scale + 0.05,
-              ]}
-            />
-            <meshBasicMaterial color="#4f46e5" wireframe />
+            <boxGeometry args={[w + 0.2, h + 0.2, d + 0.2]} />
+            <meshBasicMaterial color="#4f46e5" transparent opacity={0.15} />
           </mesh>
-          {/* Rotation indicator */}
-          <mesh position={[furniture.dimensions.width * piece.scale * 0.6, 0, 0]}>
-            <sphereGeometry args={[0.08, 16, 16]} />
-            <meshBasicMaterial color="#22c55e" />
+          {/* Wireframe box */}
+          <mesh>
+            <boxGeometry args={[w + 0.1, h + 0.1, d + 0.1]} />
+            <meshBasicMaterial color="#818cf8" wireframe />
           </mesh>
+          {/* Corner spheres for visibility */}
+          {[[-1,-1], [1,-1], [-1,1], [1,1]].map(([x, z], i) => (
+            <mesh key={i} position={[x * (w/2 + 0.1), 0, z * (d/2 + 0.1)]}>
+              <sphereGeometry args={[0.12, 16, 16]} />
+              <meshBasicMaterial color="#22c55e" />
+            </mesh>
+          ))}
         </group>
       )}
 
       {/* Hover effect */}
       {isHovered && !isSelected && (
-        <mesh position={[0, scaledHeight * 0.5, 0]}>
-          <boxGeometry
-            args={[
-              furniture.dimensions.width * piece.scale + 0.02,
-              furniture.dimensions.height * piece.scale + 0.02,
-              furniture.dimensions.depth * piece.scale + 0.02,
-            ]}
-          />
-          <meshBasicMaterial color="#ffffff" wireframe opacity={0.5} transparent />
+        <mesh position={[0, h * 0.5, 0]}>
+          <boxGeometry args={[w + 0.05, h + 0.05, d + 0.05]} />
+          <meshBasicMaterial color="#ffffff" wireframe opacity={0.7} transparent />
         </mesh>
       )}
     </group>
