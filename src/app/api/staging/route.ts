@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
     const roomPrompt = ROOM_PROMPTS[normalizedRoomType];
     const stylePrompt = STYLE_PROMPTS[normalizedStyle];
     
-    const prompt = `Virtual staging: keep original room structure, walls and windows unchanged, add ${roomPrompt} with ${stylePrompt}, professionally staged, photorealistic real estate photography, bright natural lighting`;
+    const prompt = `Empty room virtual staging: ${roomPrompt} with ${stylePrompt}, preserve original architecture walls windows flooring exactly, add furniture only, photorealistic real estate photography, bright natural lighting, professional interior design`;
 
     try {
       // Use Replicate's SDXL model for image-to-image virtual staging
@@ -169,9 +169,9 @@ export async function POST(request: NextRequest) {
           input: {
             image: image,
             prompt: prompt,
-            negative_prompt: "blurry, low quality, distorted, overexposed, underexposed, noisy, pixelated, cluttered, messy, dark, shadowy, cartoon, illustration, painting, watermark, text",
+            negative_prompt: "blurry, low quality, distorted, change walls, change windows, change flooring, overexposed, underexposed, noisy, pixelated, cartoon, illustration, painting, watermark, text, empty room, vacant, different room",
             num_inference_steps: 30,
-            prompt_strength: 0.45, // Slightly higher for more furniture presence
+            prompt_strength: 0.30, // Lower value preserves more of original room structure
             guidance_scale: 7.5,
             refine: "expert_ensemble_refiner",
           },
