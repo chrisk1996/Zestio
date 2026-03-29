@@ -126,7 +126,7 @@ export default function FloorPlanPage() {
     setError(null);
 
     try {
-      const response = await fetch('/api/analyze-floorplan', {
+      const response = await fetch('/api/floorplan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

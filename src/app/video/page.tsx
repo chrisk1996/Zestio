@@ -37,19 +37,35 @@ export default function VideoPage() {
     setUploadedImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
+    if (uploadedImages.length < 5) {
+      alert('Please upload at least 5 images');
+      return;
+    }
     setIsGenerating(true);
-    setProgress(0);
-    const interval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsGenerating(false);
-          return 100;
-        }
-        return prev + 5;
+    setProgress(10);
+    try {
+      // Use first image for video generation
+      const response = await fetch('/api/video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          image: uploadedImages[0], 
+          motionType: 'orbit' 
+        }),
       });
-    }, 200);
+      setProgress(50);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Video generation failed');
+      setProgress(100);
+      // Could show video result here
+      console.log('Video generated:', data.output);
+    } catch (err) {
+      console.error('Video generation error:', err);
+      alert(err instanceof Error ? err.message : 'Failed to generate video');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
