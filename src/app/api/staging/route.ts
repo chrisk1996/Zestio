@@ -2,12 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import Replicate from 'replicate';
 
 export const dynamic = 'force-dynamic';
-
 import { createClient } from '@/utils/supabase/server';
 
-const replicate = new Replicate({
-  auth: process.env.REPLICATE_API_TOKEN!,
-});
+const replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN! });
 
 // Rate limiting
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
@@ -26,21 +23,21 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
-// Room-specific prompts
+// Room-specific prompts - focused on furniture, not room changes
 const ROOM_PROMPTS: Record<string, string> = {
-  living: 'Add modern furniture to this empty living room: comfortable L-shaped sofa, glass coffee table, TV stand, floor lamp, area rug, side tables with table lamps, potted indoor plant. Keep the original walls, windows, and flooring exactly as they are.',
-  bedroom: 'Add furniture to this empty bedroom: king-size bed with upholstered headboard, nightstands with lamps on each side, dresser with mirror, accent chair in corner, soft bedding and pillows. Keep the original walls, windows, and flooring unchanged.',
-  dining: 'Add furniture to this empty dining room: rectangular dining table for 6 people, upholstered dining chairs, sideboard cabinet, pendant light fixture above table, area rug under table. Keep original architecture intact.',
-  office: 'Add furniture to this empty home office: executive desk, ergonomic office chair, bookshelf, filing cabinet, desk lamp, monitor stand, indoor plant. Keep walls and windows unchanged.',
-  kitchen: 'Add staging to this empty kitchen: bar stools at island, pendant lights, countertop appliances, herb plants on windowsill, fruit bowl, cookbook stand. Keep original kitchen fixtures unchanged.',
+  living: 'furnished living room with comfortable sofa, coffee table, TV stand, floor lamp, area rug, side tables, indoor plants',
+  bedroom: 'furnished bedroom with bed, nightstands, lamps, dresser, accent chair, soft bedding',
+  dining: 'furnished dining room with dining table, chairs, sideboard, pendant light, area rug',
+  office: 'furnished home office with desk, office chair, bookshelf, filing cabinet, desk lamp',
+  kitchen: 'staged kitchen with bar stools, pendant lights, countertop appliances, plants',
 };
 
 const STYLE_MODIFIERS: Record<string, string> = {
-  modern: 'Modern contemporary style: clean lines, neutral colors (white, gray, beige), sleek furniture, minimal decor.',
-  scandinavian: 'Scandinavian style: light wood tones, white and soft beige palette, cozy textures (wool throws, linen), natural materials, hygge atmosphere.',
-  luxury: 'Luxury high-end style: premium materials (marble, velvet, brass), rich colors, elegant statement pieces, sophisticated lighting, plush textures.',
-  minimalist: 'Minimalist style: simple functional furniture, monochrome palette, uncluttered space, essential pieces only, zen aesthetic.',
-  industrial: 'Industrial style: metal and reclaimed wood furniture, exposed elements, leather upholstery, urban contemporary, dark accent colors.',
+  modern: 'modern contemporary style, clean lines, neutral colors',
+  scandinavian: 'scandinavian style, light wood, white and beige, cozy',
+  luxury: 'luxury high-end style, premium materials, elegant',
+  minimalist: 'minimalist style, simple functional, monochrome',
+  industrial: 'industrial style, metal and wood, leather, urban',
 };
 
 export async function POST(request: NextRequest) {
@@ -52,7 +49,6 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -67,18 +63,22 @@ export async function POST(request: NextRequest) {
     const roomPrompt = ROOM_PROMPTS[roomType] || ROOM_PROMPTS.living;
     const styleModifier = STYLE_MODIFIERS[furnitureStyle] || STYLE_MODIFIERS.modern;
 
-    // Use FLUX Kontext Pro - best for instruction-based editing that preserves structure
-    const prompt = `${roomPrompt} ${styleModifier} Professional real estate photography, bright natural lighting, photorealistic, high quality.`;
+    // Use XLabs FLUX ControlNet with depth preservation
+    // This model uses depth + canny ControlNets to preserve room structure
+    const prompt = `${roomPrompt}, ${styleModifier}, professional real estate photography, bright natural lighting, photorealistic`;
 
-    // Create prediction (async)
+    // Create prediction with FLUX ControlNet (depth + canny)
     const prediction = await replicate.predictions.create({
-      model: "black-forest-labs/flux-kontext-pro",
+      model: "xlabs-ai/flux-dev-controlnet",
       input: {
-        image: image,
         prompt: prompt,
-        aspect_ratio: "match_input_image",
+        control_image: image,
+        control_type: "depth",  // Depth preserves 3D geometry
+        control_strength: 0.85, // Strong structure preservation
+        num_inference_steps: 30,
+        guidance_scale: 7.5,
+        image_size: "1024x1024",
         output_format: "jpg",
-        output_quality: 95,
       },
     });
 
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
         resultUrl = String(result.output);
       }
     } else {
-      throw new Error('No output from FLUX Kontext Pro');
+      throw new Error('No output from FLUX ControlNet');
     }
 
     // Deduct credits (2 credits for virtual staging)
