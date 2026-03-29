@@ -70,29 +70,32 @@ export async function POST(request: NextRequest) {
     // Use FLUX Kontext Pro - best for instruction-based editing that preserves structure
     const prompt = `${roomPrompt} ${styleModifier} Professional real estate photography, bright natural lighting, photorealistic, high quality.`;
 
-    const result = await replicate.run(
-      "black-forest-labs/flux-kontext-pro",
-      {
-        input: {
-          image: image,
-          prompt: prompt,
-          aspect_ratio: "match_input_image",
-          output_format: "jpg",
-          output_quality: 95,
-        },
-      }
-    );
+    // Create prediction (async)
+    const prediction = await replicate.predictions.create({
+      model: "black-forest-labs/flux-kontext-pro",
+      input: {
+        image: image,
+        prompt: prompt,
+        aspect_ratio: "match_input_image",
+        output_format: "jpg",
+        output_quality: 95,
+      },
+    });
+
+    // Wait for completion
+    const result = await replicate.wait(prediction, { interval: 500 });
 
     let resultUrl: string;
-    if (typeof result === 'string') {
-      resultUrl = result;
-    } else if (Array.isArray(result) && result.length > 0) {
-      resultUrl = String(result[0]);
-    } else if (result && typeof result === 'object') {
-      const out = result as Record<string, unknown>;
-      resultUrl = String(out.url || out.output || JSON.stringify(result));
+    if (result.output) {
+      if (typeof result.output === 'string') {
+        resultUrl = result.output;
+      } else if (Array.isArray(result.output) && result.output.length > 0) {
+        resultUrl = String(result.output[0]);
+      } else {
+        resultUrl = String(result.output);
+      }
     } else {
-      resultUrl = String(result);
+      throw new Error('No output from FLUX Kontext Pro');
     }
 
     // Deduct credits (2 credits for virtual staging)
