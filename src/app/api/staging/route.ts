@@ -66,16 +66,14 @@ export async function POST(request: NextRequest) {
     // Build prompt for virtual staging
     const prompt = `${roomPrompt}, ${styleModifier}, professional real estate photography, bright natural lighting, photorealistic`;
 
-    // Use FLUX ControlNet with depth - preserves room structure
-    // Correct input format for xlabs-ai/flux-dev-controlnet
+    // Use FLUX Depth Pro - preserves 3D spatial relationships
+    // Perfect for adding furniture while keeping room structure intact
     const prediction = await replicate.predictions.create({
-      model: "xlabs-ai/flux-dev-controlnet",
+      model: "black-forest-labs/flux-depth-pro",
       input: {
         prompt: prompt,
         control_image: image,
-        control_type: "depth",  // Depth preserves 3D geometry
-        control_strength: 0.85,
-        steps: 30,
+        num_inference_steps: 30,
         guidance_scale: 7.5,
         output_format: "jpg",
         output_quality: 90,
@@ -95,7 +93,7 @@ export async function POST(request: NextRequest) {
         resultUrl = String(result.output);
       }
     } else {
-      throw new Error('No output from FLUX ControlNet');
+      throw new Error('No output from FLUX Depth Pro');
     }
 
     // Deduct credits (2 credits for virtual staging)
