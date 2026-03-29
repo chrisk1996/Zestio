@@ -264,9 +264,7 @@ export default function EnhancePage() {
     return matchesSearch && matchesCategory;
   });
 
-  const categories = [
-    ...new Set(furnitureCatalog.map((item) => item.category)),
-  ];
+  const categories = Array.from(new Set(furnitureCatalog.map((item) => item.category)));
 
   return (
     <AppLayout title="Image Enhancer">
