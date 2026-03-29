@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Replicate from 'replicate';
 
 export const dynamic = 'force-dynamic';
 import { createClient } from '@/utils/supabase/server';
 
-const replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN! });
+// Decor8.ai API for proper virtual staging (preserves architecture)
+const DECOR8_API_URL = 'https://api.decor8.ai/v1/generate_designs_for_room';
 
 // Rate limiting
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
@@ -23,21 +23,22 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
-// Room-specific prompts - focused on furniture, not room changes
-const ROOM_PROMPTS: Record<string, string> = {
-  living: 'furnished living room with comfortable sofa, coffee table, TV stand, floor lamp, area rug, side tables, indoor plants',
-  bedroom: 'furnished bedroom with bed, nightstands, lamps, dresser, accent chair, soft bedding',
-  dining: 'furnished dining room with dining table, chairs, sideboard, pendant light, area rug',
-  office: 'furnished home office with desk, office chair, bookshelf, filing cabinet, desk lamp',
-  kitchen: 'staged kitchen with bar stools, pendant lights, countertop appliances, plants',
+// Map our room types to Decor8 room types
+const ROOM_TYPE_MAP: Record<string, string> = {
+  living: 'livingroom',
+  bedroom: 'bedroom',
+  dining: 'diningroom',
+  office: 'office',
+  kitchen: 'kitchen',
 };
 
-const STYLE_MODIFIERS: Record<string, string> = {
-  modern: 'modern contemporary style, clean lines, neutral colors',
-  scandinavian: 'scandinavian style, light wood, white and beige, cozy',
-  luxury: 'luxury high-end style, premium materials, elegant',
-  minimalist: 'minimalist style, simple functional, monochrome',
-  industrial: 'industrial style, metal and wood, leather, urban',
+// Map our styles to Decor8 styles
+const STYLE_MAP: Record<string, string> = {
+  modern: 'modern',
+  scandinavian: 'scandinavian',
+  luxury: 'luxemodern',
+  minimalist: 'minimalist',
+  industrial: 'industrial',
 };
 
 export async function POST(request: NextRequest) {
@@ -60,40 +61,47 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const roomPrompt = ROOM_PROMPTS[roomType] || ROOM_PROMPTS.living;
-    const styleModifier = STYLE_MODIFIERS[furnitureStyle] || STYLE_MODIFIERS.modern;
+    const decor8RoomType = ROOM_TYPE_MAP[roomType] || 'livingroom';
+    const decor8Style = STYLE_MAP[furnitureStyle] || 'modern';
 
-    // Build prompt for virtual staging
-    const prompt = `${roomPrompt}, ${styleModifier}, professional real estate photography, bright natural lighting, photorealistic`;
-
-    // Use FLUX Depth Pro - preserves 3D spatial relationships
-    // Perfect for adding furniture while keeping room structure intact
-    const prediction = await replicate.predictions.create({
-      model: "black-forest-labs/flux-depth-pro",
-      input: {
-        prompt: prompt,
-        control_image: image,
-        num_inference_steps: 30,
-        guidance_scale: 7.5,
-        output_format: "jpg",
-        output_quality: 90,
+    // Call Decor8.ai API - specialized for virtual staging
+    // This API is designed to preserve architectural elements
+    const response = await fetch(DECOR8_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.DECOR8_API_KEY}`,
       },
+      body: JSON.stringify({
+        input_image_url: image,
+        room_type: decor8RoomType,
+        design_style: decor8Style,
+        num_images: 1,
+        scale_factor: 2, // Max 1536px, no extra charge
+      }),
     });
 
-    // Wait for completion
-    const result = await replicate.wait(prediction, { interval: 500 });
-
-    let resultUrl: string;
-    if (result.output) {
-      if (typeof result.output === 'string') {
-        resultUrl = result.output;
-      } else if (Array.isArray(result.output) && result.output.length > 0) {
-        resultUrl = String(result.output[0]);
-      } else {
-        resultUrl = String(result.output);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Decor8 API error:', errorData);
+      
+      // Fallback to FLUX if Decor8 fails
+      if (response.status === 401 || response.status === 403) {
+        return NextResponse.json({ 
+          error: 'Virtual staging service unavailable. Please try again later or contact support.' 
+        }, { status: 503 });
       }
-    } else {
-      throw new Error('No output from FLUX Depth Pro');
+      
+      throw new Error(errorData.message || 'Virtual staging failed');
+    }
+
+    const data = await response.json();
+    
+    // Decor8 returns array of image URLs
+    const resultUrl = Array.isArray(data.images) ? data.images[0] : data.image || data.output;
+
+    if (!resultUrl) {
+      throw new Error('No output from virtual staging service');
     }
 
     // Deduct credits (2 credits for virtual staging)
