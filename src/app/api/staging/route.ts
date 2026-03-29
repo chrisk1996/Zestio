@@ -172,7 +172,10 @@ export async function POST(request: NextRequest) {
             negative_prompt: "blurry, low quality, empty, vacant, no furniture, cartoon, illustration, watermark, text",
             num_inference_steps: 30,
             prompt_strength: 0.65, // Higher value to actually add furniture visible
-          num_inference_steps: 40,
+          num_inference_steps: 50,
+          prompt_strength: 0.75, // Higher to actually show furniture
+          guidance_scale: 12,
+          refine: "expert_ensemble_refiner",
           high_noise_frac: 0.8,
             guidance_scale: 7.5,
             refine: "expert_ensemble_refiner",
