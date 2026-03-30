@@ -4,16 +4,42 @@ import RoomEditor from './RoomEditor';
 import DoorWindowEditor, { DoorWindowPicker } from './DoorWindowEditor';
 import ToolPalette from './ToolPalette';
 import PropertiesPanel from './PropertiesPanel';
+import KeyboardShortcutsHelp from './KeyboardShortcutsHelp';
+import QuickActions, { FLOORPLAN_ACTIONS } from './QuickActions';
+import FirstTimeUserTutorial, { useTutorialState } from './FirstTimeUserTutorial';
+import FurnitureLibraryPanel from './FurnitureLibraryPanel';
+import FurnitureCanvas2D from './FurnitureCanvas2D';
+import FurnitureLayer from './FurnitureLayer';
 import { useUndoRedo } from './useUndoRedo';
+import { 
+  useFurniture, 
+  FURNITURE_LIBRARY_2D, 
+  FURNITURE_ICONS,
+  type PlacedFurniture2D,
+  type FurnitureDragItem 
+} from './useFurniture';
 
 export type { WallSegment, RoomPolygon, DoorData, WindowData, Tool };
+export type { PlacedFurniture2D, FurnitureDragItem };
+
 export { 
   FloorPlanCanvas2D, 
   WallEditor, 
   RoomEditor, 
   DoorWindowEditor, 
-  DoorWindowPicker,
-  ToolPalette,
+  DoorWindowPicker, 
+  ToolPalette, 
   PropertiesPanel,
-  useUndoRedo 
+  KeyboardShortcutsHelp,
+  QuickActions,
+  FLOORPLAN_ACTIONS,
+  FirstTimeUserTutorial,
+  useTutorialState,
+  FurnitureLibraryPanel,
+  FurnitureCanvas2D,
+  FurnitureLayer,
+  useUndoRedo,
+  useFurniture,
+  FURNITURE_LIBRARY_2D,
+  FURNITURE_ICONS,
 };
