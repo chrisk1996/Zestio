@@ -242,6 +242,9 @@ export default function FloorPlanCanvas2D({
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
+        onTouchStart={handleMouseDown}
+        onTouchMove={handleMouseMove}
+        onTouchEnd={handleMouseUp}
         onWheel={handleWheel}
         draggable={activeTool === 'pan'}
         onDragEnd={handleDragEnd}
