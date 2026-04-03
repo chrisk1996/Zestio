@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import Replicate from 'replicate';
 
 export const dynamic = 'force-dynamic';
+
 import { createClient } from '@/utils/supabase/server';
 
-// Decor8.ai API for proper virtual staging (preserves architecture)
-const DECOR8_API_URL = 'https://api.decor8.ai/v1/generate_designs_for_room';
+const replicate = new Replicate({
+  auth: process.env.REPLICATE_API_TOKEN!,
+});
 
 // Rate limiting
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
@@ -23,22 +26,22 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
-// Map our room types to Decor8 room types
-const ROOM_TYPE_MAP: Record<string, string> = {
-  living: 'livingroom',
-  bedroom: 'bedroom',
-  dining: 'diningroom',
-  office: 'office',
-  kitchen: 'kitchen',
+// Map room types to prompt keywords
+const ROOM_PROMPTS: Record<string, string> = {
+  living: 'living room with comfortable sofa, coffee table, entertainment center, rug, lamps',
+  bedroom: 'bedroom with bed, nightstands, dresser, lamp, cozy bedding',
+  dining: 'dining room with dining table, chairs, chandelier, sideboard',
+  office: 'home office with desk, office chair, bookshelf, computer, lamp',
+  kitchen: 'kitchen with countertops, appliances, dining area, modern fixtures',
 };
 
-// Map our styles to Decor8 styles
-const STYLE_MAP: Record<string, string> = {
-  modern: 'modern',
-  scandinavian: 'scandinavian',
-  luxury: 'luxemodern',
-  minimalist: 'minimalist',
-  industrial: 'industrial',
+// Map styles to prompt keywords
+const STYLE_PROMPTS: Record<string, string> = {
+  modern: 'modern contemporary furniture, clean lines, neutral colors, sleek design',
+  scandinavian: 'scandinavian style, light wood, white and beige, minimalist, cozy hygge',
+  luxury: 'luxury high-end furniture, elegant, premium materials, sophisticated design',
+  minimalist: 'minimalist furniture, simple clean design, uncluttered, zen aesthetic',
+  industrial: 'industrial style, metal and wood, exposed elements, urban loft aesthetic',
 };
 
 export async function POST(request: NextRequest) {
@@ -50,57 +53,60 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
+
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
-    const { image, roomType, furnitureStyle } = body;
+    const { image, roomType, furnitureStyle, model } = body;
 
     if (!image || !roomType || !furnitureStyle) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const decor8RoomType = ROOM_TYPE_MAP[roomType] || 'livingroom';
-    const decor8Style = STYLE_MAP[furnitureStyle] || 'modern';
+    // Build the staging prompt
+    const roomPrompt = ROOM_PROMPTS[roomType] || ROOM_PROMPTS.living;
+    const stylePrompt = STYLE_PROMPTS[furnitureStyle] || STYLE_PROMPTS.modern;
+    
+    const prompt = `${roomPrompt}, ${stylePrompt}, professional real estate photography, well-lit, high quality, interior design magazine`;
+    const negativePrompt = 'empty room, unfurnished, blurry, low quality, distorted, overexposed, underexposed, noisy, pixelated, watermark, text';
 
-    // Call Decor8.ai API - specialized for virtual staging
-    // This API is designed to preserve architectural elements
-    const response = await fetch(DECOR8_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.DECOR8_API_KEY}`,
-      },
-      body: JSON.stringify({
-        input_image_url: image,
-        room_type: decor8RoomType,
-        design_style: decor8Style,
-        num_images: 1,
-        scale_factor: 2, // Max 1536px, no extra charge
-      }),
-    });
+    // Use FLUX Depth Pro for virtual staging (preserves room structure)
+    // Model ID: flux-depth-pro
+    const modelName = model === 'flux-kontext' 
+      ? 'black-forest-labs/flux-depth-pro'
+      : 'black-forest-labs/flux-depth-pro';
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('Decor8 API error:', errorData);
-      
-      // Fallback to FLUX if Decor8 fails
-      if (response.status === 401 || response.status === 403) {
-        return NextResponse.json({ 
-          error: 'Virtual staging service unavailable. Please try again later or contact support.' 
-        }, { status: 503 });
+    console.log('Calling Replicate for virtual staging:', { roomType, furnitureStyle, model: modelName });
+
+    const result = await replicate.run(
+      modelName,
+      {
+        input: {
+          image: image,
+          prompt: prompt,
+          negative_prompt: negativePrompt,
+          num_inference_steps: 30,
+          guidance_scale: 7.5,
+        },
       }
-      
-      throw new Error(errorData.message || 'Virtual staging failed');
+    );
+
+    // Handle different output formats from Replicate
+    let resultUrl: string;
+    if (typeof result === 'string') {
+      resultUrl = result;
+    } else if (Array.isArray(result) && result.length > 0) {
+      resultUrl = String(result[0]);
+    } else if (result && typeof result === 'object') {
+      const out = result as Record<string, unknown>;
+      resultUrl = String(out.url || out.output || JSON.stringify(result));
+    } else {
+      resultUrl = String(result);
     }
 
-    const data = await response.json();
-    
-    // Decor8 returns array of image URLs
-    const resultUrl = Array.isArray(data.images) ? data.images[0] : data.image || data.output;
-
-    if (!resultUrl) {
+    if (!resultUrl || resultUrl === '[object Object]') {
       throw new Error('No output from virtual staging service');
     }
 
@@ -128,11 +134,10 @@ export async function POST(request: NextRequest) {
       furnitureStyle,
       creditsUsed: 2,
     });
-
   } catch (error) {
     console.error('Virtual staging error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Staging failed' },
+      { error: error instanceof Error ? error.message : 'Virtual staging failed' },
       { status: 500 }
     );
   }
