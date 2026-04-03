@@ -1,131 +1,105 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
-import { Header } from '@/components/Header';
-import { Upload, Sparkles, Download, RotateCcw, Home, Check, AlertCircle, Sofa, Lamp, Armchair } from 'lucide-react';
-import Link from 'next/link';
+import { useState, useRef } from 'react';
+import { AppLayout } from '@/components/layout';
+import AIModelSelector, { type AIModel } from '@/components/AIModelSelector';
 
-type RoomType = 'living' | 'bedroom' | 'kitchen' | 'dining' | 'office';
+type StagingRoom = 'living' | 'bedroom' | 'kitchen' | 'dining' | 'office';
+type FurnitureStyle = 'modern' | 'scandinavian' | 'luxury' | 'minimalist' | 'industrial';
 
-interface FurnitureStyle {
-  id: string;
-  name: string;
-  icon: React.ReactNode;
-  prompt: string;
+const stagingRooms = [
+  { id: 'living' as const, icon: 'weekend', label: 'Living Room' },
+  { id: 'bedroom' as const, icon: 'bed', label: 'Bedroom' },
+  { id: 'kitchen' as const, icon: 'kitchen', label: 'Kitchen' },
+  { id: 'dining' as const, icon: 'table_restaurant', label: 'Dining' },
+  { id: 'office' as const, icon: 'desk', label: 'Home Office' },
+];
+
+const furnitureStyles = [
+  { id: 'modern' as const, label: 'Modern', icon: 'sofa' },
+  { id: 'scandinavian' as const, label: 'Scandinavian', icon: 'chair' },
+  { id: 'luxury' as const, label: 'Luxury', icon: 'diamond' },
+  { id: 'minimalist' as const, label: 'Minimalist', icon: 'minimize' },
+  { id: 'industrial' as const, label: 'Industrial', icon: 'factory' },
+];
+
+function ImageCompareSlider({ beforeSrc, afterSrc }: { beforeSrc: string; afterSrc: string }) {
+  const [sliderPos, setSliderPos] = useState(50);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+
+  const handleMove = (clientX: number) => {
+    if (!containerRef.current || !isDragging.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+    setSliderPos((x / rect.width) * 100);
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl cursor-ew-resize select-none"
+      onMouseDown={() => { isDragging.current = true; }}
+      onMouseUp={() => { isDragging.current = false; }}
+      onMouseLeave={() => { isDragging.current = false; }}
+      onMouseMove={(e) => handleMove(e.clientX)}
+      onTouchStart={() => { isDragging.current = true; }}
+      onTouchEnd={() => { isDragging.current = false; }}
+      onTouchMove={(e) => handleMove(e.touches[0].clientX)}
+    >
+      <img src={afterSrc} alt="Staged" className="absolute inset-0 w-full h-full object-cover" />
+      <div className="absolute inset-0 overflow-hidden" style={{ width: `${sliderPos}%` }}>
+        <img
+          src={beforeSrc}
+          alt="Original"
+          className="absolute inset-0 h-full object-cover"
+          style={{ width: `${100 / (sliderPos / 100)}%`, maxWidth: 'none' }}
+        />
+      </div>
+      <div
+        className="absolute top-0 bottom-0 w-1 bg-white shadow-lg"
+        style={{ left: `${sliderPos}%`, transform: 'translateX(-50%)' }}
+      >
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center">
+          <span className="material-symbols-outlined text-slate-600 text-xl">compare_arrows</span>
+        </div>
+      </div>
+      <div className="absolute top-4 left-4 px-3 py-1.5 bg-black/70 text-white text-xs font-bold rounded-lg">Before</div>
+      <div className="absolute top-4 right-4 px-3 py-1.5 bg-purple-600 text-white text-xs font-bold rounded-lg flex items-center gap-1.5">
+        <span className="material-symbols-outlined text-sm">auto_awesome</span>
+        Staged
+      </div>
+    </div>
+  );
 }
-
-const furnitureStyles: FurnitureStyle[] = [
-  {
-    id: 'modern',
-    name: 'Modern',
-    icon: <Sofa className="w-5 h-5" />,
-    prompt: 'modern furniture, sleek design, neutral colors, contemporary interior design, real estate photography',
-  },
-  {
-    id: 'scandinavian',
-    name: 'Scandinavian',
-    icon: <Lamp className="w-5 h-5" />,
-    prompt: 'scandinavian style furniture, light wood, white and beige tones, cozy hygge atmosphere, minimalist decor',
-  },
-  {
-    id: 'luxury',
-    name: 'Luxury',
-    icon: <Armchair className="w-5 h-5" />,
-    prompt: 'luxury high-end furniture, marble surfaces, gold accents, premium interior design, elegant real estate',
-  },
-  {
-    id: 'minimalist',
-    name: 'Minimalist',
-    icon: <Home className="w-5 h-5" />,
-    prompt: 'minimalist furniture, clean lines, simple design, uncluttered space, zen interior, real estate photography',
-  },
-  {
-    id: 'industrial',
-    name: 'Industrial',
-    icon: <Sofa className="w-5 h-5" />,
-    prompt: 'industrial style furniture, metal and wood, exposed brick, loft interior, urban design, real estate photography',
-  },
-];
-
-const roomTypes: { id: RoomType; name: string }[] = [
-  { id: 'living', name: 'Living Room' },
-  { id: 'bedroom', name: 'Bedroom' },
-  { id: 'kitchen', name: 'Kitchen' },
-  { id: 'dining', name: 'Dining Room' },
-  { id: 'office', name: 'Home Office' },
-];
 
 export default function VirtualStagingPage() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [stagedImage, setStagedImage] = useState<string | null>(null);
-  const [selectedStyle, setSelectedStyle] = useState<string>('modern');
-  const [selectedRoom, setSelectedRoom] = useState<RoomType>('living');
+  const [selectedRoom, setSelectedRoom] = useState<StagingRoom>('living');
+  const [selectedStyle, setSelectedStyle] = useState<FurnitureStyle>('modern');
+  const [selectedModel, setSelectedModel] = useState<AIModel>('decor8');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [sliderPosition, setSliderPosition] = useState(50);
-  const [isSliderDragging, setIsSliderDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const sliderRef = useRef<HTMLDivElement>(null);
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) {
-      processFile(file);
-    }
-  }, []);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      processFile(file);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setUploadedImage(event.target?.result as string);
+        setStagedImage(null);
+        setError(null);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  const processFile = (file: File) => {
-    if (file.size > 10 * 1024 * 1024) {
-      setError('File size must be less than 10MB');
-      return;
-    }
-    setError(null);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setUploadedImage(event.target?.result as string);
-      setStagedImage(null);
-      setProgress(0);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleStage = async () => {
+  const handleStaging = async () => {
     if (!uploadedImage) return;
     setIsProcessing(true);
-    setProgress(0);
     setError(null);
-
-    const progressInterval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 90) {
-          clearInterval(progressInterval);
-          return 90;
-        }
-        return prev + Math.random() * 15;
-      });
-    }, 500);
-
     try {
       const response = await fetch('/api/staging', {
         method: 'POST',
@@ -134,302 +108,194 @@ export default function VirtualStagingPage() {
           image: uploadedImage,
           roomType: selectedRoom,
           furnitureStyle: selectedStyle,
-        }),
+          model: selectedModel
+        })
       });
-
       const data = await response.json();
-      clearInterval(progressInterval);
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to stage room');
-      }
-
-      setProgress(100);
+      if (!response.ok) throw new Error(data.error || 'Staging failed');
       setStagedImage(data.output);
     } catch (err) {
-      clearInterval(progressInterval);
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      setProgress(0);
+      setError(err instanceof Error ? err.message : 'Failed to stage room');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
     if (!stagedImage) return;
-    try {
-      const response = await fetch(stagedImage);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `staged-${selectedStyle}-${Date.now()}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    } catch {
-      window.open(stagedImage, '_blank');
-    }
-  };
-
-  const handleSliderMove = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
-    if (!sliderRef.current || !isSliderDragging) return;
-    const rect = sliderRef.current.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const x = clientX - rect.left;
-    const percentage = (x / rect.width) * 100;
-    setSliderPosition(Math.max(0, Math.min(100, percentage)));
-  };
-
-  const resetUpload = () => {
-    setUploadedImage(null);
-    setStagedImage(null);
-    setProgress(0);
-    setError(null);
-    setSliderPosition(50);
+    const a = document.createElement('a');
+    a.href = stagedImage;
+    a.download = `staged-${selectedStyle}-${Date.now()}.png`;
+    a.click();
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <Link href="/enhance" className="text-gray-600 hover:text-gray-900 mb-4 inline-block">
-            ← Back to Enhance
-          </Link>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Virtual Staging</h1>
-          <p className="text-gray-600">
-            Transform empty rooms into beautifully furnished spaces with AI
-          </p>
+    <AppLayout title="Virtual Staging">
+      <div className="flex h-[calc(100vh-5rem)]">
+        {/* Left Panel - Controls */}
+        <div className="w-80 shrink-0 border-r border-slate-200 bg-white overflow-y-auto">
+          <div className="p-6">
+            <h3 className="font-['Plus_Jakarta_Sans'] font-bold text-slate-900 text-sm mb-1">
+              Virtual Staging
+            </h3>
+            <p className="text-slate-500 text-xs mb-6">AI-powered furniture placement</p>
+
+            {/* Room Type Selection */}
+            <label className="text-xs font-semibold text-slate-600 mb-3 block">Room Type</label>
+            <div className="grid grid-cols-2 gap-2 mb-6">
+              {stagingRooms.map(room => (
+                <button
+                  key={room.id}
+                  onClick={() => setSelectedRoom(room.id)}
+                  disabled={!uploadedImage || isProcessing}
+                  className={`flex flex-col items-center gap-2 p-3 rounded-xl transition-all ${
+                    selectedRoom === room.id
+                      ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20'
+                      : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <span className="material-symbols-outlined">{room.icon}</span>
+                  <span className="text-xs font-semibold">{room.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Furniture Style Selection */}
+            <label className="text-xs font-semibold text-slate-600 mb-3 block">Furniture Style</label>
+            <div className="space-y-2 mb-6">
+              {furnitureStyles.map(style => (
+                <button
+                  key={style.id}
+                  onClick={() => setSelectedStyle(style.id)}
+                  disabled={!uploadedImage || isProcessing}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                    selectedStyle === style.id
+                      ? 'bg-slate-800 text-white'
+                      : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <span className="material-symbols-outlined">{style.icon}</span>
+                  <span className="text-sm font-semibold">{style.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Stage Button */}
+            <button
+              onClick={handleStaging}
+              disabled={!uploadedImage || isProcessing}
+              className={`w-full py-3 rounded-xl font-bold text-sm transition-all ${
+                uploadedImage && !isProcessing
+                  ? 'bg-purple-600 text-white hover:bg-purple-700 shadow-lg shadow-purple-600/20'
+                  : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+              }`}
+            >
+              {isProcessing ? (
+                <span className="flex items-center justify-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Staging...
+                </span>
+              ) : (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="material-symbols-outlined text-lg">auto_awesome</span>
+                  Stage Room
+                </span>
+              )}
+            </button>
+
+            {/* AI Model Selector */}
+            <div className="mt-6 p-4 bg-slate-50 rounded-xl">
+              <AIModelSelector category="staging" selected={selectedModel} onSelect={setSelectedModel} />
+            </div>
+
+            {/* Download Button */}
+            {stagedImage && (
+              <div className="mt-4 space-y-2">
+                <button
+                  onClick={handleDownload}
+                  className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <span className="material-symbols-outlined">download</span>
+                  Download Result
+                </button>
+                <button
+                  onClick={() => { setUploadedImage(null); setStagedImage(null); }}
+                  className="w-full py-2 bg-slate-100 text-slate-700 rounded-xl font-semibold text-sm hover:bg-slate-200 transition-colors"
+                >
+                  Upload New Photo
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Error Display */}
-        {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-red-800 font-medium">Error</p>
-              <p className="text-red-700 text-sm">{error}</p>
+        {/* Main Content Area */}
+        <div className="flex-1 bg-slate-100 flex items-center justify-center p-8">
+          {!uploadedImage ? (
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full max-w-4xl aspect-[4/3] bg-white rounded-2xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-purple-500 hover:bg-purple-50/50 transition-all"
+            >
+              <span className="material-symbols-outlined text-7xl text-slate-400">add_photo_alternate</span>
+              <div className="text-center">
+                <p className="font-semibold text-slate-700 text-lg">Upload your empty room photo</p>
+                <p className="text-sm text-slate-500 mt-1">Drag and drop or click to browse</p>
+                <p className="text-xs text-slate-400 mt-2">Supports JPG, PNG, WebP up to 10MB</p>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
             </div>
-          </div>
-        )}
-
-        {/* Upload Area */}
-        {!uploadedImage && (
-          <div
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all duration-200 ${
-              isDragging
-                ? 'border-purple-500 bg-purple-50 scale-[1.02]'
-                : 'border-gray-300 hover:border-purple-400 hover:bg-purple-50/50'
-            }`}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-            <div className="w-16 h-16 bg-purple-100 rounded-full mx-auto mb-4 flex items-center justify-center">
-              <Upload className="w-8 h-8 text-purple-600" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Upload your empty room photo</h3>
-            <p className="text-gray-500 mb-4">Drag and drop or click to browse</p>
-            <p className="text-sm text-gray-400">Supports JPG, PNG, WebP up to 10MB</p>
-          </div>
-        )}
-
-        {/* Staging Interface */}
-        {uploadedImage && (
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            {/* Options Sidebar */}
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sticky top-4">
-                {/* Room Type */}
-                <h3 className="font-semibold text-gray-900 mb-3">Room Type</h3>
-                <div className="space-y-2 mb-6">
-                  {roomTypes.map((room) => (
-                    <button
-                      key={room.id}
-                      onClick={() => setSelectedRoom(room.id)}
-                      disabled={isProcessing}
-                      className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
-                        selectedRoom === room.id
-                          ? 'bg-purple-50 border-2 border-purple-500 text-purple-700'
-                          : 'bg-gray-50 border-2 border-transparent text-gray-700 hover:bg-gray-100'
-                      } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      <div className="text-left font-medium">{room.name}</div>
-                      {selectedRoom === room.id && <Check className="w-5 h-5 text-purple-600 ml-auto" />}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Furniture Style */}
-                <h3 className="font-semibold text-gray-900 mb-3">Furniture Style</h3>
-                <div className="space-y-2 mb-6">
-                  {furnitureStyles.map((style) => (
-                    <button
-                      key={style.id}
-                      onClick={() => setSelectedStyle(style.id)}
-                      disabled={isProcessing}
-                      className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
-                        selectedStyle === style.id
-                          ? 'bg-purple-50 border-2 border-purple-500 text-purple-700'
-                          : 'bg-gray-50 border-2 border-transparent text-gray-700 hover:bg-gray-100'
-                      } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      <div className={selectedStyle === style.id ? 'text-purple-600' : 'text-gray-400'}>
-                        {style.icon}
-                      </div>
-                      <div className="font-medium">{style.name}</div>
-                      {selectedStyle === style.id && <Check className="w-5 h-5 text-purple-600 ml-auto" />}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Stage Button */}
-                <button
-                  onClick={handleStage}
-                  disabled={isProcessing}
-                  className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
-                    isProcessing
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-purple-600 text-white hover:bg-purple-700'
-                  }`}
-                >
-                  {isProcessing ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Staging...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-5 h-5" />
-                      Stage Room
-                    </>
-                  )}
-                </button>
-
-                {/* Progress Bar */}
-                {isProcessing && (
-                  <div className="mt-4">
-                    <div className="flex justify-between text-sm text-gray-600 mb-1">
-                      <span>Processing</span>
-                      <span>{Math.round(progress)}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-purple-600 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                {stagedImage && !isProcessing && (
-                  <div className="mt-4 space-y-2">
-                    <button
-                      onClick={handleDownload}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                      <Download className="w-4 h-4" />
-                      Download Result
-                    </button>
-                    <button
-                      onClick={resetUpload}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      Upload New Photo
-                    </button>
-                  </div>
-                )}
+          ) : stagedImage ? (
+            <div className="w-full max-w-4xl">
+              <ImageCompareSlider beforeSrc={uploadedImage} afterSrc={stagedImage} />
+              <div className="mt-6 bg-purple-50 rounded-xl p-4 border border-purple-200">
+                <p className="text-sm text-purple-800">
+                  <strong>Result:</strong> {stagingRooms.find(r => r.id === selectedRoom)?.label} with{' '}
+                  <strong>{furnitureStyles.find(s => s.id === selectedStyle)?.label}</strong> style.
+                  Drag the slider to compare before and after.
+                </p>
               </div>
             </div>
-
-            {/* Image Comparison */}
-            <div className="lg:col-span-3">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                {!stagedImage ? (
-                  <div className="relative">
-                    <img
-                      src={uploadedImage}
-                      alt="Uploaded room"
-                      className="w-full h-auto rounded-lg"
-                    />
-                    <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg text-sm font-medium">
-                      Original (Empty Room)
+          ) : (
+            <div className="relative w-full max-w-4xl">
+              <img src={uploadedImage} alt="Uploaded" className="w-full rounded-2xl shadow-2xl" />
+              {isProcessing && (
+                <div className="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center">
+                  <div className="bg-white px-8 py-6 rounded-xl shadow-lg flex items-center gap-4">
+                    <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                    <div>
+                      <p className="font-semibold text-slate-700">Staging your room...</p>
+                      <p className="text-sm text-slate-500">This may take 30-60 seconds</p>
                     </div>
                   </div>
-                ) : (
-                  <div
-                    ref={sliderRef}
-                    className="relative overflow-hidden rounded-lg cursor-ew-resize select-none"
-                    onMouseDown={() => setIsSliderDragging(true)}
-                    onMouseUp={() => setIsSliderDragging(false)}
-                    onMouseLeave={() => setIsSliderDragging(false)}
-                    onMouseMove={handleSliderMove}
-                    onTouchStart={() => setIsSliderDragging(true)}
-                    onTouchEnd={() => setIsSliderDragging(false)}
-                    onTouchMove={handleSliderMove}
-                  >
-                    {/* Staged Image */}
-                    <div className="relative">
-                      <img src={stagedImage} alt="Staged room" className="w-full h-auto" />
-                      <div className="absolute top-4 right-4 bg-purple-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1.5">
-                        <Sparkles className="w-4 h-4" />
-                        Virtually Staged
-                      </div>
-                    </div>
-
-                    {/* Original Image */}
-                    <div
-                      className="absolute inset-0 overflow-hidden"
-                      style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
-                    >
-                      <img src={uploadedImage} alt="Original room" className="w-full h-auto" />
-                      <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg text-sm font-medium">
-                        Original (Empty)
-                      </div>
-                    </div>
-
-                    {/* Slider Handle */}
-                    <div
-                      className="absolute top-0 bottom-0 w-1 bg-white shadow-lg"
-                      style={{ left: `${sliderPosition}%`, transform: 'translateX(-50%)' }}
-                    >
-                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center">
-                        <div className="flex gap-0.5">
-                          <div className="w-0.5 h-4 bg-gray-400 rounded-full" />
-                          <div className="w-0.5 h-4 bg-gray-400 rounded-full" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {stagedImage && (
-                  <div className="mt-4 bg-purple-50 rounded-lg p-4">
-                    <p className="text-sm text-purple-700">
-                      <strong>Tip:</strong> Drag the slider to compare before and after. 
-                      Your selected style: <strong>{furnitureStyles.find(s => s.id === selectedStyle)?.name}</strong> for{' '}
-                      <strong>{roomTypes.find(r => r.id === selectedRoom)?.name}</strong>.
-                    </p>
-                  </div>
-                )}
+                </div>
+              )}
+              {error && (
+                <div className="absolute top-4 left-4 right-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex justify-between items-center">
+                  {error}
+                  <button onClick={() => setError(null)} className="font-bold text-lg">×</button>
+                </div>
+              )}
+              <button
+                onClick={() => setUploadedImage(null)}
+                className="absolute top-4 right-4 bg-white/90 backdrop-blur p-2 rounded-full shadow-lg hover:bg-white"
+              >
+                <span className="material-symbols-outlined text-slate-600">close</span>
+              </button>
+              <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur px-4 py-2 rounded-lg shadow">
+                <p className="text-sm text-slate-700 font-semibold">
+                  {stagingRooms.find(r => r.id === selectedRoom)?.label} • {furnitureStyles.find(s => s.id === selectedStyle)?.label}
+                </p>
               </div>
             </div>
-          </div>
-        )}
-      </main>
-    </div>
+          )}
+        </div>
+      </div>
+    </AppLayout>
   );
 }
