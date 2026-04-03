@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Stage, Layer, Line, Rect, Text, Group } from 'react-konva';
 import WallEditor from './WallEditor';
 import RoomEditor from './RoomEditor';
@@ -85,6 +85,8 @@ export default function FloorPlanCanvas2D({
 }: FloorPlanCanvas2DProps) {
   // Tool is now passed as prop
   const activeTool = tool ?? 'select';
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDrawing, setIsDrawing] = useState(false);
@@ -93,6 +95,18 @@ export default function FloorPlanCanvas2D({
   const [selectedType, setSelectedType] = useState<'wall' | 'room' | 'door' | 'window' | null>(null);
   
   const stageRef = useRef<any>(null);
+
+// Resize observer for responsive canvas
+useEffect(() => {
+  if (!containerRef.current) return;
+  const resizeObserver = new ResizeObserver((entries) => {
+    const { width, height } = entries[0].contentRect;
+    setDimensions({ width: width || 800, height: height || 600 });
+  });
+  resizeObserver.observe(containerRef.current);
+  return () => resizeObserver.disconnect();
+}, []);
+
 
   // Snap to grid
   const snapToGrid = useCallback((value: number): number => {
