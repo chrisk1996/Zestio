@@ -84,11 +84,10 @@ export async function POST(request: NextRequest) {
       modelName,
       {
         input: {
-          image: image,
+          control_image: image,
           prompt: prompt,
-          negative_prompt: negativePrompt,
-          num_inference_steps: 30,
-          guidance_scale: 7.5,
+          num_inference_steps: 28,
+          guidance_scale: 3.5,
         },
       }
     );
