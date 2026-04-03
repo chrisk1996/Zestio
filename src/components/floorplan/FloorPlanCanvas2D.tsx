@@ -51,6 +51,8 @@ interface FloorPlanCanvas2DProps {
   windows?: WindowData[];
   onWallsChange?: (walls: WallSegment[]) => void;
   onRoomsChange?: (rooms: RoomPolygon[]) => void;
+  onDoorsChange?: (doors: DoorData[]) => void;
+  onWindowsChange?: (windows: WindowData[]) => void;
   onSelectionChange?: (id: string | null, type: 'wall' | 'room' | 'door' | 'window' | null) => void;
 }
 
@@ -77,6 +79,8 @@ export default function FloorPlanCanvas2D({
   windows = [],
   onWallsChange,
   onRoomsChange,
+  onDoorsChange,
+  onWindowsChange,
   onSelectionChange,
 }: FloorPlanCanvas2DProps) {
   // Tool is now passed as prop
