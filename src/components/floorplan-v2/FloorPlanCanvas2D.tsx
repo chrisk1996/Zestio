@@ -27,6 +27,7 @@ export function FloorPlanCanvas2D() {
   } = useFloorPlanStore();
 
   const dimensionsRef = useRef({ width: 800, height: 600 });
+  const [, forceUpdate] = useState({});
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null);
   const [drawEnd, setDrawEnd] = useState<{ x: number; y: number } | null>(null);
@@ -37,6 +38,7 @@ export function FloorPlanCanvas2D() {
     const observer = new ResizeObserver((entries) => {
       const { width, height } = entries[0].contentRect;
       dimensionsRef.current = { width: width || 800, height: height || 600 };
+      forceUpdate({});
     });
     observer.observe(containerRef.current);
     return () => observer.disconnect();
