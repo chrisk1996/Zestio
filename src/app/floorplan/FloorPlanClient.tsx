@@ -11,7 +11,6 @@ import FloorPlanCanvas2D, {
 import ToolPalette from "@/components/floorplan/ToolPalette";
 import PropertiesPanel from "@/components/floorplan/PropertiesPanel";
 import KeyboardShortcutsHelp from "@/components/floorplan/KeyboardShortcutsHelp";
-import QuickActions from "@/components/floorplan/QuickActions";
 import FirstTimeUserTutorial, {
   useTutorialState,
 } from "@/components/floorplan/FirstTimeUserTutorial";
@@ -296,50 +295,106 @@ export default function FloorPlanPage() {
 
         {/* Center: Canvas + Furniture Library */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* View mode tabs */}
-          <div
-            className="flex border-b border-slate-200 bg-white"
-            data-tutorial="views"
-          >
+          {/* Unified top toolbar: View modes + Actions + Upload */}
+          <div className="flex items-center border-b border-slate-200 bg-white px-2 py-2 gap-1" data-tutorial="views">
+            {/* View mode buttons */}
+            <div className="flex rounded-lg overflow-hidden border border-slate-200">
+              <button
+                onClick={() => setViewMode("2d")}
+                className={`px-4 py-2 text-sm font-semibold transition-all ${
+                  viewMode === "2d"
+                    ? "bg-blue-600 text-white"
+                    : "bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                2D
+              </button>
+              <button
+                onClick={() => setViewMode("3d")}
+                className={`px-4 py-2 text-sm font-semibold transition-all border-l border-slate-200 ${
+                  viewMode === "3d"
+                    ? "bg-blue-600 text-white"
+                    : "bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                3D
+              </button>
+              <button
+                onClick={() => setViewMode("split")}
+                className={`px-4 py-2 text-sm font-semibold transition-all border-l border-slate-200 ${
+                  viewMode === "split"
+                    ? "bg-blue-600 text-white"
+                    : "bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                Split
+              </button>
+            </div>
+
+            {/* Divider */}
+            <div className="w-px h-6 bg-slate-200 mx-2" />
+
+            {/* Action buttons */}
             <button
-              onClick={() => setViewMode("2d")}
-              className={`px-6 py-3 text-sm font-semibold transition-all ${
-                viewMode === "2d"
-                  ? "bg-blue-600 text-white"
-                  : "text-slate-600 hover:bg-slate-50"
+              onClick={handleUndo}
+              disabled={!canUndo}
+              className={`px-3 py-2 text-sm rounded-lg transition-all ${
+                canUndo
+                  ? "text-slate-600 hover:bg-slate-100"
+                  : "text-slate-300 cursor-not-allowed"
               }`}
+              title="Undo (⌘Z)"
             >
-              2D Editor
+              <span className="material-symbols-outlined text-lg">undo</span>
             </button>
             <button
-              onClick={() => setViewMode("3d")}
-              className={`px-6 py-3 text-sm font-semibold transition-all ${
-                viewMode === "3d"
-                  ? "bg-blue-600 text-white"
-                  : "text-slate-600 hover:bg-slate-50"
+              onClick={handleRedo}
+              disabled={!canRedo}
+              className={`px-3 py-2 text-sm rounded-lg transition-all ${
+                canRedo
+                  ? "text-slate-600 hover:bg-slate-100"
+                  : "text-slate-300 cursor-not-allowed"
               }`}
+              title="Redo (⌘Y)"
             >
-              3D View
+              <span className="material-symbols-outlined text-lg">redo</span>
+            </button>
+
+            {/* Divider */}
+            <div className="w-px h-6 bg-slate-200 mx-2" />
+
+            <button
+              onClick={handleSave}
+              className="px-3 py-2 text-sm rounded-lg text-slate-600 hover:bg-slate-100 transition-all"
+              title="Save (⌘S)"
+            >
+              <span className="material-symbols-outlined text-lg">save</span>
             </button>
             <button
-              onClick={() => setViewMode("split")}
-              className={`px-6 py-3 text-sm font-semibold transition-all ${
-                viewMode === "split"
-                  ? "bg-blue-600 text-white"
-                  : "text-slate-600 hover:bg-slate-50"
-              }`}
+              onClick={() => setShowExportModal(true)}
+              className="px-3 py-2 text-sm rounded-lg text-slate-600 hover:bg-slate-100 transition-all"
+              title="Export (⌘E)"
             >
-              Split
+              <span className="material-symbols-outlined text-lg">download</span>
             </button>
+            <button
+              onClick={handleNew}
+              className="px-3 py-2 text-sm rounded-lg text-slate-600 hover:bg-slate-100 transition-all"
+              title="New Project"
+            >
+              <span className="material-symbols-outlined text-lg">add</span>
+            </button>
+
+            {/* Spacer */}
             <div className="flex-1" />
+
+            {/* Upload button */}
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="px-4 py-2 m-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700"
+              className="flex items-center gap-1 px-3 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 transition-all"
             >
-              <span className="material-symbols-outlined text-sm mr-1">
-                upload
-              </span>
-              Upload
+              <span className="material-symbols-outlined text-lg">upload</span>
+              <span className="hidden sm:inline">Upload</span>
             </button>
             <input
               ref={fileInputRef}
