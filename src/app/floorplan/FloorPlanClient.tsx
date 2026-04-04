@@ -462,10 +462,10 @@ export default function FloorPlanPage() {
                   floorPlanData={{
                     rooms: rooms.map((r) => ({
                       name: r.name,
-                      x: r.points[0] / 20,
-                      y: r.points[1] / 20,
-                      width: (r.points[4] - r.points[0]) / 20,
-                      height: (r.points[5] - r.points[1]) / 20,
+                      x: Math.min(...r.points.filter((_, i) => i % 2 === 0)) / 20,
+                      y: Math.min(...r.points.filter((_, i) => i % 2 === 1)) / 20,
+                      width: (Math.max(...r.points.filter((_, i) => i % 2 === 0)) - Math.min(...r.points.filter((_, i) => i % 2 === 0))) / 20,
+                      height: (Math.max(...r.points.filter((_, i) => i % 2 === 1)) - Math.min(...r.points.filter((_, i) => i % 2 === 1))) / 20,
                       type: r.type,
                     })),
                     walls: walls.map((w) => ({
@@ -603,9 +603,8 @@ export default function FloorPlanPage() {
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10">
-      </div>
+      
+      
 
       {/* Processing overlay */}
       {isProcessing && (
