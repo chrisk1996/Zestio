@@ -24,9 +24,11 @@ const TOOLS: ToolConfig[] = [
 interface ToolPaletteProps {
   activeTool: Tool;
   onToolChange: (tool: Tool) => void;
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
 }
 
-export default function ToolPalette({ activeTool, onToolChange }: ToolPaletteProps) {
+export default function ToolPalette({ activeTool, onToolChange, onZoomIn, onZoomOut }: ToolPaletteProps) {
   // Handle keyboard shortcuts
   useState(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -64,14 +66,14 @@ export default function ToolPalette({ activeTool, onToolChange }: ToolPalettePro
       
       {/* Zoom controls */}
       <button
-        onClick={() => {/* zoom in */}}
+        onClick={onZoomIn}
         className="w-12 h-12 rounded-lg flex items-center justify-center bg-slate-50 text-slate-600 hover:bg-slate-100"
         title="Zoom In"
       >
         <span className="material-symbols-outlined">zoom_in</span>
       </button>
       <button
-        onClick={() => {/* zoom out */}}
+        onClick={onZoomOut}
         className="w-12 h-12 rounded-lg flex items-center justify-center bg-slate-50 text-slate-600 hover:bg-slate-100"
         title="Zoom Out"
       >

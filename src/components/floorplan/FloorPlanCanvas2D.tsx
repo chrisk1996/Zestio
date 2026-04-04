@@ -52,6 +52,8 @@ interface FloorPlanCanvas2DProps {
   windows?: WindowData[];
   furniture?: PlacedFurniture2D[];
   selectedFurnitureId?: string | null;
+  scale?: number;
+  onScaleChange?: (scale: number) => void;
   onWallsChange?: (walls: WallSegment[]) => void;
   onRoomsChange?: (rooms: RoomPolygon[]) => void;
   onDoorsChange?: (doors: DoorData[]) => void;

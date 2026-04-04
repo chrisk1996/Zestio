@@ -287,14 +287,14 @@ export default function FloorPlanPage() {
       />
 
       {/* Main layout: Tools | Canvas Area + Furniture Bar | Properties */}
-      <div className="flex h-[calc(100vh-5rem)]">
+      <div className="flex h-[calc(100vh-5rem)] overflow-hidden">
         {/* Tool Palette (left sidebar) */}
         <div data-tutorial="tools">
-          <ToolPalette activeTool={tool} onToolChange={setTool} />
+          <ToolPalette activeTool={tool} onToolChange={setTool} onZoomIn={() => {/* TODO: implement zoom */}} onZoomOut={() => {/* TODO: implement zoom */}} />
         </div>
 
         {/* Center: Canvas + Furniture Library */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Unified top toolbar: View modes + Actions + Upload */}
           <div
             className="flex items-center border-b border-slate-200 bg-white px-2 py-2 gap-1"
