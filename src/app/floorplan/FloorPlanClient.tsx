@@ -294,7 +294,7 @@ export default function FloorPlanPage() {
         </div>
 
         {/* Center: Canvas + Furniture Library */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0">
           {/* Unified top toolbar: View modes + Actions + Upload */}
           <div
             className="flex items-center border-b border-slate-200 bg-white px-2 py-2 gap-1"
@@ -419,7 +419,7 @@ export default function FloorPlanPage() {
             {(viewMode === "2d" || viewMode === "split") && (
               <div
                 ref={canvasContainerRef}
-                className={`relative ${viewMode === "split" ? "w-1/2" : "flex-1"}`}
+                className={`relative h-full ${viewMode === "split" ? "w-1/2" : "flex-1"}`}
               >
                 <FloorPlanCanvas2D
                   tool={tool}
