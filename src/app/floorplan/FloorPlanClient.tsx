@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useCallback, useRef, useEffect } from "react";
 import { AppLayout } from "@/components/layout";
 import FloorPlanCanvas2D, {
@@ -52,7 +51,6 @@ export default function FloorPlanPage() {
     canUndo: canUndoWalls,
     canRedo: canRedoWalls,
   } = useUndoRedo<WallSegment[]>([]);
-
   const {
     state: rooms,
     set: setRooms,
@@ -61,7 +59,6 @@ export default function FloorPlanPage() {
     canUndo: canUndoRooms,
     canRedo: canRedoRooms,
   } = useUndoRedo<RoomPolygon[]>([]);
-
   const [doors, setDoors] = useState<DoorData[]>([]);
   const [windows, setWindows] = useState<WindowData[]>([]);
   const [tool, setTool] = useState<Tool>("select");
@@ -121,13 +118,12 @@ export default function FloorPlanPage() {
   }, [redoWalls, redoRooms, redoFurniture]);
 
   const canUndo = canUndoWalls || canUndoRooms || canUndoFurniture;
-  const canRedo = canRedoWalls || canRedoRooms || canRedoFurniture;
+  const canRedo = canRedoWalls || canRedoWalls || canRedoFurniture;
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
-
       if (e.key === "Delete" || e.key === "Backspace") {
         if (selectedType === "furniture" && selectedFurnitureId) {
           deleteFurniture(selectedFurnitureId);
@@ -142,7 +138,6 @@ export default function FloorPlanPage() {
           setSelectedType(null);
         }
       }
-
       if (e.key === "v" || e.key === "V") setTool("select");
       if (e.key === "w" || e.key === "W") setTool("wall");
       if (e.key === "r" || e.key === "R") {
@@ -155,7 +150,6 @@ export default function FloorPlanPage() {
       if (e.key === "d" || e.key === "D") setTool("door");
       if (e.key === "h" || e.key === "H") setTool("pan");
       if (e.key === "f" || e.key === "F") setTool("furniture");
-
       if ((e.ctrlKey || e.metaKey) && e.key === "z") {
         e.preventDefault();
         handleUndo();
@@ -169,7 +163,6 @@ export default function FloorPlanPage() {
         setShowExportModal(true);
       }
     };
-
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
@@ -192,7 +185,6 @@ export default function FloorPlanPage() {
     end: [number, number];
     type: "exterior" | "interior";
   }
-
   interface RoomAPIResponse {
     name: string;
     type: string;
@@ -201,7 +193,6 @@ export default function FloorPlanPage() {
     width: number;
     height: number;
   }
-
   interface FloorPlanAPIResponse {
     walls?: WallAPIResponse[];
     rooms?: RoomAPIResponse[];
@@ -211,9 +202,7 @@ export default function FloorPlanPage() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setIsProcessing(true);
-
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
@@ -225,9 +214,7 @@ export default function FloorPlanPage() {
             fileType: file.type,
           }),
         });
-
         const data: FloorPlanAPIResponse = await response.json();
-
         if (data.walls) {
           setWalls(
             data.walls.map((w, i) => ({
@@ -241,7 +228,6 @@ export default function FloorPlanPage() {
             })),
           );
         }
-
         if (data.rooms) {
           setRooms(
             data.rooms.map((r, i) => ({
@@ -267,7 +253,6 @@ export default function FloorPlanPage() {
         setIsProcessing(false);
       }
     };
-
     reader.readAsDataURL(file);
   };
 
@@ -302,12 +287,16 @@ export default function FloorPlanPage() {
         forceShow={showTutorial}
       />
 
+      {/* Main layout: Tools | Canvas Area + Furniture Bar | Properties */}
       <div className="flex h-[calc(100vh-5rem)]">
+        {/* Tool Palette (left sidebar) */}
         <div data-tutorial="tools">
           <ToolPalette activeTool={tool} onToolChange={setTool} />
         </div>
 
-        <div className="flex-1 flex flex-col">
+        {/* Center: Canvas + Furniture Library */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* View mode tabs */}
           <div
             className="flex border-b border-slate-200 bg-white"
             data-tutorial="views"
@@ -361,13 +350,16 @@ export default function FloorPlanPage() {
             />
           </div>
 
+          {/* Canvas area - takes remaining height */}
           <div
-            className={`flex-1 flex ${viewMode === "split" ? "divide-x divide-slate-200" : ""}`}
+            className={`flex-1 flex min-h-0 ${
+              viewMode === "split" ? "divide-x divide-slate-200" : ""
+            }`}
           >
             {(viewMode === "2d" || viewMode === "split") && (
               <div
                 ref={canvasContainerRef}
-                className={viewMode === "split" ? "w-1/2" : "flex-1"}
+                className={`relative ${viewMode === "split" ? "w-1/2" : "flex-1"}`}
               >
                 <FloorPlanCanvas2D
                   tool={tool}
@@ -404,7 +396,6 @@ export default function FloorPlanPage() {
                 />
               </div>
             )}
-
             {(viewMode === "3d" || viewMode === "split") && (
               <div className={viewMode === "split" ? "w-1/2" : "flex-1"}>
                 <FloorPlan3DViewer
@@ -461,56 +452,51 @@ export default function FloorPlanPage() {
             )}
           </div>
 
-          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10">
-            <QuickActions
-              actions={[
-                {
-                  id: "undo",
-                  icon: "undo",
-                  label: "Undo",
-                  shortcut: "⌘Z",
-                  onClick: handleUndo,
-                  disabled: !canUndo,
-                },
-                {
-                  id: "redo",
-                  icon: "redo",
-                  label: "Redo",
-                  shortcut: "⌘Y",
-                  onClick: handleRedo,
-                  disabled: !canRedo,
-                },
-                {
-                  id: "export",
-                  icon: "download",
-                  label: "Export",
-                  shortcut: "⌘E",
-                  onClick: () => setShowExportModal(true),
-                },
-                {
-                  id: "save",
-                  icon: "save",
-                  label: "Save",
-                  shortcut: "⌘S",
-                  onClick: handleSave,
-                  variant: "primary",
-                },
-                { id: "new", icon: "add", label: "New", onClick: handleNew },
-              ]}
-              position="top"
-            />
-          </div>
-
-          {isProcessing && (
-            <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20">
-              <div className="bg-white px-8 py-6 rounded-2xl shadow-2xl flex items-center gap-4">
-                <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                <span className="font-semibold">Analyzing floor plan...</span>
-              </div>
+          {/* Bottom Furniture Library - INSIDE the flex-col container */}
+          <div
+            className="h-32 border-t border-slate-200 bg-white p-4 flex-shrink-0"
+            data-tutorial="furniture"
+          >
+            <div className="flex items-center gap-4 h-full">
+              <FurnitureLibrary
+                selectedFurniture={
+                  selectedFurnitureItem
+                    ? {
+                        id: selectedFurnitureItem.id,
+                        name: selectedFurnitureItem.name,
+                        category: selectedFurnitureItem.category,
+                        dimensions: {
+                          width: selectedFurnitureItem.width,
+                          height: 1,
+                          depth: selectedFurnitureItem.height,
+                        },
+                        color: selectedFurnitureItem.color,
+                        icon: selectedFurnitureItem.id,
+                      }
+                    : null
+                }
+                onSelectFurniture={(item) => {
+                  if (item) {
+                    setSelectedFurnitureItem({
+                      id: item.id,
+                      name: item.name,
+                      category: item.category,
+                      width: item.dimensions.width,
+                      height: item.dimensions.depth,
+                      color: item.color,
+                    });
+                    setTool("furniture");
+                  } else {
+                    setSelectedFurnitureItem(null);
+                  }
+                }}
+                compact
+              />
             </div>
-          )}
+          </div>
         </div>
 
+        {/* Properties Panel (right sidebar) */}
         <div data-tutorial="properties">
           <PropertiesPanel
             selectedId={selectedId}
@@ -557,49 +543,58 @@ export default function FloorPlanPage() {
         </div>
       </div>
 
-      {/* Bottom Furniture Library */}
-      <div
-        className="h-32 border-t border-slate-200 bg-white p-4"
-        data-tutorial="furniture"
-      >
-        <div className="flex items-center gap-4 h-full">
-          <FurnitureLibrary
-            selectedFurniture={
-              selectedFurnitureItem
-                ? {
-                    id: selectedFurnitureItem.id,
-                    name: selectedFurnitureItem.name,
-                    category: selectedFurnitureItem.category,
-                    dimensions: {
-                      width: selectedFurnitureItem.width,
-                      height: 1,
-                      depth: selectedFurnitureItem.height,
-                    },
-                    color: selectedFurnitureItem.color,
-                    icon: selectedFurnitureItem.id,
-                  }
-                : null
-            }
-            onSelectFurniture={(item) => {
-              if (item) {
-                setSelectedFurnitureItem({
-                  id: item.id,
-                  name: item.name,
-                  category: item.category,
-                  width: item.dimensions.width,
-                  height: item.dimensions.depth,
-                  color: item.color,
-                });
-                setTool("furniture");
-              } else {
-                setSelectedFurnitureItem(null);
-              }
-            }}
-            compact
-          />
-        </div>
+      {/* Quick Actions */}
+      <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10">
+        <QuickActions
+          actions={[
+            {
+              id: "undo",
+              icon: "undo",
+              label: "Undo",
+              shortcut: "⌘Z",
+              onClick: handleUndo,
+              disabled: !canUndo,
+            },
+            {
+              id: "redo",
+              icon: "redo",
+              label: "Redo",
+              shortcut: "⌘Y",
+              onClick: handleRedo,
+              disabled: !canRedo,
+            },
+            {
+              id: "export",
+              icon: "download",
+              label: "Export",
+              shortcut: "⌘E",
+              onClick: () => setShowExportModal(true),
+            },
+            {
+              id: "save",
+              icon: "save",
+              label: "Save",
+              shortcut: "⌘S",
+              onClick: handleSave,
+              variant: "primary",
+            },
+            { id: "new", icon: "add", label: "New", onClick: handleNew },
+          ]}
+          position="top"
+        />
       </div>
 
+      {/* Processing overlay */}
+      {isProcessing && (
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20">
+          <div className="bg-white px-8 py-6 rounded-2xl shadow-2xl flex items-center gap-4">
+            <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <span className="font-semibold">Analyzing floor plan...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Keyboard shortcuts help */}
       <div data-tutorial="shortcuts">
         <KeyboardShortcutsHelp />
       </div>
