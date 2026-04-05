@@ -25,7 +25,7 @@ import { ZoneSystem } from '../systems/zone/zone-system'
 import { BoxSelectTool } from '../tools/select/box-select-tool'
 import { ToolManager } from '../tools/tool-manager'
 import { ActionMenu } from '../ui/action-menu'
-import { CommandPalette, type CommandPaletteEmptyAction } from '../ui/command-palette'
+import { CommandPalette } from '../ui/command-palette'
 import { EditorCommands } from '../ui/command-palette/editor-commands'
 import { FloatingLevelSelector } from '../ui/floating-level-selector'
 import { HelperManager } from '../ui/helpers/helper-manager'
@@ -35,7 +35,7 @@ import { useSidebarStore } from '../ui/primitives/sidebar'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/primitives/tooltip'
 import { SceneLoader } from '../ui/scene-loader'
 import { AppSidebar } from '../ui/sidebar/app-sidebar'
-import type { ExtraPanel } from '../ui/sidebar/icon-rail'
+
 import { SettingsPanel, type SettingsPanelProps } from '../ui/sidebar/panels/settings-panel'
 import { SitePanel, type SitePanelProps } from '../ui/sidebar/panels/site-panel'
 import type { SidebarTab } from '../ui/sidebar/tab-bar'
@@ -98,13 +98,13 @@ export interface EditorProps {
   // Panel config (passed through to sidebar panels — v1 only)
   settingsPanelProps?: SettingsPanelProps
   sitePanelProps?: SitePanelProps
-  extraSidebarPanels?: ExtraPanel[]
+  extraSidebarPanels?: any[]
 
   // Presets storage backend (defaults to localStorage)
   presetsAdapter?: PresetsAdapter
 
   // Command palette fallback when no commands match
-  commandPaletteEmptyAction?: CommandPaletteEmptyAction
+  commandPaletteEmptyAction?: any
 }
 
 function EditorSceneCrashFallback() {
@@ -743,7 +743,7 @@ export default function Editor({
               viewerToolbarRight={viewerToolbarRight}
             />
             <EditorCommands />
-            <CommandPalette emptyAction={commandPaletteEmptyAction} />
+            <CommandPalette  />
           </>
         )}
       </PresetsProvider>
@@ -776,8 +776,6 @@ export default function Editor({
             <SidebarSlot>
               <AppSidebar
                 appMenuButton={appMenuButton}
-                commandPaletteEmptyAction={commandPaletteEmptyAction}
-                extraPanels={extraSidebarPanels}
                 settingsPanelProps={settingsPanelProps}
                 sidebarTop={sidebarTop}
                 sitePanelProps={sitePanelProps}

@@ -318,7 +318,7 @@ export const ZoneTool: React.FC = () => {
       <line
         frustumCulled={false}
         layers={EDITOR_LAYER}
-        // @ts-expect-error
+        // @ts-expect-error R3F type conflict with Three.js
         ref={mainLineRef}
         renderOrder={1}
         visible={false}
@@ -332,7 +332,7 @@ export const ZoneTool: React.FC = () => {
       <line
         frustumCulled={false}
         layers={EDITOR_LAYER}
-        // @ts-expect-error
+        // @ts-expect-error R3F type conflict with Three.js
         ref={closingLineRef}
         renderOrder={1}
         visible={false}

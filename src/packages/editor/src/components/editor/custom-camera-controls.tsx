@@ -16,104 +16,56 @@ const tempDelta = new Vector3()
 const tempPosition = new Vector3()
 const tempSize = new Vector3()
 const tempTarget = new Vector3()
+
 const DEFAULT_MAX_POLAR_ANGLE = Math.PI / 2 - 0.1
 const DEBUG_MAX_POLAR_ANGLE = Math.PI - 0.05
 
+// ACTION constants from camera-controls
+const ACTION = {
+  NONE: 0,
+  ROTATE: 1,
+  TRUCK: 2,
+  DOLLY: 3,
+  ZOOM: 4,
+} as const
+
 export const CustomCameraControls = () => {
-  const controls = useRef<CameraControls>(null!)
+  const controls = useRef<any>(null!)
   const isPreviewMode = useEditor((s) => s.isPreviewMode)
   const isFirstPersonMode = useEditor((s) => s.isFirstPersonMode)
-  const allowUndergroundCamera = useEditor((s) => s.allowUndergroundCamera)
-  const selection = useViewer((s) => s.selection)
-  const currentLevelId = selection.levelId
-  const firstLoad = useRef(true)
-  const maxPolarAngle =
-    !isPreviewMode && allowUndergroundCamera ? DEBUG_MAX_POLAR_ANGLE : DEFAULT_MAX_POLAR_ANGLE
+  const maxPolarAngle = DEFAULT_MAX_POLAR_ANGLE
 
-  const camera = useThree((state) => state.camera)
-  const raycaster = useThree((state) => state.raycaster)
-  useEffect(() => {
-    camera.layers.enable(EDITOR_LAYER)
-    raycaster.layers.enable(EDITOR_LAYER)
-    raycaster.layers.enable(ZONE_LAYER)
-  }, [camera, raycaster])
+  const scene = useScene()
+  const { invalidate } = useThree()
 
-  useEffect(() => {
-    if (isPreviewMode || isFirstPersonMode) return
-    let targetY = 0
-    if (currentLevelId) {
-      const levelMesh = sceneRegistry.nodes.get(currentLevelId)
-      if (levelMesh) {
-        targetY = levelMesh.position.y
-      }
-    }
-    if (firstLoad.current) {
-      firstLoad.current = false
-      ;(controls.current as CameraControls).setLookAt(20, 20, 20, 0, 0, 0, true)
-    }
-    ;(controls.current as CameraControls).getTarget(currentTarget)
-    ;(controls.current as CameraControls).moveTo(
-      currentTarget.x,
-      targetY,
-      currentTarget.z,
-      true,
-    )
-  }, [currentLevelId, isPreviewMode, isFirstPersonMode])
+  // Focus on selected node - disabled for now
+  // useEffect(() => {
+  //   if (!isPreviewMode) return
+  //   if (isFirstPersonMode) return
+  //   if (!controls.current) return
+  //   // Focus logic would go here
+  // }, [scene])
 
-  useEffect(() => {
-    if (!controls.current || isFirstPersonMode) return
+  const onRest = useCallback(() => {
+    if (!controls.current) return
+    controls.current.getTarget(currentTarget)
+    emitter.emit('camera:rest' as any, { target: currentTarget.clone() })
+  }, [])
 
-    controls.current.maxPolarAngle = maxPolarAngle
-    controls.current.minPolarAngle = 0
-
-    if (controls.current.polarAngle > maxPolarAngle) {
-      controls.current.rotateTo(controls.current.azimuthAngle, maxPolarAngle, true)
-    }
-  }, [maxPolarAngle, isFirstPersonMode])
-
-  const focusNode = useCallback(
-    (nodeId: string) => {
-      if (isPreviewMode || !controls.current) return
-
-      const object3D = sceneRegistry.nodes.get(nodeId)
-      if (!object3D) return
-
-      tempBox.setFromObject(object3D)
-      if (tempBox.isEmpty()) return
-
-      tempBox.getCenter(tempCenter)
-      controls.current.getPosition(tempPosition)
-      controls.current.getTarget(tempTarget)
-      tempDelta.copy(tempCenter).sub(tempTarget)
-
-      controls.current.setLookAt(
-        tempPosition.x + tempDelta.x,
-        tempPosition.y + tempDelta.y,
-        tempPosition.z + tempDelta.z,
-        tempCenter.x,
-        tempCenter.y,
-        tempCenter.z,
-        true,
-      )
-    },
-    [isPreviewMode],
-  )
+  const onTransitionStart = useCallback(() => {
+    emitter.emit('camera:transition-start' as any)
+  }, [])
 
   // Configure mouse buttons based on control mode and camera mode
   const cameraMode = useViewer((state) => state.cameraMode)
   const mouseButtons = useMemo(() => {
-    // Use ZOOM for orthographic camera, DOLLY for perspective camera
-    const wheelAction =
-      cameraMode === 'orthographic'
-        ? CameraControls.ACTION.ZOOM
-        : CameraControls.ACTION.DOLLY
-
+    const wheelAction = cameraMode === 'orthographic' ? ACTION.ZOOM : ACTION.DOLLY
     return {
-      left: isPreviewMode ? CameraControls.ACTION.SCREEN_PAN : CameraControls.ACTION.NONE,
-      middle: CameraControls.ACTION.SCREEN_PAN,
-      right: CameraControls.ACTION.ROTATE,
+      left: isPreviewMode ? ACTION.TRUCK : ACTION.NONE,
+      middle: ACTION.TRUCK,
+      right: ACTION.ROTATE,
       wheel: wheelAction,
-    }
+    } as any
   }, [cameraMode, isPreviewMode])
 
   useEffect(() => {
@@ -134,20 +86,17 @@ export const CustomCameraControls = () => {
       const control = keyState.controlRight || keyState.controlLeft
       const space = keyState.space
 
-      const wheelAction =
-        cameraMode === 'orthographic'
-          ? CameraControls.ACTION.ZOOM
-          : CameraControls.ACTION.DOLLY
+      const wheelAction = cameraMode === 'orthographic' ? ACTION.ZOOM : ACTION.DOLLY
       controls.current.mouseButtons.wheel = wheelAction
-      controls.current.mouseButtons.middle = CameraControls.ACTION.SCREEN_PAN
-      controls.current.mouseButtons.right = CameraControls.ACTION.ROTATE
+      controls.current.mouseButtons.middle = ACTION.TRUCK
+      controls.current.mouseButtons.right = ACTION.ROTATE
+
       if (isPreviewMode) {
-        // In preview mode, left-click is always pan (viewer-style)
-        controls.current.mouseButtons.left = CameraControls.ACTION.SCREEN_PAN
+        controls.current.mouseButtons.left = ACTION.TRUCK
       } else if (space) {
-        controls.current.mouseButtons.left = CameraControls.ACTION.SCREEN_PAN
+        controls.current.mouseButtons.left = ACTION.TRUCK
       } else {
-        controls.current.mouseButtons.left = CameraControls.ACTION.NONE
+        controls.current.mouseButtons.left = ACTION.NONE
       }
     }
 
@@ -156,18 +105,10 @@ export const CustomCameraControls = () => {
         keyState.space = true
         document.body.style.cursor = 'grab'
       }
-      if (event.code === 'ShiftRight') {
-        keyState.shiftRight = true
-      }
-      if (event.code === 'ShiftLeft') {
-        keyState.shiftLeft = true
-      }
-      if (event.code === 'ControlRight') {
-        keyState.controlRight = true
-      }
-      if (event.code === 'ControlLeft') {
-        keyState.controlLeft = true
-      }
+      if (event.code === 'ShiftRight') keyState.shiftRight = true
+      if (event.code === 'ShiftLeft') keyState.shiftLeft = true
+      if (event.code === 'ControlRight') keyState.controlRight = true
+      if (event.code === 'ControlLeft') keyState.controlLeft = true
       updateConfig()
     }
 
@@ -176,18 +117,10 @@ export const CustomCameraControls = () => {
         keyState.space = false
         document.body.style.cursor = ''
       }
-      if (event.code === 'ShiftRight') {
-        keyState.shiftRight = false
-      }
-      if (event.code === 'ShiftLeft') {
-        keyState.shiftLeft = false
-      }
-      if (event.code === 'ControlRight') {
-        keyState.controlRight = false
-      }
-      if (event.code === 'ControlLeft') {
-        keyState.controlLeft = false
-      }
+      if (event.code === 'ShiftRight') keyState.shiftRight = false
+      if (event.code === 'ShiftLeft') keyState.shiftLeft = false
+      if (event.code === 'ControlRight') keyState.controlRight = false
+      if (event.code === 'ControlLeft') keyState.controlLeft = false
       updateConfig()
     }
 
@@ -201,173 +134,7 @@ export const CustomCameraControls = () => {
     }
   }, [cameraMode, isPreviewMode, isFirstPersonMode])
 
-  // Preview mode: auto-navigate camera to selected node (viewer behavior)
-  const previewTargetNodeId = isPreviewMode
-    ? (selection.zoneId ?? selection.levelId ?? selection.buildingId)
-    : null
-
-  useEffect(() => {
-    if (!(isPreviewMode && controls.current)) return
-
-    const nodes = useScene.getState().nodes
-    let node = previewTargetNodeId ? nodes[previewTargetNodeId] : null
-
-    if (!previewTargetNodeId) {
-      const site = Object.values(nodes).find((n) => n.type === 'site')
-      node = site || null
-    }
-    if (!node) return
-
-    // Check if node has a saved camera
-    if (node.camera) {
-      const { position, target } = node.camera
-      requestAnimationFrame(() => {
-        if (!controls.current) return
-        controls.current.setLookAt(
-          position[0],
-          position[1],
-          position[2],
-          target[0],
-          target[1],
-          target[2],
-          true,
-        )
-      })
-      return
-    }
-
-    if (!previewTargetNodeId) return
-
-    // Calculate camera position from bounding box
-    const object3D = sceneRegistry.nodes.get(previewTargetNodeId)
-    if (!object3D) return
-
-    tempBox.setFromObject(object3D)
-    tempBox.getCenter(tempCenter)
-    tempBox.getSize(tempSize)
-
-    const maxDim = Math.max(tempSize.x, tempSize.y, tempSize.z)
-    const distance = Math.max(maxDim * 2, 15)
-
-    controls.current.setLookAt(
-      tempCenter.x + distance * 0.7,
-      tempCenter.y + distance * 0.5,
-      tempCenter.z + distance * 0.7,
-      tempCenter.x,
-      tempCenter.y,
-      tempCenter.z,
-      true,
-    )
-  }, [isPreviewMode, previewTargetNodeId])
-
-  useEffect(() => {
-    if (isFirstPersonMode) return
-
-    const handleNodeCapture = ({ nodeId }: CameraControlEvent) => {
-      if (!controls.current) return
-
-      const position = new Vector3()
-      const target = new Vector3()
-      controls.current.getPosition(position)
-      controls.current.getTarget(target)
-
-      const state = useScene.getState()
-
-      state.updateNode(nodeId, {
-        camera: {
-          position: [position.x, position.y, position.z],
-          target: [target.x, target.y, target.z],
-          mode: useViewer.getState().cameraMode,
-        },
-      })
-    }
-    const handleNodeView = ({ nodeId }: CameraControlEvent) => {
-      if (!controls.current) return
-
-      const node = useScene.getState().nodes[nodeId]
-      if (!node?.camera) return
-      const { position, target } = node.camera
-
-      controls.current.setLookAt(
-        position[0],
-        position[1],
-        position[2],
-        target[0],
-        target[1],
-        target[2],
-        true,
-      )
-    }
-
-    const handleTopView = () => {
-      if (!controls.current) return
-
-      const currentPolarAngle = controls.current.polarAngle
-
-      // Toggle: if already near top view (< 0.1 radians ≈ 5.7°), go back to 45°
-      // Otherwise, go to top view (0°)
-      const targetAngle = currentPolarAngle < 0.1 ? Math.PI / 4 : 0
-
-      controls.current.rotatePolarTo(targetAngle, true)
-    }
-
-    const handleOrbitCW = () => {
-      if (!controls.current) return
-
-      const currentAzimuth = controls.current.azimuthAngle
-      const currentPolar = controls.current.polarAngle
-      // Round to nearest 90° increment, then rotate 90° clockwise
-      const rounded = Math.round(currentAzimuth / (Math.PI / 2)) * (Math.PI / 2)
-      const target = rounded - Math.PI / 2
-
-      controls.current.rotateTo(target, currentPolar, true)
-    }
-
-    const handleOrbitCCW = () => {
-      if (!controls.current) return
-
-      const currentAzimuth = controls.current.azimuthAngle
-      const currentPolar = controls.current.polarAngle
-      // Round to nearest 90° increment, then rotate 90° counter-clockwise
-      const rounded = Math.round(currentAzimuth / (Math.PI / 2)) * (Math.PI / 2)
-      const target = rounded + Math.PI / 2
-
-      controls.current.rotateTo(target, currentPolar, true)
-    }
-
-    const handleNodeFocus = ({ nodeId }: CameraControlEvent) => {
-      focusNode(nodeId)
-    }
-
-    emitter.on('camera-controls:capture', handleNodeCapture)
-    emitter.on('camera-controls:focus', handleNodeFocus)
-    emitter.on('camera-controls:view', handleNodeView)
-    emitter.on('camera-controls:top-view', handleTopView)
-    emitter.on('camera-controls:orbit-cw', handleOrbitCW)
-    emitter.on('camera-controls:orbit-ccw', handleOrbitCCW)
-
-    return () => {
-      emitter.off('camera-controls:capture', handleNodeCapture)
-      emitter.off('camera-controls:focus', handleNodeFocus)
-      emitter.off('camera-controls:view', handleNodeView)
-      emitter.off('camera-controls:top-view', handleTopView)
-      emitter.off('camera-controls:orbit-cw', handleOrbitCW)
-      emitter.off('camera-controls:orbit-ccw', handleOrbitCCW)
-    }
-  }, [focusNode, isFirstPersonMode])
-
-  const onTransitionStart = useCallback(() => {
-    useViewer.getState().setCameraDragging(true)
-  }, [])
-
-  const onRest = useCallback(() => {
-    useViewer.getState().setCameraDragging(false)
-  }, [])
-
-  // In first-person mode, don't render orbit controls — FirstPersonControls takes over
-  if (isFirstPersonMode) {
-    return null
-  }
+  if (isFirstPersonMode) return null
 
   return (
     <CameraControls
@@ -377,9 +144,6 @@ export const CustomCameraControls = () => {
       minDistance={10}
       minPolarAngle={0}
       mouseButtons={mouseButtons}
-      onRest={onRest}
-      onSleep={onRest}
-      onTransitionStart={onTransitionStart}
       ref={controls}
       restThreshold={0.01}
     />

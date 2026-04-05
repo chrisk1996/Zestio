@@ -57,6 +57,7 @@ function AnimatedBackground({ isDark }: { isDark: boolean }) {
 }
 
 declare module '@react-three/fiber' {
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   interface ThreeElements extends ThreeToJSXElements<typeof THREE> {}
 }
 

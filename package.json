@@ -32,6 +32,7 @@
     "@types/three": "^0.183.1",
     "@visual-json/react": "^0.3.1",
     "bullmq": "^5.71.1",
+    "camera-controls": "^3.1.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -60,6 +61,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@types/howler": "^2.2.12",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
