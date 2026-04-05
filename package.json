@@ -10,6 +10,9 @@
     "worker": "tsx src/workers/index.ts"
   },
   "dependencies": {
+    "@iconify-json/lucide": "^1.2.101",
+    "@iconify-json/ph": "^1.2.2",
+    "@iconify-json/qlementine-icons": "^1.2.14",
     "@iconify/react": "^6.0.2",
     "@number-flow/react": "^0.6.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",
