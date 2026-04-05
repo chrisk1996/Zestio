@@ -60,6 +60,10 @@ interface ThreeJSXElements {
   meshBasicNodeMaterial: any
   meshStandardNodeMaterial: any
 
+  // R3F Three.js elements that conflict with SVG
+  line: any
+  lineSegments: any
+
   // Lights
   ambientLight: any
   directionalLight: any
