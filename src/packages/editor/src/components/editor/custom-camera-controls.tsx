@@ -2,7 +2,7 @@
 
 import { type CameraControlEvent, emitter, sceneRegistry, useScene } from '@pascal-app/core'
 import { useViewer, ZONE_LAYER } from '@pascal-app/viewer'
-import { CameraControls, CameraControlsImpl } from '@react-three/drei'
+import { CameraControls } from '@react-three/drei'
 import { useThree } from '@react-three/fiber'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { Box3, Vector3 } from 'three'
@@ -20,7 +20,7 @@ const DEFAULT_MAX_POLAR_ANGLE = Math.PI / 2 - 0.1
 const DEBUG_MAX_POLAR_ANGLE = Math.PI - 0.05
 
 export const CustomCameraControls = () => {
-  const controls = useRef<CameraControlsImpl>(null!)
+  const controls = useRef<CameraControls>(null!)
   const isPreviewMode = useEditor((s) => s.isPreviewMode)
   const isFirstPersonMode = useEditor((s) => s.isFirstPersonMode)
   const allowUndergroundCamera = useEditor((s) => s.allowUndergroundCamera)
@@ -49,10 +49,10 @@ export const CustomCameraControls = () => {
     }
     if (firstLoad.current) {
       firstLoad.current = false
-      ;(controls.current as CameraControlsImpl).setLookAt(20, 20, 20, 0, 0, 0, true)
+      ;(controls.current as CameraControls).setLookAt(20, 20, 20, 0, 0, 0, true)
     }
-    ;(controls.current as CameraControlsImpl).getTarget(currentTarget)
-    ;(controls.current as CameraControlsImpl).moveTo(
+    ;(controls.current as CameraControls).getTarget(currentTarget)
+    ;(controls.current as CameraControls).moveTo(
       currentTarget.x,
       targetY,
       currentTarget.z,
@@ -105,13 +105,13 @@ export const CustomCameraControls = () => {
     // Use ZOOM for orthographic camera, DOLLY for perspective camera
     const wheelAction =
       cameraMode === 'orthographic'
-        ? CameraControlsImpl.ACTION.ZOOM
-        : CameraControlsImpl.ACTION.DOLLY
+        ? CameraControls.ACTION.ZOOM
+        : CameraControls.ACTION.DOLLY
 
     return {
-      left: isPreviewMode ? CameraControlsImpl.ACTION.SCREEN_PAN : CameraControlsImpl.ACTION.NONE,
-      middle: CameraControlsImpl.ACTION.SCREEN_PAN,
-      right: CameraControlsImpl.ACTION.ROTATE,
+      left: isPreviewMode ? CameraControls.ACTION.SCREEN_PAN : CameraControls.ACTION.NONE,
+      middle: CameraControls.ACTION.SCREEN_PAN,
+      right: CameraControls.ACTION.ROTATE,
       wheel: wheelAction,
     }
   }, [cameraMode, isPreviewMode])
@@ -136,18 +136,18 @@ export const CustomCameraControls = () => {
 
       const wheelAction =
         cameraMode === 'orthographic'
-          ? CameraControlsImpl.ACTION.ZOOM
-          : CameraControlsImpl.ACTION.DOLLY
+          ? CameraControls.ACTION.ZOOM
+          : CameraControls.ACTION.DOLLY
       controls.current.mouseButtons.wheel = wheelAction
-      controls.current.mouseButtons.middle = CameraControlsImpl.ACTION.SCREEN_PAN
-      controls.current.mouseButtons.right = CameraControlsImpl.ACTION.ROTATE
+      controls.current.mouseButtons.middle = CameraControls.ACTION.SCREEN_PAN
+      controls.current.mouseButtons.right = CameraControls.ACTION.ROTATE
       if (isPreviewMode) {
         // In preview mode, left-click is always pan (viewer-style)
-        controls.current.mouseButtons.left = CameraControlsImpl.ACTION.SCREEN_PAN
+        controls.current.mouseButtons.left = CameraControls.ACTION.SCREEN_PAN
       } else if (space) {
-        controls.current.mouseButtons.left = CameraControlsImpl.ACTION.SCREEN_PAN
+        controls.current.mouseButtons.left = CameraControls.ACTION.SCREEN_PAN
       } else {
-        controls.current.mouseButtons.left = CameraControlsImpl.ACTION.NONE
+        controls.current.mouseButtons.left = CameraControls.ACTION.NONE
       }
     }
 
