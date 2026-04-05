@@ -19,6 +19,10 @@ import {
   type SiteNode,
   type SlabEvent,
   type SlabNode,
+  type StairEvent,
+  type StairNode,
+  type StairSegmentEvent,
+  type StairSegmentNode,
   type WallEvent,
   type WallNode,
   type WindowEvent,
@@ -40,6 +44,8 @@ type NodeConfig = {
   ceiling: { node: CeilingNode; event: CeilingEvent }
   roof: { node: RoofNode; event: RoofEvent }
   'roof-segment': { node: RoofSegmentNode; event: RoofSegmentEvent }
+  stair: { node: StairNode; event: StairEvent }
+  'stair-segment': { node: StairSegmentNode; event: StairSegmentEvent }
   window: { node: WindowNode; event: WindowEvent }
   door: { node: DoorNode; event: DoorEvent }
 }
@@ -58,11 +64,11 @@ export function useNodeEvents<T extends NodeType>(node: NodeConfig[T]['node'], t
       stopPropagation: () => e.stopPropagation(),
       nativeEvent: e,
     } as NodeConfig[T]['event']
+
     emitter.emit(eventKey, payload)
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handlers: any = {
+  return {
     onPointerDown: (e: ThreeEvent<PointerEvent>) => {
       if (useViewer.getState().cameraDragging) return
       if (e.button !== 0) return
@@ -76,7 +82,7 @@ export function useNodeEvents<T extends NodeType>(node: NodeConfig[T]['node'], t
       // which often fails if the mouse moves even 1 pixel.
       emit('click', e)
     },
-    onClick: (_e: ThreeEvent<PointerEvent>) => {
+    onClick: (e: ThreeEvent<PointerEvent>) => {
       // Disable default R3F click since we synthesize it on pointerup
       // This prevents double-clicks from firing twice.
     },
@@ -101,6 +107,4 @@ export function useNodeEvents<T extends NodeType>(node: NodeConfig[T]['node'], t
       emit('context-menu', e)
     },
   }
-
-  return handlers
 }

@@ -6,13 +6,14 @@ type AnyContainerNode = AnyNode & { children: string[] }
 
 // Track pending RAF for updateNodesAction to prevent multiple queued callbacks
 let pendingRafId: number | null = null
-const pendingUpdates: Set<AnyNodeId> = new Set()
+let pendingUpdates: Set<AnyNodeId> = new Set()
 
 export const createNodesAction = (
   set: (fn: (state: SceneState) => Partial<SceneState>) => void,
   get: () => SceneState,
   ops: { node: AnyNode; parentId?: AnyNodeId }[],
 ) => {
+  if (get().readOnly) return
   set((state) => {
     const nextNodes = { ...state.nodes }
     const nextRootIds = [...state.rootNodeIds]
@@ -61,6 +62,7 @@ export const updateNodesAction = (
   get: () => SceneState,
   updates: { id: AnyNodeId; data: Partial<AnyNode> }[],
 ) => {
+  if (get().readOnly) return
   const parentsToUpdate = new Set<AnyNodeId>()
   const idsToMarkDirty = new Set<AnyNodeId>()
 
@@ -136,6 +138,7 @@ export const deleteNodesAction = (
   get: () => SceneState,
   ids: AnyNodeId[],
 ) => {
+  if (get().readOnly) return
   const parentsToMarkDirty = new Set<AnyNodeId>()
 
   set((state) => {

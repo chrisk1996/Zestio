@@ -1,16 +1,25 @@
 'use client';
 
-import dynamic from 'next/dynamic';
+import { Editor, type SidebarTab, ViewerToolbarLeft, ViewerToolbarRight } from '@pascal-app/editor';
 
-const FloorPlanEditor = dynamic(
-  () => import('@/components/floorplan-v2/FloorPlanEditor').then((mod) => mod.FloorPlanEditor),
-  { ssr: false }
-);
+const SIDEBAR_TABS: (SidebarTab & { component: React.ComponentType })[] = [
+  {
+    id: 'site',
+    label: 'Scene',
+    component: () => null, // Built-in SitePanel handles this
+  },
+];
 
 export default function FloorPlanPage() {
   return (
-    <div className="h-screen">
-      <FloorPlanEditor />
+    <div className="h-screen w-screen">
+      <Editor
+        layoutVersion="v2"
+        projectId="floorplan-v2"
+        sidebarTabs={SIDEBAR_TABS}
+        viewerToolbarLeft={<ViewerToolbarLeft />}
+        viewerToolbarRight={<ViewerToolbarRight />}
+      />
     </div>
   );
 }

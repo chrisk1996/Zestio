@@ -75,7 +75,7 @@ const pointInPolygonWithTolerance = (
   return pointInPolygon(x, z, expanded)
 }
 
-type SelectionStrategy = {
+interface SelectionStrategy {
   types: SelectableNodeType[]
   handleClick: (node: AnyNode, nativeEvent?: MouseEvent) => void
   handleDeselect: () => void

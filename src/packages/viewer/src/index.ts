@@ -1,4 +1,4 @@
-export { Viewer } from './components/viewer'
+export { default as Viewer } from './components/viewer'
 export { ASSETS_CDN_URL, resolveAssetUrl, resolveCdnUrl } from './lib/asset-url'
 export { SCENE_LAYER, ZONE_LAYER } from './lib/layers'
 export {

@@ -31,6 +31,9 @@
       ],
       "@pascal-app/viewer": [
         "./src/packages/viewer/src"
+      ],
+      "@pascal-app/editor": [
+        "./src/packages/editor/src"
       ]
     }
   },
