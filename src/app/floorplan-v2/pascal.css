@@ -1,0 +1,72 @@
+/* Pascal Editor specific styles - Tailwind v4 CSS syntax */
+@import "tailwindcss";
+
+/* Dark theme support */
+.dark {
+  color-scheme: dark;
+}
+
+/* Sidebar panel styles */
+.sidebar-panel {
+  @apply flex flex-col h-full;
+}
+
+/* Tree node styles */
+.tree-node {
+  @apply flex items-center gap-2 px-2 py-1 rounded cursor-pointer;
+}
+
+.tree-node:hover {
+  @apply bg-gray-100;
+}
+
+.tree-node.selected {
+  @apply bg-blue-100;
+}
+
+/* Icon container */
+.icon-container {
+  @apply flex items-center justify-center w-5 h-5;
+}
+
+/* Fix image rendering */
+.icon-container img {
+  @apply object-contain;
+}
+
+/* Panel content */
+.panel-content {
+  @apply p-3;
+}
+
+/* Fix white rectangle overlay issue */
+.viewer-container {
+  @apply relative w-full h-full;
+}
+
+.viewer-container > div:first-child {
+  @apply absolute inset-0;
+}
+
+/* 3D canvas container */
+.canvas-3d {
+  @apply w-full h-full;
+}
+
+/* 2D floorplan container */
+.floorplan-2d {
+  @apply w-full h-full bg-white;
+}
+
+/* Toolbar styles */
+.toolbar {
+  @apply flex items-center gap-1 p-1;
+}
+
+.toolbar-button {
+  @apply p-2 rounded hover:bg-gray-100;
+}
+
+.toolbar-button.active {
+  @apply bg-blue-100;
+}
