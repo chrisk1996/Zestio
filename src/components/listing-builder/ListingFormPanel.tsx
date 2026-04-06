@@ -257,6 +257,44 @@ export function ListingFormPanel({ data, updateData, isSaving }: ListingFormPane
         </section>
       </div>
 
+      {/* Pricing Section - Rental or Purchase */}
+      <section className="bg-surface-container-lowest p-6 shadow-sm border border-outline-variant/10">
+        <h3 className="font-headline text-xl font-bold text-primary italic mb-6">
+          {showRentalFields ? 'Rental Pricing' : 'Purchase Price'}
+        </h3>
+        {showRentalFields ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="group">
+              <label className="block text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Cold Rent (€)</label>
+              <input type="number" value={data.cold_rent ? data.cold_rent / 100 : ''} onChange={e => updateData({ cold_rent: parseFloat(e.target.value) * 100 || undefined })} placeholder="1200" className="w-full bg-transparent border-b border-outline-variant/40 py-1.5 font-medium text-primary placeholder:text-outline-variant/60" />
+            </div>
+            <div className="group">
+              <label className="block text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Warm Rent (€)</label>
+              <input type="number" value={data.warm_rent ? data.warm_rent / 100 : ''} onChange={e => updateData({ warm_rent: parseFloat(e.target.value) * 100 || undefined })} placeholder="1450" className="w-full bg-transparent border-b border-outline-variant/40 py-1.5 font-medium text-primary placeholder:text-outline-variant/60" />
+            </div>
+            <div className="group">
+              <label className="block text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Utilities (€)</label>
+              <input type="number" value={data.additional_costs ? data.additional_costs / 100 : ''} onChange={e => updateData({ additional_costs: parseFloat(e.target.value) * 100 || undefined })} placeholder="250" className="w-full bg-transparent border-b border-outline-variant/40 py-1.5 font-medium text-primary placeholder:text-outline-variant/60" />
+            </div>
+            <div className="group">
+              <label className="block text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Deposit (€)</label>
+              <input type="number" value={data.deposit ? data.deposit / 100 : ''} onChange={e => updateData({ deposit: parseFloat(e.target.value) * 100 || undefined })} placeholder="3600" className="w-full bg-transparent border-b border-outline-variant/40 py-1.5 font-medium text-primary placeholder:text-outline-variant/60" />
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+            <div className="group">
+              <label className="block text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Purchase Price (€)</label>
+              <input type="number" value={data.price ? data.price / 100 : ''} onChange={e => updateData({ price: parseFloat(e.target.value) * 100 || undefined })} placeholder="450000" className="w-full bg-transparent border-b border-outline-variant/40 py-1.5 font-medium text-primary placeholder:text-outline-variant/60" />
+            </div>
+            <div className="group">
+              <label className="block text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">HOA Fees (€/mo)</label>
+              <input type="number" value={data.hoa_fees ? data.hoa_fees / 100 : ''} onChange={e => updateData({ hoa_fees: parseFloat(e.target.value) * 100 || undefined })} placeholder="350" className="w-full bg-transparent border-b border-outline-variant/40 py-1.5 font-medium text-primary placeholder:text-outline-variant/60" />
+            </div>
+          </div>
+        )}
+      </section>
+
       {/* Property Dimensions */}
       <section className="bg-surface-container-lowest p-6 shadow-sm border border-outline-variant/10">
         <h3 className="font-headline text-xl font-bold text-primary italic mb-6">Property Dimensions &amp; Features</h3>
