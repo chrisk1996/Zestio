@@ -15,7 +15,15 @@ interface ListingData {
   city: string;
   district: string;
   country: string;
+  latitude?: number;
+  longitude?: number;
   price: number;
+  cold_rent?: number;
+  warm_rent?: number;
+  additional_costs?: number;
+  deposit?: number;
+  hoa_fees?: number;
+  min_rental_period?: number;
   living_area: number;
   plot_area: number;
   rooms: number;
@@ -24,11 +32,19 @@ interface ListingData {
   floor: number;
   total_floors: number;
   construction_year: number;
+  last_renovation_year?: number;
+  building_type?: string;
+  condition?: string;
   energy_rating: string;
   heating_type: string;
+  availability_date?: string;
+  is_immediately_available?: boolean;
+  contact_phone?: string;
+  contact_email?: string;
   features: ListingFeatures;
   media_ids: string[];
   cover_image_id?: string;
+  proximity_data?: Record<string, unknown>;
 }
 
 interface ListingFormPanelProps {
@@ -56,6 +72,8 @@ export function ListingFormPanel({ data, updateData, isSaving }: ListingFormPane
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedImages, setSelectedImages] = useState<number[]>([0]);
   const [wordCount, setWordCount] = useState(0);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const showRentalFields = data.transaction_type === 'rent';
 
   useEffect(() => {
     const words = data.description.trim().split(/\s+/).filter(w => w.length > 0).length;
@@ -104,6 +122,30 @@ export function ListingFormPanel({ data, updateData, isSaving }: ListingFormPane
       prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]
     );
   };
+
+  const geocodeLocation = async () => {
+    if (!data.city) return;
+    setIsGeocoding(true);
+    try {
+      const res = await fetch('/api/listings/geocode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ street: data.street, house_number: data.house_number, postal_code: data.postal_code, city: data.city, country: data.country || 'Germany' }),
+      });
+      if (res.ok) {
+        const r = await res.json();
+        updateData({ latitude: r.latitude, longitude: r.longitude, proximity_data: r.proximity_data });
+      }
+    } catch (e) { console.error('Geocoding error:', e); }
+    finally { setIsGeocoding(false); }
+  };
+
+  useEffect(() => {
+    if (data.city && data.city.length > 2 && !data.latitude) {
+      const t = setTimeout(geocodeLocation, 2000);
+      return () => clearTimeout(t);
+    }
+  }, [data.city, data.street, data.postal_code]);
 
   return (
     <div className="space-y-6">
