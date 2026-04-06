@@ -1,4 +1,5 @@
 'use client';
+interface ProximityItem { name: string; distance_meters: number; walking_minutes: number; type?: string; }
 
 import { useState, useEffect } from 'react';
 import { ListingFeatures, ENERGY_RATINGS } from '@/types/listing';
@@ -146,10 +147,43 @@ export function ListingFormPanel({ data, updateData, isSaving }: ListingFormPane
       return () => clearTimeout(t);
     }
   }, [data.city, data.street, data.postal_code]);
-
+const renderProxItem = (label: string, emoji: string, items: ProximityItem[] | undefined) => {
+  if (!items || items.length === 0) return null;
+  const c = items[0];
   return (
-    <div className="space-y-6">
-      {/* Basic Details & Location Grid */}
+    <div className="bg-surface-container p-2 rounded border border-outline-variant/10">
+      <div className="flex items-center gap-1">
+        <span>{emoji}</span>
+        <span className="text-[9px] uppercase tracking-widest text-on-surface-variant font-bold">{label}</span>
+      </div>
+      <div className="text-xs font-medium text-primary truncate">{c.name}</div>
+      <div className="text-[10px] text-on-surface-variant">{c.walking_minutes}min • {Math.round(c.distance_meters)}m</div>
+    </div>
+  );
+};
+
+const hasProxData = data.proximity_data && Object.keys(data.proximity_data).some(k => {
+  const v = data.proximity_data?.[k];
+  return Array.isArray(v) && v.length > 0;
+});
+
+return (
+<div className="space-y-6">
+{hasProxData && (
+  <section className="bg-surface-container-lowest p-6 shadow-sm border border-outline-variant/10">
+    <h3 className="font-headline text-xl font-bold text-primary italic mb-4">Nearby Amenities</h3>
+    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2">
+      {renderProxItem('Supermarket', '🛒', data.proximity_data?.supermarket as ProximityItem[])}
+      {renderProxItem('Transport', '🚇', data.proximity_data?.public_transport as ProximityItem[])}
+      {renderProxItem('School', '🏫', data.proximity_data?.primary_school as ProximityItem[])}
+      {renderProxItem('Kindergarten', '👶', data.proximity_data?.kindergarten as ProximityItem[])}
+      {renderProxItem('Pharmacy', '💊', data.proximity_data?.pharmacy as ProximityItem[])}
+      {renderProxItem('Hospital', '🏥', data.proximity_data?.hospital as ProximityItem[])}
+      {renderProxItem('Park', '🌳', data.proximity_data?.park as ProximityItem[])}
+      {renderProxItem('Gym', '🏋️', data.proximity_data?.gym as ProximityItem[])}
+    </div>
+  </section>
+)}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Basic Details */}
         <section className="bg-surface-container-lowest p-6 shadow-sm border border-outline-variant/10">
@@ -256,44 +290,6 @@ export function ListingFormPanel({ data, updateData, isSaving }: ListingFormPane
           </div>
         </section>
       </div>
-
-      {/* Pricing Section - Rental or Purchase */}
-      <section className="bg-surface-container-lowest p-6 shadow-sm border border-outline-variant/10">
-        <h3 className="font-headline text-xl font-bold text-primary italic mb-6">
-          {showRentalFields ? 'Rental Pricing' : 'Purchase Price'}
-        </h3>
-        {showRentalFields ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div className="group">
-              <label className="block text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Cold Rent (€)</label>
-              <input type="number" value={data.cold_rent ? data.cold_rent / 100 : ''} onChange={e => updateData({ cold_rent: parseFloat(e.target.value) * 100 || undefined })} placeholder="1200" className="w-full bg-transparent border-b border-outline-variant/40 py-1.5 font-medium text-primary placeholder:text-outline-variant/60" />
-            </div>
-            <div className="group">
-              <label className="block text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Warm Rent (€)</label>
-              <input type="number" value={data.warm_rent ? data.warm_rent / 100 : ''} onChange={e => updateData({ warm_rent: parseFloat(e.target.value) * 100 || undefined })} placeholder="1450" className="w-full bg-transparent border-b border-outline-variant/40 py-1.5 font-medium text-primary placeholder:text-outline-variant/60" />
-            </div>
-            <div className="group">
-              <label className="block text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Utilities (€)</label>
-              <input type="number" value={data.additional_costs ? data.additional_costs / 100 : ''} onChange={e => updateData({ additional_costs: parseFloat(e.target.value) * 100 || undefined })} placeholder="250" className="w-full bg-transparent border-b border-outline-variant/40 py-1.5 font-medium text-primary placeholder:text-outline-variant/60" />
-            </div>
-            <div className="group">
-              <label className="block text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Deposit (€)</label>
-              <input type="number" value={data.deposit ? data.deposit / 100 : ''} onChange={e => updateData({ deposit: parseFloat(e.target.value) * 100 || undefined })} placeholder="3600" className="w-full bg-transparent border-b border-outline-variant/40 py-1.5 font-medium text-primary placeholder:text-outline-variant/60" />
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-            <div className="group">
-              <label className="block text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Purchase Price (€)</label>
-              <input type="number" value={data.price ? data.price / 100 : ''} onChange={e => updateData({ price: parseFloat(e.target.value) * 100 || undefined })} placeholder="450000" className="w-full bg-transparent border-b border-outline-variant/40 py-1.5 font-medium text-primary placeholder:text-outline-variant/60" />
-            </div>
-            <div className="group">
-              <label className="block text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">HOA Fees (€/mo)</label>
-              <input type="number" value={data.hoa_fees ? data.hoa_fees / 100 : ''} onChange={e => updateData({ hoa_fees: parseFloat(e.target.value) * 100 || undefined })} placeholder="350" className="w-full bg-transparent border-b border-outline-variant/40 py-1.5 font-medium text-primary placeholder:text-outline-variant/60" />
-            </div>
-          </div>
-        )}
-      </section>
 
       {/* Property Dimensions */}
       <section className="bg-surface-container-lowest p-6 shadow-sm border border-outline-variant/10">
