@@ -21,6 +21,10 @@ interface ListingData {
   price: number;
   cold_rent?: number;
   warm_rent?: number;
+  additional_costs?: number;
+  deposit?: number;
+  hoa_fees?: number;
+  min_rental_period?: number;
   living_area: number;
   plot_area: number;
   rooms: number;
