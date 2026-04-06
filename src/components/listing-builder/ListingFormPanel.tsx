@@ -223,19 +223,26 @@ return (
                 />
               </div>
             </div>
+            {showRentalFields ? (
+          <>
             <div className="group">
+              <label className="block text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Cold Rent (€/month)</label>
+              <input type="number" value={data.cold_rent ? data.cold_rent / 100 : ''} onChange={e => updateData({ cold_rent: parseFloat(e.target.value) * 100 || undefined })} placeholder="1200" className="w-full bg-transparent border-b border-outline-variant/40 py-1.5 font-medium text-primary placeholder:text-outline-variant/60" />
+            </div>
+            <div className="group">
+              <label className="block text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Warm Rent (€/month)</label>
+              <input type="number" value={data.warm_rent ? data.warm_rent / 100 : ''} onChange={e => updateData({ warm_rent: parseFloat(e.target.value) * 100 || undefined })} placeholder="1450" className="w-full bg-transparent border-b border-outline-variant/40 py-1.5 font-medium text-primary placeholder:text-outline-variant/60" />
+            </div>
+          </>
+        ) : (
+          <div className="group">
               <label className="block text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Price Point</label>
               <div className="relative">
-                <input
-                  type="number"
-                  value={data.price ? data.price / 100 : ''}
-                  onChange={e => updateData({ price: parseFloat(e.target.value) * 100 })}
-                  placeholder="1250000"
-                  className="w-full bg-transparent border-b border-outline-variant/40 py-1.5 font-medium text-primary placeholder:text-outline-variant/60 pr-12"
-                />
+                <input type="number" value={data.price ? data.price / 100 : ''} onChange={e => updateData({ price: parseFloat(e.target.value) * 100 })} placeholder="1250000" className="w-full bg-transparent border-b border-outline-variant/40 py-1.5 font-medium text-primary placeholder:text-outline-variant/60 pr-12" />
                 <span className="absolute right-0 bottom-1.5 text-[10px] font-bold text-outline-variant">EUR</span>
               </div>
             </div>
+        )}
           </div>
         </section>
 
