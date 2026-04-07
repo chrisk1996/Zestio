@@ -24,7 +24,7 @@ function PhaseSetter({ sceneLoaded }: { sceneLoaded: boolean }) {
         editorState.setPhase('structure');
         editorState.setMode('build');
         // Select the first level so it's visible in 3D view
-        editorState.setLevelId('level_1');
+        editorState.setLevelId('level_0');
       }, 500);
       return () => clearTimeout(timer);
     }
