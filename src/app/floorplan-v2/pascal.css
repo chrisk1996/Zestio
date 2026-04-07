@@ -100,6 +100,23 @@
   height: 100% !important;
 }
 
+/* Global canvas fix for Pascal Editor */
+[data-camera-controls-version] canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Force canvas parent to have dimensions */
+[data-camera-controls-version] {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+[data-camera-controls-version] > div {
+  width: 100% !important;
+  height: 100% !important;
+}
+
 /* Fix floating panel positioning */
 .floating-panel {
   position: absolute;
