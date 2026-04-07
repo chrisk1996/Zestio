@@ -60,7 +60,7 @@ export default function FloorPlanPage() {
   }
 
   return (
-    <div className="h-screen w-screen overflow-hidden">
+    <div className="fixed inset-0 flex flex-col">
       <PhaseSetter sceneLoaded={!!sceneData} />
       <Editor
         layoutVersion="v2"
