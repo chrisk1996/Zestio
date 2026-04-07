@@ -18,10 +18,13 @@ const DEMO_SCENE_URL = '/demos/demo_simple.json';
 function PhaseSetter({ sceneLoaded }: { sceneLoaded: boolean }) {
   useEffect(() => {
     if (sceneLoaded) {
-      // After scene loads, switch to structure phase so tools are visible
+      // After scene loads, switch to structure phase and select the level
       const timer = setTimeout(() => {
-        useEditor.getState().setPhase('structure');
-        useEditor.getState().setMode('build');
+        const editorState = useEditor.getState();
+        editorState.setPhase('structure');
+        editorState.setMode('build');
+        // Select the first level so it's visible in 3D view
+        editorState.setLevelId('level_1');
       }, 500);
       return () => clearTimeout(timer);
     }
