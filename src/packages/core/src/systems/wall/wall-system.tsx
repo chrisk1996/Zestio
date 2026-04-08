@@ -188,6 +188,7 @@ export function generateExtrudedWall(
 
   // Convert polygon to local coordinates
   const localPoints = polyPoints.map(worldToLocal)
+  console.log("[WallSystem] Wall", wallNode.id, "localPoints:", JSON.stringify(localPoints))
 
   // Build THREE.js shape
   // Shape uses (x, y) where we map: shape.x = local.x, shape.y = -local.z
