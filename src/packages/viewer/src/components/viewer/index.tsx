@@ -109,7 +109,7 @@ const Viewer: React.FC<ViewerProps> = ({
       className={`transition-colors duration-700 ${theme === 'dark' ? 'bg-[#1f2433]' : 'bg-[#fafafa]'}`}
       dpr={[1, 1.5]}
       gl={(props) => {
-        const renderer = new THREE.WebGPURenderer(props as any)
+        const renderer = new THREE.WebGPURenderer({ ...props, forceWebGL: true } as any)
         renderer.toneMapping = THREE.ACESFilmicToneMapping
         renderer.toneMappingExposure = 0.9
         // renderer.init() // Only use when using <DebugRenderer />
