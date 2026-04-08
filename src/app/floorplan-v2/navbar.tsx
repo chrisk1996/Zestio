@@ -114,7 +114,7 @@ export function FloorplanNavbar({ projectId, projectName = 'Untitled Project' }:
             </button>
           </div>
           <div className="h-[calc(100%-48px)] overflow-y-auto">
-            <SettingsPanel />
+            <SettingsPanel projectId={projectId} />
           </div>
         </div>
       )}

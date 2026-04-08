@@ -140,7 +140,7 @@ export default function FloorPlanPage() {
       <Editor
         layoutVersion="v2"
         projectId={projectId || 'floorplan-v2'}
-        navbarSlot={<FloorplanNavbar />}
+        navbarSlot={<FloorplanNavbar projectId={projectId} />}
         sidebarTabs={[
           { id: 'site', label: 'Scene', component: () => null },
         ]}
