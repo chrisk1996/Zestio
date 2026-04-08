@@ -166,6 +166,7 @@ export function generateExtrudedWall(
     return new THREE.BufferGeometry()
   }
   const polyPoints = getWallPlanFootprint(wallNode, miterData)
+  console.log("[WallSystem] Wall", wallNode.id, "polyPoints:", polyPoints.length, polyPoints)
   if (polyPoints.length < 3) {
     return new THREE.BufferGeometry()
   }
@@ -200,6 +201,7 @@ export function generateExtrudedWall(
 
   // Extrude along Z by height
   const geometry = new THREE.ExtrudeGeometry(footprint, {
+    console.log("[WallSystem] Wall", wallNode.id, "geometry vertices:", geometry.attributes.position.count, "height:", height)
     depth: height,
     bevelEnabled: false,
   })
