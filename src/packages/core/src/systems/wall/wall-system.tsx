@@ -166,7 +166,7 @@ export function generateExtrudedWall(
     return new THREE.BufferGeometry()
   }
   const polyPoints = getWallPlanFootprint(wallNode, miterData)
-  console.log("[WallSystem] Wall", wallNode.id, "polyPoints:", polyPoints.length, polyPoints)
+  console.log("[WallSystem] Wall", wallNode.id, "polyPoints:", JSON.stringify(polyPoints))
   if (polyPoints.length < 3) {
     return new THREE.BufferGeometry()
   }
