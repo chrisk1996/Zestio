@@ -1,7 +1,8 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import type { SceneGraph } from '@pascal-app/editor';
 import { FloorplanNavbar } from './navbar';
@@ -23,9 +24,13 @@ const ViewerToolbarRight = dynamic(
 // Types
 type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'paused' | 'error';
 
-export default function FloorPlanPage() {
+function FloorPlanEditor() {
+  const searchParams = useSearchParams();
+  const projectIdParam = searchParams.get('project');
+  
   const [sceneData, setSceneData] = useState<SceneGraph | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [projectName, setProjectName] = useState<string>('Untitled Project');
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -33,19 +38,38 @@ export default function FloorPlanPage() {
   useEffect(() => {
     async function initializeProject() {
       try {
+        // If project ID is in URL, load that project
+        if (projectIdParam) {
+          const { data, error } = await supabase
+            ?.from('floorplan_projects')
+            .select('id, name, scene_data')
+            .eq('id', projectIdParam)
+            .single() || { data: null, error: { message: 'Supabase not configured' } };
+
+          if (data) {
+            setProjectId(data.id);
+            setProjectName(data.name || 'Untitled Project');
+            setSceneData(data.scene_data);
+            localStorage.setItem('floorplan-v2-project-id', data.id);
+            setIsLoading(false);
+            return;
+          }
+        }
+
         // Check for existing project in localStorage
         const storedProjectId = localStorage.getItem('floorplan-v2-project-id');
         
-        if (storedProjectId) {
+        if (storedProjectId && !projectIdParam) {
           // Try to load from Supabase
           const { data, error } = await supabase
             ?.from('floorplan_projects')
-            .select('scene_data')
+            .select('id, name, scene_data')
             .eq('id', storedProjectId)
             .single() || { data: null, error: { message: 'Supabase not configured' } };
           
           if (data?.scene_data) {
-            setProjectId(storedProjectId);
+            setProjectId(data.id);
+            setProjectName(data.name || 'Untitled Project');
             setSceneData(data.scene_data);
             setIsLoading(false);
             return;
@@ -72,7 +96,7 @@ export default function FloorPlanPage() {
     }
     
     initializeProject();
-  }, []);
+  }, [projectIdParam]);
 
   // Load scene handler
   const onLoad = useCallback(async (): Promise<SceneGraph | null> => {
@@ -159,5 +183,20 @@ export default function FloorPlanPage() {
         {saveStatus === 'idle' && '○ Unsaved'}
       </div>
     </div>
+  );
+}
+
+export default function FloorPlanPage() {
+  return (
+    <Suspense fallback={
+      <div className="h-screen w-screen flex items-center justify-center bg-gray-900 text-white">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p>Loading Floor Planner...</p>
+        </div>
+      </div>
+    }>
+      <FloorPlanEditor />
+    </Suspense>
   );
 }
