@@ -141,6 +141,7 @@ export default function FloorPlanPage() {
         projectId={projectId || 'floorplan-v2'}
         sidebarTabs={[
           { id: 'site', label: 'Scene', component: () => null },
+          { id: 'settings', label: 'Settings', component: () => null },
         ]}
         viewerToolbarLeft={<ViewerToolbarLeft />}
         viewerToolbarRight={<ViewerToolbarRight />}
