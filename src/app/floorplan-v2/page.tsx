@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/utils/supabase/client';
 import type { SceneGraph } from '@pascal-app/editor';
 import { FloorplanNavbar } from './navbar';
 
@@ -27,6 +27,7 @@ type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'paused' | 'error';
 function FloorPlanEditor() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const supabase = createClient();
   const projectIdParam = searchParams.get('project');
   const isNewProject = searchParams.get('new') === 'true';
   const [sceneData, setSceneData] = useState<SceneGraph | null>(null);
@@ -135,7 +136,7 @@ function FloorPlanEditor() {
       }
     }
     initializeProject();
-  }, [projectIdParam, isNewProject, router]);
+  }, [projectIdParam, isNewProject, router, supabase]);
 
   // Load scene handler
   const onLoad = useCallback(async (): Promise<SceneGraph | null> => {
@@ -183,7 +184,7 @@ function FloorPlanEditor() {
       console.error('[FloorPlan] Save error:', err);
       localStorage.setItem('floorplan-v2-backup', JSON.stringify(scene));
     }
-  }, [projectId]);
+  }, [projectId, supabase]);
 
   // Error state
   if (error) {

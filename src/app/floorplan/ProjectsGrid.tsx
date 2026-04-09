@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/utils/supabase/client';
 
 interface Project {
   id: string;
@@ -13,16 +13,12 @@ interface Project {
 }
 
 export default function ProjectsGrid() {
+  const supabase = createClient();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchProjects() {
-      if (!supabase) {
-        setLoading(false);
-        return;
-      }
-
       const { data, error } = await supabase
         .from('floorplan_projects')
         .select('*')
@@ -33,9 +29,8 @@ export default function ProjectsGrid() {
       }
       setLoading(false);
     }
-
     fetchProjects();
-  }, []);
+  }, [supabase]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -48,11 +43,11 @@ export default function ProjectsGrid() {
     if (diffHours < 24) return `${diffHours} hours ago`;
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays} days ago`;
+
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   const handleDelete = async (id: string) => {
-    if (!supabase) return;
     if (!confirm('Are you sure you want to delete this project?')) return;
 
     const { error } = await supabase
