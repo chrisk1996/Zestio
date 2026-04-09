@@ -44,9 +44,19 @@ function FloorPlanEditor() {
         if (isNewProject) {
           console.log('[FloorPlan] Creating new project...');
           
+          // Get current user
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) {
+            console.error('[FloorPlan] No authenticated user');
+            setError('Please sign in to create a project');
+            setIsLoading(false);
+            return;
+          }
+
           const { data, error: insertError } = await supabase
             .from('floorplan_projects')
             .insert({ 
+              user_id: user.id,
               name: `Floor Plan ${new Date().toLocaleDateString()}`,
               scene_data: null 
             })
@@ -146,9 +156,18 @@ function FloorPlanEditor() {
         if (updateError) throw updateError;
         console.log('[FloorPlan] Scene updated');
       } else {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          console.error('[FloorPlan] No user for save');
+          return;
+        }
         const { data, error: insertError } = await supabase
           .from('floorplan_projects')
-          .insert({ scene_data: scene, name: `Floor Plan ${new Date().toLocaleDateString()}` })
+          .insert({ 
+            user_id: user.id,
+            scene_data: scene, 
+            name: `Floor Plan ${new Date().toLocaleDateString()}` 
+          })
           .select('id')
           .single();
 
