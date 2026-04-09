@@ -51,8 +51,10 @@ export const Grid = ({
     const getGrid = (size: number, thickness: number) => {
       const r = pos.div(size)
       const fw = fwidth(r)
+
       // Distance to nearest grid line for each axis
       const grid = fract(r.sub(0.5)).sub(0.5).abs()
+
       // Anti-aliased step: divide by fwidth and clamp
       const lineX = float(1).sub(
         grid.x
@@ -66,6 +68,7 @@ export const Grid = ({
           .add(1 - thickness)
           .min(1),
       )
+
       // Combine both axes - max gives us lines in both directions
       return lineX.max(lineY)
     }
@@ -124,7 +127,6 @@ export const Grid = ({
     const onGridMove = (event: GridEvent) => {
       cursorPositionRef.current.set(event.position[0], -event.position[2])
     }
-
     emitter.on('grid:move', onGridMove)
     return () => {
       emitter.off('grid:move', onGridMove)
@@ -147,14 +149,17 @@ export const Grid = ({
 
   const showGrid = useViewer((state) => state.showGrid)
 
+  // Debug: log when showGrid changes
+  useEffect(() => {
+    console.log('[Grid] showGrid changed:', showGrid)
+  }, [showGrid])
+
+  if (!showGrid) {
+    return null
+  }
+
   return (
-    <mesh
-      layers={EDITOR_LAYER}
-      material={material}
-      ref={gridRef}
-      rotation-x={-Math.PI / 2}
-      visible={showGrid}
-    >
+    <mesh layers={EDITOR_LAYER} material={material} ref={gridRef} rotation-x={-Math.PI / 2}>
       <planeGeometry args={[fadeDistance * 2, fadeDistance * 2]} />
     </mesh>
   )
