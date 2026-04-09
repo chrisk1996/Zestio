@@ -59,7 +59,7 @@ function FloorPlanEditor() {
             .insert({ 
               user_id: user.id,
               name: `Floor Plan ${new Date().toLocaleDateString()}`,
-              scene_data: null 
+              scene_data: {} 
             })
             .select('id, name')
             .single();
