@@ -4,7 +4,6 @@ import dynamic from 'next/dynamic';
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
-import { emitter } from '@pascal-app/core';
 import type { SceneGraph } from '@pascal-app/editor';
 import { FloorplanNavbar } from './navbar';
 
@@ -139,87 +138,6 @@ function FloorPlanEditor() {
     initializeProject();
   }, [projectIdParam, isNewProject, router, supabase]);
 
-  // Listen for thumbnail generation events
-  useEffect(() => {
-    const handleThumbnail = async (event: { projectId: string; canvas?: HTMLCanvasElement }) => {
-      if (!projectId || event.projectId !== projectId) return;
-
-      try {
-        // Small delay to ensure render is complete
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        // Get all canvases and find the WebGL one (usually the largest)
-        const canvases = document.querySelectorAll('canvas');
-        let canvas = canvases[0];
-        
-        // Find the largest canvas (likely the main renderer)
-        for (const c of canvases) {
-          if (c.width > (canvas?.width || 0)) {
-            canvas = c;
-          }
-        }
-
-        if (!canvas) {
-          console.error('[FloorPlan] No canvas found');
-          return;
-        }
-
-        console.log('[FloorPlan] Capturing canvas:', canvas.width, 'x', canvas.height);
-
-        // Create a new canvas to composite the scene
-        const captureCanvas = document.createElement('canvas');
-        captureCanvas.width = canvas.width;
-        captureCanvas.height = canvas.height;
-        const ctx = captureCanvas.getContext('2d')!;
-        
-        // Fill with background color first
-        ctx.fillStyle = '#1a1a2e';
-        ctx.fillRect(0, 0, captureCanvas.width, captureCanvas.height);
-        
-        // Draw WebGL canvas
-        ctx.drawImage(canvas, 0, 0);
-
-        // Convert to blob
-        const blob = await new Promise<Blob>((resolve, reject) => {
-          captureCanvas.toBlob((b) => {
-            if (b) resolve(b);
-            else reject(new Error('Failed to create blob'));
-          }, 'image/png');
-        });
-
-        // Upload to Supabase Storage
-        const path = `floorplan-thumbnails/${projectId}.png`;
-        const { error: uploadError } = await supabase.storage
-          .from('user-uploads')
-          .upload(path, blob, { upsert: true });
-
-        if (uploadError) throw uploadError;
-
-        // Get public URL
-        const { data: urlData } = supabase.storage
-          .from('user-uploads')
-          .getPublicUrl(path);
-
-        // Update project with thumbnail URL
-        const { error: updateError } = await supabase
-          .from('floorplan_projects')
-          .update({ thumbnail_url: urlData.publicUrl })
-          .eq('id', projectId);
-
-        if (updateError) throw updateError;
-
-        console.log('[FloorPlan] Thumbnail saved:', urlData.publicUrl);
-      } catch (err) {
-        console.error('[FloorPlan] Thumbnail error:', err);
-      }
-    };
-
-    emitter.on('camera-controls:generate-thumbnail', handleThumbnail);
-    return () => {
-      emitter.off('camera-controls:generate-thumbnail', handleThumbnail);
-    };
-  }, [projectId, supabase]);
-
   // Load scene handler
   const onLoad = useCallback(async (): Promise<SceneGraph | null> => {
     return sceneData;
@@ -268,6 +186,40 @@ function FloorPlanEditor() {
     }
   }, [projectId, supabase]);
 
+  // Thumbnail capture handler - uses Editor's built-in ThumbnailGenerator
+  const onThumbnailCapture = useCallback(async (blob: Blob) => {
+    if (!projectId) return;
+
+    try {
+      console.log('[FloorPlan] Thumbnail captured, size:', blob.size);
+
+      // Upload to Supabase Storage
+      const path = `floorplan-thumbnails/${projectId}.png`;
+      const { error: uploadError } = await supabase.storage
+        .from('user-uploads')
+        .upload(path, blob, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('user-uploads')
+        .getPublicUrl(path);
+
+      // Update project with thumbnail URL
+      const { error: updateError } = await supabase
+        .from('floorplan_projects')
+        .update({ thumbnail_url: urlData.publicUrl })
+        .eq('id', projectId);
+
+      if (updateError) throw updateError;
+
+      console.log('[FloorPlan] Thumbnail saved:', urlData.publicUrl);
+    } catch (err) {
+      console.error('[FloorPlan] Thumbnail upload error:', err);
+    }
+  }, [projectId, supabase]);
+
   // Error state
   if (error) {
     return (
@@ -313,6 +265,7 @@ function FloorPlanEditor() {
         onLoad={onLoad}
         onSave={onSave}
         onSaveStatusChange={(status) => setSaveStatus(status)}
+        onThumbnailCapture={onThumbnailCapture}
       />
 
       {/* Save status indicator */}
