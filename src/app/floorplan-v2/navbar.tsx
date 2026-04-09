@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Settings, Pencil, Share2, Eye, EyeOff, ChevronDown, X } from 'lucide-react';
 import { SettingsPanel } from '@pascal-app/editor';
+import { createClient } from '@/utils/supabase/client';
 
 interface FloorplanNavbarProps {
   projectId?: string | null;
@@ -10,10 +11,38 @@ interface FloorplanNavbarProps {
 }
 
 export function FloorplanNavbar({ projectId, projectName = 'Untitled Project' }: FloorplanNavbarProps) {
+  const supabase = createClient();
   const [showSettings, setShowSettings] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [name, setName] = useState(projectName);
   const [isPublic, setIsPublic] = useState(true);
+
+  // Update local name when prop changes
+  useEffect(() => {
+    setName(projectName);
+  }, [projectName]);
+
+  // Save name to database
+  const handleNameSave = async (newName: string) => {
+    setIsEditingName(false);
+    
+    if (!projectId || newName === projectName) return;
+
+    try {
+      const { error } = await supabase
+        .from('floorplan_projects')
+        .update({ name: newName })
+        .eq('id', projectId);
+
+      if (error) {
+        console.error('[Navbar] Failed to update name:', error);
+        setName(projectName); // Revert on error
+      }
+    } catch (err) {
+      console.error('[Navbar] Name update error:', err);
+      setName(projectName);
+    }
+  };
 
   return (
     <>
@@ -35,16 +64,23 @@ export function FloorplanNavbar({ projectId, projectName = 'Untitled Project' }:
           {/* Project name */}
           <div className="flex items-center gap-2">
             {isEditingName ? (
-              <input
+              <input 
                 className="bg-background border border-border rounded px-2 py-1 text-sm w-48"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                onBlur={() => setIsEditingName(false)}
-                onKeyDown={(e) => e.key === 'Enter' && setIsEditingName(false)}
+                onBlur={() => handleNameSave(name)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleNameSave(name);
+                  } else if (e.key === 'Escape') {
+                    setName(projectName);
+                    setIsEditingName(false);
+                  }
+                }}
                 autoFocus
               />
             ) : (
-              <button
+              <button 
                 className="flex items-center gap-1.5 text-sm hover:bg-accent px-2 py-1 rounded transition-colors"
                 onClick={() => setIsEditingName(true)}
               >
@@ -65,7 +101,7 @@ export function FloorplanNavbar({ projectId, projectName = 'Untitled Project' }:
           </button>
 
           {/* Visibility toggle */}
-          <button
+          <button 
             className="flex items-center gap-1.5 text-sm hover:bg-accent px-3 py-1.5 rounded-md transition-colors"
             onClick={() => setIsPublic(!isPublic)}
             title={isPublic ? 'Public - anyone can view' : 'Private - only you can view'}
@@ -86,7 +122,7 @@ export function FloorplanNavbar({ projectId, projectName = 'Untitled Project' }:
 
         {/* Right side - Settings */}
         <div className="flex items-center gap-2">
-          <button
+          <button 
             className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent transition-colors"
             onClick={() => setShowSettings(!showSettings)}
             title="Settings"
@@ -106,7 +142,7 @@ export function FloorplanNavbar({ projectId, projectName = 'Untitled Project' }:
         <div className="absolute right-0 top-12 z-50 h-[calc(100%-48px)] w-80 border-l border-border bg-sidebar shadow-xl">
           <div className="flex items-center justify-between border-b border-border p-3">
             <span className="font-medium text-sm">Settings</span>
-            <button
+            <button 
               className="flex h-6 w-6 items-center justify-center rounded hover:bg-accent"
               onClick={() => setShowSettings(false)}
             >
