@@ -149,17 +149,14 @@ export const Grid = ({
 
   const showGrid = useViewer((state) => state.showGrid)
 
-  // Debug: log when showGrid changes
-  useEffect(() => {
-    console.log('[Grid] showGrid changed:', showGrid)
-  }, [showGrid])
-
-  if (!showGrid) {
-    return null
-  }
-
   return (
-    <mesh layers={EDITOR_LAYER} material={material} ref={gridRef} rotation-x={-Math.PI / 2}>
+    <mesh
+      layers={EDITOR_LAYER}
+      material={material}
+      ref={gridRef}
+      rotation-x={-Math.PI / 2}
+      visible={showGrid}
+    >
       <planeGeometry args={[fadeDistance * 2, fadeDistance * 2]} />
     </mesh>
   )
