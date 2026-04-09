@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useState, useEffect, useCallback, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import type { SceneGraph } from '@pascal-app/editor';
 import { FloorplanNavbar } from './navbar';
@@ -26,8 +26,9 @@ type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'paused' | 'error';
 
 function FloorPlanEditor() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const projectIdParam = searchParams.get('project');
-  
+  const isNewProject = searchParams.get('new') === 'true';
   const [sceneData, setSceneData] = useState<SceneGraph | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [projectName, setProjectName] = useState<string>('Untitled Project');
@@ -38,6 +39,29 @@ function FloorPlanEditor() {
   useEffect(() => {
     async function initializeProject() {
       try {
+        // If "new=true", create a blank project
+        if (isNewProject) {
+          // Create new project in Supabase
+          const { data, error } = await supabase
+            ?.from('floorplan_projects')
+            .insert({ 
+              name: `Floor Plan ${new Date().toLocaleDateString()}`,
+              scene_data: null 
+            })
+            .select('id, name')
+            .single() || { data: null, error: { message: 'Supabase not configured' } };
+          
+          if (data?.id) {
+            setProjectId(data.id);
+            setProjectName(data.name || 'Untitled Project');
+            localStorage.setItem('floorplan-v2-project-id', data.id);
+            
+            // Redirect to project URL (removes ?new=true)
+            router.replace(`/floorplan-v2?project=${data.id}`);
+            return;
+          }
+        }
+
         // If project ID is in URL, load that project
         if (projectIdParam) {
           const { data, error } = await supabase
@@ -58,7 +82,6 @@ function FloorPlanEditor() {
 
         // Check for existing project in localStorage
         const storedProjectId = localStorage.getItem('floorplan-v2-project-id');
-        
         if (storedProjectId && !projectIdParam) {
           // Try to load from Supabase
           const { data, error } = await supabase
@@ -66,7 +89,7 @@ function FloorPlanEditor() {
             .select('id, name, scene_data')
             .eq('id', storedProjectId)
             .single() || { data: null, error: { message: 'Supabase not configured' } };
-          
+
           if (data?.scene_data) {
             setProjectId(data.id);
             setProjectName(data.name || 'Untitled Project');
@@ -75,7 +98,7 @@ function FloorPlanEditor() {
             return;
           }
         }
-        
+
         // No existing project - load demo scene
         const res = await fetch('/demos/demo_simple.json');
         const demoData = await res.json();
@@ -94,9 +117,8 @@ function FloorPlanEditor() {
         setIsLoading(false);
       }
     }
-    
     initializeProject();
-  }, [projectIdParam]);
+  }, [projectIdParam, isNewProject, router]);
 
   // Load scene handler
   const onLoad = useCallback(async (): Promise<SceneGraph | null> => {
@@ -106,33 +128,27 @@ function FloorPlanEditor() {
   // Save scene handler - saves to Supabase
   const onSave = useCallback(async (scene: SceneGraph) => {
     console.log('[FloorPlan] Saving scene...', { projectId, nodeCount: Object.keys(scene.nodes).length });
-    
+
     try {
       if (projectId) {
         // Update existing project
         const { error } = await supabase
           ?.from('floorplan_projects')
-          .update({ 
-            scene_data: scene,
-            updated_at: new Date().toISOString()
-          })
+          .update({ scene_data: scene, updated_at: new Date().toISOString() })
           .eq('id', projectId) || { error: { message: 'Supabase not configured' } };
-        
+
         if (error) throw error;
         console.log('[FloorPlan] Scene updated');
       } else {
         // Create new project
         const { data, error } = await supabase
           ?.from('floorplan_projects')
-          .insert({ 
-            scene_data: scene,
-            name: `Floor Plan ${new Date().toLocaleDateString()}`
-          })
+          .insert({ scene_data: scene, name: `Floor Plan ${new Date().toLocaleDateString()}` })
           .select('id')
           .single() || { data: null, error: { message: 'Supabase not configured' } };
-        
+
         if (error) throw error;
-        
+
         if (data?.id) {
           setProjectId(data.id);
           localStorage.setItem('floorplan-v2-project-id', data.id);
@@ -174,6 +190,7 @@ function FloorPlanEditor() {
         onSave={onSave}
         onSaveStatusChange={(status) => setSaveStatus(status)}
       />
+
       {/* Save status indicator */}
       <div className="fixed bottom-4 right-4 px-3 py-1.5 rounded-lg bg-gray-800/80 text-xs text-gray-400 backdrop-blur-sm">
         {saveStatus === 'saved' && '✓ Saved'}
