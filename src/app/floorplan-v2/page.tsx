@@ -145,16 +145,43 @@ function FloorPlanEditor() {
       if (!projectId || event.projectId !== projectId) return;
 
       try {
-        // Get the WebGL canvas
-        const canvas = document.querySelector('canvas');
+        // Small delay to ensure render is complete
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Get all canvases and find the WebGL one (usually the largest)
+        const canvases = document.querySelectorAll('canvas');
+        let canvas = canvases[0];
+        
+        // Find the largest canvas (likely the main renderer)
+        for (const c of canvases) {
+          if (c.width > (canvas?.width || 0)) {
+            canvas = c;
+          }
+        }
+
         if (!canvas) {
           console.error('[FloorPlan] No canvas found');
           return;
         }
 
-        // Convert canvas to blob
+        console.log('[FloorPlan] Capturing canvas:', canvas.width, 'x', canvas.height);
+
+        // Create a new canvas to composite the scene
+        const captureCanvas = document.createElement('canvas');
+        captureCanvas.width = canvas.width;
+        captureCanvas.height = canvas.height;
+        const ctx = captureCanvas.getContext('2d')!;
+        
+        // Fill with background color first
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(0, 0, captureCanvas.width, captureCanvas.height);
+        
+        // Draw WebGL canvas
+        ctx.drawImage(canvas, 0, 0);
+
+        // Convert to blob
         const blob = await new Promise<Blob>((resolve, reject) => {
-          canvas.toBlob((b) => {
+          captureCanvas.toBlob((b) => {
             if (b) resolve(b);
             else reject(new Error('Failed to create blob'));
           }, 'image/png');
