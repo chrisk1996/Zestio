@@ -64,9 +64,9 @@ const STYLE_PROMPTS: Record<string, string> = {
 async function generateDepthMap(imageUrl: string): Promise<string> {
   console.log('Generating depth map from image...');
 
-  // Use Depth Anything V2 - better quality than V1
+  // Use Depth Anything V2 with explicit version hash (required by Replicate API)
   const result = await replicate.run(
-    "chenxwh/depth-anything-v2",
+    "chenxwh/depth-anything-v2:b239ea33cff32bb7abb5db39ffe9a09c14cbc2894331d1ef66fe096eed88ebd4",
     {
       input: {
         image: imageUrl,
