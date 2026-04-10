@@ -72,37 +72,43 @@ async function generateDepthMap(imageUrl: string): Promise<string> {
     }
   );
 
-  console.log('Depth Anything raw result:', JSON.stringify(result, null, 2));
+  console.log('Depth Anything result type:', typeof result);
+  console.log('Depth Anything result:', result);
 
-  // Replicate returns output in various formats depending on the model
-  // Depth Anything returns a URL string directly or an array
-  if (typeof result === 'string') {
-    return result;
+  // Replicate SDK returns FileOutput for image outputs
+  // FileOutput has a .url() method to get the URL string
+  // The SDK also returns arrays, so we may get [FileOutput]
+  
+  // Handle array output (common for image models)
+  if (Array.isArray(result) && result.length > 0) {
+    const first = result[0];
+    // FileOutput object has .url() method
+    if (first && typeof first.url === 'function') {
+      return first.url();
+    }
+    // Plain string URL
+    if (typeof first === 'string') {
+      return first;
+    }
   }
   
-  if (Array.isArray(result)) {
-    // Some models return [url] array
-    if (result.length > 0 && typeof result[0] === 'string') {
-      return result[0];
-    }
-    // Some return array of objects
-    if (result[0] && typeof result[0] === 'object') {
-      const first = result[0] as Record<string, unknown>;
-      if (first.url) return String(first.url);
-    }
-  }
-  
+  // Handle single FileOutput object
   if (result && typeof result === 'object') {
+    // FileOutput has .url() method
+    if (typeof (result as any).url === 'function') {
+      return (result as any).url();
+    }
+    // Fallback: try common output fields
     const out = result as Record<string, unknown>;
-    // Try various common output fields
-    const url = out.output || out.url || out.image || out.depth_map;
+    const url = out.output || out.url || out.image;
     if (typeof url === 'string') {
       return url;
     }
-    // Sometimes output is nested
-    if (Array.isArray(out.output) && out.output.length > 0) {
-      return String(out.output[0]);
-    }
+  }
+  
+  // String output (direct URL)
+  if (typeof result === 'string') {
+    return result;
   }
   
   throw new Error('Failed to generate depth map - no valid URL returned');
