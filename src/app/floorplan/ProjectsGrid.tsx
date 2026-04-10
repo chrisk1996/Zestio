@@ -14,10 +14,47 @@ interface Project {
   thumbnail_url?: string;
 }
 
+// Lightbox modal for viewing images in full size
+function LightboxModal({
+  src,
+  alt,
+  onClose,
+}: {
+  src: string;
+  alt: string;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 cursor-pointer"
+      onClick={onClose}
+    >
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors z-10"
+      >
+        <span className="material-symbols-outlined text-white">close</span>
+      </button>
+      <div 
+        className="relative w-full h-full max-w-6xl max-h-[90vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          className="object-contain"
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function ProjectsGrid() {
   const supabase = createClient();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
 
   useEffect(() => {
     async function fetchProjects() {
@@ -46,7 +83,11 @@ export default function ProjectsGrid() {
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays} days ago`;
 
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
   };
 
   const handleDelete = async (id: string) => {
@@ -64,13 +105,24 @@ export default function ProjectsGrid() {
 
   return (
     <div className="p-8">
+      {/* Lightbox Modal */}
+      {lightbox && (
+        <LightboxModal
+          src={lightbox.src}
+          alt={lightbox.alt}
+          onClose={() => setLightbox(null)}
+        />
+      )}
+
       {/* Page Header */}
       <div className="flex justify-between items-end mb-8">
         <div>
           <span className="text-xs uppercase tracking-wider text-blue-600 mb-2 block font-semibold">
             Project Management
           </span>
-          <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Floor Plan Projects</h2>
+          <h2 className="text-3xl font-bold text-slate-900 tracking-tight">
+            Floor Plan Projects
+          </h2>
         </div>
         <Link
           href="/floorplan-v2?new=true"
@@ -138,7 +190,8 @@ export default function ProjectsGrid() {
                     src={project.thumbnail_url}
                     alt={project.name || 'Floor plan'}
                     fill
-                    className="object-cover"
+                    className="object-cover cursor-zoom-in"
+                    onClick={() => setLightbox({ src: project.thumbnail_url!, alt: project.name || 'Floor plan' })}
                   />
                 ) : (
                   <div className="w-full h-full bg-slate-200 flex items-center justify-center">
@@ -152,16 +205,24 @@ export default function ProjectsGrid() {
                 </div>
 
                 {/* Hover Actions */}
-                <div className="absolute inset-0 bg-slate-900/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                <div className="absolute inset-0 bg-slate-900/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 pointer-events-none">
+                  {project.thumbnail_url && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setLightbox({ src: project.thumbnail_url!, alt: project.name || 'Floor plan' });
+                      }}
+                      className="w-10 h-10 bg-white text-slate-900 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform pointer-events-auto"
+                      title="View full size"
+                    >
+                      <span className="material-symbols-outlined">zoom_in</span>
+                    </button>
+                  )}
                   <Link
                     href={`/floorplan-v2?project=${project.id}`}
-                    className="w-10 h-10 bg-white text-slate-900 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
-                  >
-                    <span className="material-symbols-outlined">visibility</span>
-                  </Link>
-                  <Link
-                    href={`/floorplan-v2?project=${project.id}`}
-                    className="w-10 h-10 bg-white text-slate-900 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+                    className="w-10 h-10 bg-white text-slate-900 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform pointer-events-auto"
+                    title="Edit project"
+                    onClick={(e) => e.stopPropagation()}
                   >
                     <span className="material-symbols-outlined">edit</span>
                   </Link>
