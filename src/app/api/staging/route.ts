@@ -187,7 +187,8 @@ export async function POST(request: NextRequest) {
 
       const roomPrompt = ROOM_PROMPTS[roomType] || ROOM_PROMPTS.living;
       const stylePrompt = STYLE_PROMPTS[furnitureStyle] || STYLE_PROMPTS.modern;
-      const prompt = `${roomPrompt}, ${stylePrompt}, professional real estate photography, well-lit, high quality, interior design magazine, bright and clean`;
+      // Emphasize preserving original background - no hallucinated outdoor scenes
+      const prompt = `${roomPrompt}, ${stylePrompt}, professional real estate photography, well-lit, high quality, interior design magazine, bright and clean, preserve original window view, keep existing background, do not add outdoor scenery`;
 
       console.log('FLUX Depth Pro workflow:', { roomType, furnitureStyle });
 
