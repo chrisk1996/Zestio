@@ -72,17 +72,19 @@ async function generateDepthMap(imageUrl: string): Promise<string> {
     }
   );
 
-  // Handle output
+  // Handle output - ensure we return a proper URL
   if (typeof result === 'string') {
     return result;
   } else if (Array.isArray(result) && result.length > 0) {
     return String(result[0]);
   } else if (result && typeof result === 'object') {
     const out = result as Record<string, unknown>;
-    return String(out.url || out.output);
+    const url = out.url || out.output;
+    if (typeof url === 'string') {
+      return url;
+    }
   }
-
-  throw new Error('Failed to generate depth map');
+  throw new Error('Failed to generate depth map - no valid URL returned');
 }
 
 export async function POST(request: NextRequest) {
@@ -145,7 +147,6 @@ export async function POST(request: NextRequest) {
       if (!resultUrl) {
         throw new Error('No output from Decor8 API');
       }
-
     } else if (model === 'flux-depth') {
       // FLUX Depth Pro workflow:
       // 1. Generate depth map from input image using Depth Anything
@@ -165,15 +166,19 @@ export async function POST(request: NextRequest) {
 
       // Step 2: Use depth map with FLUX Depth Pro
       console.log('Step 2: Running FLUX Depth Pro with depth conditioning...');
+
+      // FLUX Depth Pro requires:
+      // - control_image: must be a valid URI (we have depthMapUrl)
+      // - output_format: must be 'jpg' or 'png' (not 'webp')
       const result = await replicate.run(
         "black-forest-labs/flux-depth-pro",
         {
           input: {
-            control_image: depthMapUrl,  // Depth map for structure preservation
+            control_image: depthMapUrl,
             prompt: prompt,
             num_inference_steps: 28,
             guidance_scale: 3.5,
-            output_format: 'webp',
+            output_format: 'jpg',
             output_quality: 90,
           },
         }
@@ -194,7 +199,6 @@ export async function POST(request: NextRequest) {
       if (!resultUrl || resultUrl === '[object Object]') {
         throw new Error('No output from FLUX Depth Pro');
       }
-
     } else {
       // Fallback to SDXL for other models
       // Note: SDXL doesn't preserve structure as well as depth-based models
@@ -257,7 +261,6 @@ export async function POST(request: NextRequest) {
       model,
       creditsUsed,
     });
-
   } catch (error) {
     console.error('Virtual staging error:', error);
     return NextResponse.json(
