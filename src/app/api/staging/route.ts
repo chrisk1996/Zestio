@@ -78,7 +78,7 @@ async function generateDepthMap(imageUrl: string): Promise<string> {
   // Replicate SDK returns FileOutput for image outputs
   // FileOutput has a .url() method to get the URL string
   // The SDK also returns arrays, so we may get [FileOutput]
-  
+
   // Handle array output (common for image models)
   if (Array.isArray(result) && result.length > 0) {
     const first = result[0];
@@ -91,7 +91,7 @@ async function generateDepthMap(imageUrl: string): Promise<string> {
       return first;
     }
   }
-  
+
   // Handle single FileOutput object
   if (result && typeof result === 'object') {
     // FileOutput has .url() method
@@ -105,12 +105,12 @@ async function generateDepthMap(imageUrl: string): Promise<string> {
       return url;
     }
   }
-  
+
   // String output (direct URL)
   if (typeof result === 'string') {
     return result;
   }
-  
+
   throw new Error('Failed to generate depth map - no valid URL returned');
 }
 
@@ -189,7 +189,7 @@ export async function POST(request: NextRequest) {
       // Step 1: Generate depth map
       console.log('Step 1: Generating depth map...');
       const depthMapUrl = await generateDepthMap(image);
-      console.log('Depth map generated:', depthMapUrl.substring(0, 50) + '...');
+      console.log('Depth map generated successfully');
 
       // Step 2: Use depth map with FLUX Depth Pro
       console.log('Step 2: Running FLUX Depth Pro with depth conditioning...');
@@ -211,14 +211,18 @@ export async function POST(request: NextRequest) {
         }
       );
 
-      // Handle output
-      if (typeof result === 'string') {
+      // Handle output - could be FileOutput or array
+      if (Array.isArray(result) && result.length > 0) {
+        const first = result[0];
+        if (first && typeof first.url === 'function') {
+          resultUrl = first.url();
+        } else {
+          resultUrl = String(first);
+        }
+      } else if (result && typeof result === 'object' && typeof (result as any).url === 'function') {
+        resultUrl = (result as any).url();
+      } else if (typeof result === 'string') {
         resultUrl = result;
-      } else if (Array.isArray(result) && result.length > 0) {
-        resultUrl = String(result[0]);
-      } else if (result && typeof result === 'object') {
-        const out = result as Record<string, unknown>;
-        resultUrl = String(out.url || out.output || JSON.stringify(result));
       } else {
         resultUrl = String(result);
       }
