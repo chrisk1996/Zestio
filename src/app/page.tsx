@@ -44,7 +44,8 @@ export default function LandingPage() {
         </section>
 
         {/* Service Catalogue */}
-        <section className="px-12 py-20 bg-[#edf4ff]">
+      <section id="products" className="px-12 py-20 bg-[#edf4ff]">
+        
           <div className="max-w-7xl mx-auto">
             <div className="flex items-baseline justify-between mb-16 border-b border-[#c4c6cd]/30 pb-6">
               <h2 className="font-serif text-4xl text-[#1d2832]">Service Catalogue</h2>

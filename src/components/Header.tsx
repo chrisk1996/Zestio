@@ -40,7 +40,7 @@ export function Header() {
 
         {/* Nav - Desktop */}
         <nav className="hidden md:flex items-center gap-10 font-serif font-light tracking-tight">
-          <Link href="/enhance" className="text-[#006c4d] border-b-2 border-[#006c4d] pb-1">
+          <Link href="/#products" className="text-[#006c4d] border-b-2 border-[#006c4d] pb-1">
             Products
           </Link>
           <span className="text-[#1d2832] opacity-40 cursor-not-allowed">
@@ -99,7 +99,7 @@ export function Header() {
         <div className="md:hidden bg-[#f7f9ff] border-b border-[#c4c6cd]/10">
           <nav className="px-4 py-4 space-y-2">
             <Link 
-              href="/enhance" 
+              href="/#products" 
               className="block px-4 py-2 text-[#006c4d] font-manrope text-xs uppercase tracking-widest"
               onClick={() => setMobileMenuOpen(false)}
             >
