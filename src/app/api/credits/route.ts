@@ -9,10 +9,7 @@ export async function GET() {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    console.log('Credits API - Auth check:', { userId: user?.id, authError: authError?.message });
-
     if (authError || !user) {
-      console.log('Credits API - No user, returning defaults');
       return NextResponse.json({
         credits: 0,
         plan: 'free',
@@ -20,16 +17,14 @@ export async function GET() {
       });
     }
 
+    // Use correct column names: subscription_tier, credits, used_credits
     const { data: userData, error } = await supabase
       .from('propertypix_users')
-      .select('credits_remaining, credits_used, plan, plan_status')
+      .select('subscription_tier, credits, used_credits')
       .eq('id', user.id)
       .single();
 
-    console.log('Credits API - Query result:', { userData, error: error?.message, code: error?.code });
-
     if (error || !userData) {
-      console.log('Credits API - Query failed, returning fallback');
       return NextResponse.json({
         credits: 5,
         plan: 'free',
@@ -37,17 +32,14 @@ export async function GET() {
       });
     }
 
-    console.log('Credits API - Returning:', {
-      credits: userData.credits_remaining,
-      used: userData.credits_used,
-      plan: userData.plan
-    });
+    const creditsTotal = userData.credits ?? 5;
+    const creditsUsed = userData.used_credits ?? 0;
+    const creditsRemaining = creditsTotal - creditsUsed;
 
     return NextResponse.json({
-      credits: userData.plan === 'enterprise' ? 999999 : userData.credits_remaining,
-      plan: userData.plan,
-      used: userData.credits_used,
-      status: userData.plan_status,
+      credits: userData.subscription_tier === 'enterprise' ? 999999 : creditsRemaining,
+      plan: userData.subscription_tier || 'free',
+      used: creditsUsed,
     });
   } catch (error) {
     console.error('Credits error:', error);

@@ -2,19 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { AppLayout } from '@/components/layout';
-import { CreditCard, Loader2, AlertCircle, Check, Zap, Crown, Building2, Download, ArrowUpRight, TrendingUp } from 'lucide-react';
-import Link from 'next/link';
+import { CreditCard, Loader2, AlertCircle, Check, Zap, Crown, Building2, ArrowUpRight, TrendingUp } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 interface UserData {
   email: string;
   plan: string;
-  plan_status: string;
-  credits_remaining: number;
-  credits_used: number;
   credits_total: number;
-  stripe_customer_id: string | null;
-  stripe_subscription_id: string | null;
+  credits_used: number;
+  credits_remaining: number;
 }
 
 const plans = [
@@ -54,7 +50,6 @@ const plans = [
 export default function BillingPage() {
   const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [portalLoading, setPortalLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
 
@@ -70,30 +65,36 @@ export default function BillingPage() {
         return;
       }
 
-      // Fetch user profile
+      // Fetch user profile with credits from propertypix_users table
+      // Columns: subscription_tier, credits, used_credits
       const { data: profile, error: profileError } = await supabase
         .from('propertypix_users')
-        .select('id, email, plan, plan_status, stripe_customer_id, stripe_subscription_id')
+        .select('id, email, subscription_tier, credits, used_credits')
         .eq('id', authUser.id)
         .single();
 
-      // Fetch credits from enhancement_credits table
-      const { data: credits } = await supabase
-        .from('enhancement_credits')
-        .select('credits_total, credits_used')
-        .eq('user_id', authUser.id)
-        .single();
+      if (profileError) {
+        console.error('Profile fetch error:', profileError);
+        // Set defaults if user record doesn't exist yet
+        setUser({
+          email: authUser.email || '',
+          plan: 'free',
+          credits_total: 5,
+          credits_used: 0,
+          credits_remaining: 5,
+        });
+        return;
+      }
 
-      // Combine profile + credits
+      const creditsTotal = profile?.credits ?? 5;
+      const creditsUsed = profile?.used_credits ?? 0;
+
       setUser({
         email: profile?.email || authUser.email || '',
-        plan: profile?.plan || 'free',
-        plan_status: profile?.plan_status || 'active',
-        credits_total: credits?.credits_total || 0,
-        credits_used: credits?.credits_used || 0,
-        credits_remaining: (credits?.credits_total || 0) - (credits?.credits_used || 0),
-        stripe_customer_id: profile?.stripe_customer_id || null,
-        stripe_subscription_id: profile?.stripe_subscription_id || null,
+        plan: profile?.subscription_tier || 'free',
+        credits_total: creditsTotal,
+        credits_used: creditsUsed,
+        credits_remaining: creditsTotal - creditsUsed,
       });
     } catch (err) {
       console.error('Error loading user:', err);
@@ -103,39 +104,10 @@ export default function BillingPage() {
     }
   };
 
-  const handleManageBilling = async () => {
-    setPortalLoading(true);
-    try {
-      const response = await fetch('/api/portal', { method: 'POST' });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to open billing portal');
-      }
-      window.location.href = data.url;
-    } catch (err) {
-      console.error('Portal error:', err);
-      setError('Failed to open billing portal');
-    } finally {
-      setPortalLoading(false);
-    }
-  };
-
   const getCreditPercentage = () => {
     if (!user || user.plan === 'enterprise') return 100;
-    const used = user.credits_used || 0;
-    const total = user.credits_total || 100;
-    return Math.max(0, Math.round(((total - used) / total) * 100));
-  };
-
-  const getCreditsUsed = () => {
-    if (!user) return 0;
-    return user.credits_used || 0;
-  };
-
-  const getCreditsRemaining = () => {
-    if (!user) return 0;
-    if (user.plan === 'enterprise') return '∞';
-    return Math.max(0, (user.credits_total || 100) - (user.credits_used || 0));
+    const total = user.credits_total || 1;
+    return Math.max(0, Math.round((user.credits_remaining / total) * 100));
   };
 
   if (loading) {
@@ -174,7 +146,7 @@ export default function BillingPage() {
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-2xl font-bold">{currentPlan.name}</span>
                 <span className="px-2 py-0.5 bg-white/20 rounded-full text-xs font-medium uppercase">
-                  {user?.plan_status || 'Active'}
+                  Active
                 </span>
               </div>
             </div>
@@ -187,7 +159,9 @@ export default function BillingPage() {
           <div className="bg-white/10 rounded-lg p-4">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-indigo-200">Credits Remaining</span>
-              <span className="text-lg font-bold">{getCreditsRemaining()} / {user?.credits_total || 0}</span>
+              <span className="text-lg font-bold">
+                {user?.plan === 'enterprise' ? '∞' : `${user?.credits_remaining} / ${user?.credits_total}`}
+              </span>
             </div>
             <div className="h-3 bg-white/20 rounded-full overflow-hidden">
               <div
@@ -196,7 +170,7 @@ export default function BillingPage() {
               />
             </div>
             <div className="flex justify-between mt-2 text-xs text-indigo-200">
-              <span>{getCreditsUsed()} used</span>
+              <span>{user?.credits_used} used</span>
               <span>{getCreditPercentage()}% remaining</span>
             </div>
           </div>
@@ -251,41 +225,8 @@ export default function BillingPage() {
           </div>
         </div>
 
-        {/* Billing Management */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <CreditCard className="w-5 h-5 text-gray-500" />
-            <h2 className="text-lg font-semibold text-gray-900">Billing Management</h2>
-          </div>
-          <p className="text-sm text-gray-600 mb-4">
-            Manage your payment method, view invoices, and cancel your subscription through the Stripe customer portal.
-          </p>
-          <button
-            onClick={handleManageBilling}
-            disabled={portalLoading || !user?.stripe_customer_id}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {portalLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Loading...
-              </>
-            ) : (
-              <>
-                <ArrowUpRight className="w-4 h-4" />
-                Open Billing Portal
-              </>
-            )}
-          </button>
-          {!user?.stripe_customer_id && (
-            <p className="text-xs text-gray-500 mt-2">
-              Billing portal available after subscribing to a paid plan.
-            </p>
-          )}
-        </div>
-
         {/* Usage Breakdown */}
-        <div className="mt-6 bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center gap-3 mb-4">
             <TrendingUp className="w-5 h-5 text-gray-500" />
             <h2 className="text-lg font-semibold text-gray-900">Usage Breakdown</h2>
@@ -293,7 +234,7 @@ export default function BillingPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-gray-50 rounded-lg p-4">
               <p className="text-sm text-gray-500">Enhancements</p>
-              <p className="text-2xl font-bold text-gray-900">{getCreditsUsed()}</p>
+              <p className="text-2xl font-bold text-gray-900">{user?.credits_used || 0}</p>
             </div>
             <div className="bg-gray-50 rounded-lg p-4">
               <p className="text-sm text-gray-500">Virtual Staging</p>
