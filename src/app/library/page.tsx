@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { AppLayout } from '@/components/layout';
-import { Library, Image, Download, Trash2, Clock } from 'lucide-react';
+import { Library, Image, Download, Trash2, Clock, Video, Sofa, Sparkles, Wand2 } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 
@@ -17,10 +17,21 @@ interface EnhancementJob {
   completed_at: string | null;
 }
 
+type FilterType = 'all' | 'enhance' | 'staging' | 'video' | 'floorplan';
+
+const filterOptions: { id: FilterType; label: string; icon: React.ReactNode }[] = [
+  { id: 'all', label: 'All', icon: null },
+  { id: 'enhance', label: 'Image Enhance', icon: <Sparkles className="w-4 h-4" /> },
+  { id: 'staging', label: 'Virtual Staging', icon: <Sofa className="w-4 h-4" /> },
+  { id: 'video', label: 'Video Creation', icon: <Video className="w-4 h-4" /> },
+  { id: 'floorplan', label: 'Floor Plans', icon: <Image className="w-4 h-4" /> },
+];
+
 export default function LibraryPage() {
   const [jobs, setJobs] = useState<EnhancementJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const supabase = createClient();
 
   useEffect(() => {
@@ -47,7 +58,7 @@ export default function LibraryPage() {
       setJobs(data || []);
     } catch (err) {
       console.error('Error loading jobs:', err);
-      setError('Failed to load image library');
+      setError('Failed to load library');
     } finally {
       setLoading(false);
     }
@@ -73,7 +84,7 @@ export default function LibraryPage() {
   };
 
   const handleDelete = async (jobId: string) => {
-    if (!confirm('Are you sure you want to delete this image?')) return;
+    if (!confirm('Are you sure you want to delete this item?')) return;
 
     try {
       const { error: deleteError } = await supabase
@@ -85,7 +96,7 @@ export default function LibraryPage() {
       setJobs(jobs.filter(j => j.id !== jobId));
     } catch (err) {
       console.error('Error deleting job:', err);
-      alert('Failed to delete image');
+      alert('Failed to delete item');
     }
   };
 
@@ -104,14 +115,16 @@ export default function LibraryPage() {
     return date.toLocaleDateString();
   };
 
-  const getTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      auto: 'Auto Enhance',
-      sky: 'Sky Replace',
-      staging: 'Virtual Staging',
-      object_removal: 'Object Removal',
+  const getTypeInfo = (type: string) => {
+    const typeMap: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+      auto: { label: 'Auto Enhance', icon: <Wand2 className="w-4 h-4" />, color: 'text-purple-600 bg-purple-100' },
+      sky: { label: 'Sky Replace', icon: <Sparkles className="w-4 h-4" />, color: 'text-blue-600 bg-blue-100' },
+      staging: { label: 'Virtual Staging', icon: <Sofa className="w-4 h-4" />, color: 'text-amber-600 bg-amber-100' },
+      video: { label: 'Video Creation', icon: <Video className="w-4 h-4" />, color: 'text-red-600 bg-red-100' },
+      floorplan: { label: 'Floor Plan', icon: <Image className="w-4 h-4" />, color: 'text-green-600 bg-green-100' },
+      object_removal: { label: 'Object Removal', icon: <Wand2 className="w-4 h-4" />, color: 'text-gray-600 bg-gray-100' },
     };
-    return labels[type] || type;
+    return typeMap[type] || { label: type, icon: <Image className="w-4 h-4" />, color: 'text-gray-600 bg-gray-100' };
   };
 
   const getStatusBadge = (status: string) => {
@@ -124,8 +137,31 @@ export default function LibraryPage() {
     return styles[status] || 'bg-gray-100 text-gray-700';
   };
 
+  // Filter jobs based on active filter
+  const filteredJobs = jobs.filter(job => {
+    if (activeFilter === 'all') return true;
+    if (activeFilter === 'enhance') return ['auto', 'sky', 'object_removal'].includes(job.job_type);
+    if (activeFilter === 'staging') return job.job_type === 'staging';
+    if (activeFilter === 'video') return job.job_type === 'video';
+    if (activeFilter === 'floorplan') return job.job_type === 'floorplan';
+    return true;
+  });
+
+  // Count items per category
+  const getCounts = () => {
+    return {
+      all: jobs.length,
+      enhance: jobs.filter(j => ['auto', 'sky', 'object_removal'].includes(j.job_type)).length,
+      staging: jobs.filter(j => j.job_type === 'staging').length,
+      video: jobs.filter(j => j.job_type === 'video').length,
+      floorplan: jobs.filter(j => j.job_type === 'floorplan').length,
+    };
+  };
+
+  const counts = getCounts();
+
   return (
-    <AppLayout title="Image Library">
+    <AppLayout title="Image and Video Library">
       <div className="p-8">
         {/* Header */}
         <div className="mb-8">
@@ -134,11 +170,38 @@ export default function LibraryPage() {
               <Library className="w-6 h-6 text-indigo-600" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Image Library</h1>
-              <p className="text-gray-600">View and manage your enhanced images</p>
+              <h1 className="text-2xl font-bold text-gray-900">Image & Video Library</h1>
+              <p className="text-gray-600">View and manage your created content</p>
             </div>
           </div>
         </div>
+
+        {/* Filter Tags */}
+        {!loading && jobs.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-6">
+            {filterOptions.map((filter) => (
+              <button
+                key={filter.id}
+                onClick={() => setActiveFilter(filter.id)}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  activeFilter === filter.id
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                }`}
+              >
+                {filter.icon}
+                {filter.label}
+                <span className={`ml-1 px-2 py-0.5 rounded-full text-xs ${
+                  activeFilter === filter.id
+                    ? 'bg-indigo-500 text-white'
+                    : 'bg-gray-200 text-gray-500'
+                }`}>
+                  {counts[filter.id]}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Error State */}
         {error && (
@@ -158,82 +221,118 @@ export default function LibraryPage() {
         {!loading && jobs.length === 0 && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
             <Image className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No images yet</h3>
-            <p className="text-gray-500 mb-6">Start by enhancing your first property photo</p>
-            <Link
-              href="/enhance"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              Enhance Photo
-            </Link>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No content yet</h3>
+            <p className="text-gray-500 mb-6">Start by creating your first enhancement, staging, or video</p>
+            <div className="flex flex-wrap justify-center gap-3">
+              <Link
+                href="/enhance"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                <Sparkles className="w-4 h-4" />
+                Enhance Photo
+              </Link>
+              <Link
+                href="/staging"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+              >
+                <Sofa className="w-4 h-4" />
+                Virtual Staging
+              </Link>
+              <Link
+                href="/video"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                <Video className="w-4 h-4" />
+                Create Video
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* No Results for Filter */}
+        {!loading && jobs.length > 0 && filteredJobs.length === 0 && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+            <p className="text-gray-500">No items in this category</p>
           </div>
         )}
 
         {/* Jobs Grid */}
-        {!loading && jobs.length > 0 && (
+        {!loading && filteredJobs.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {jobs.map((job) => (
-              <div key={job.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                {/* Image Preview */}
-                <div className="relative aspect-video bg-gray-100">
-                  {job.output_url ? (
-                    <img src={job.output_url} alt="Enhanced" className="w-full h-full object-cover" />
-                  ) : job.input_url ? (
-                    <img src={job.input_url} alt="Original" className="w-full h-full object-cover opacity-50" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Image className="w-8 h-8 text-gray-300" />
-                    </div>
-                  )}
+            {filteredJobs.map((job) => {
+              const typeInfo = getTypeInfo(job.job_type);
+              return (
+                <div key={job.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                  {/* Image Preview */}
+                  <div className="relative aspect-video bg-gray-100">
+                    {job.output_url ? (
+                      job.job_type === 'video' ? (
+                        <video src={job.output_url} className="w-full h-full object-cover" controls muted />
+                      ) : (
+                        <img src={job.output_url} alt="Output" className="w-full h-full object-cover" />
+                      )
+                    ) : job.input_url ? (
+                      <img src={job.input_url} alt="Original" className="w-full h-full object-cover opacity-50" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Image className="w-8 h-8 text-gray-300" />
+                      </div>
+                    )}
 
-                  {/* Status Badge */}
-                  <span className={`absolute top-3 right-3 px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(job.status)}`}>
-                    {job.status}
-                  </span>
-                </div>
-
-                {/* Details */}
-                <div className="p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-medium text-gray-900">{getTypeLabel(job.job_type)}</h3>
-                    <span className="flex items-center gap-1 text-xs text-gray-500">
-                      <Clock className="w-3 h-3" />
-                      {formatDate(job.created_at)}
+                    {/* Status Badge */}
+                    <span className={`absolute top-3 right-3 px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(job.status)}`}>
+                      {job.status}
                     </span>
                   </div>
 
-                  {/* Actions */}
-                  {job.status === 'completed' && job.output_url && (
-                    <div className="flex gap-2 mt-3">
-                      <button
-                        onClick={() => handleDownload(job)}
-                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-                      >
-                        <Download className="w-4 h-4" />
-                        Download
-                      </button>
-                      <button
-                        onClick={() => handleDelete(job.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                  {/* Details */}
+                  <div className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`p-1.5 rounded-lg ${typeInfo.color}`}>
+                          {typeInfo.icon}
+                        </span>
+                        <h3 className="font-medium text-gray-900">{typeInfo.label}</h3>
+                      </div>
+                      <span className="flex items-center gap-1 text-xs text-gray-500">
+                        <Clock className="w-3 h-3" />
+                        {formatDate(job.created_at)}
+                      </span>
                     </div>
-                  )}
 
-                  {job.status === 'failed' && (
-                    <p className="text-sm text-red-600 mt-2">Processing failed. Please try again.</p>
-                  )}
+                    {/* Actions */}
+                    {job.status === 'completed' && job.output_url && (
+                      <div className="flex gap-2 mt-3">
+                        <button
+                          onClick={() => handleDownload(job)}
+                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                        >
+                          <Download className="w-4 h-4" />
+                          Download
+                        </button>
+                        <button
+                          onClick={() => handleDelete(job.id)}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
 
-                  {job.status === 'processing' && (
-                    <div className="flex items-center gap-2 text-sm text-blue-600 mt-2">
-                      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                      Processing...
-                    </div>
-                  )}
+                    {job.status === 'failed' && (
+                      <p className="text-sm text-red-600 mt-2">Processing failed. Please try again.</p>
+                    )}
+
+                    {job.status === 'processing' && (
+                      <div className="flex items-center gap-2 text-sm text-blue-600 mt-2">
+                        <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                        Processing...
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
