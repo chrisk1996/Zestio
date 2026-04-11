@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { AppLayout } from '@/components/layout/AppLayout';
+import { AppLayout } from '@/components/layout';
 import { Loader2, AlertCircle, User, Bell, Globe, Moon, Shield, LogOut } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 

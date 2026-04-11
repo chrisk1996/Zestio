@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { AppLayout } from '@/components/layout/AppLayout';
+import { AppLayout } from '@/components/layout';
 import { CreditCard, Loader2, AlertCircle, Check, Zap, Crown, Building2, Download, ArrowUpRight, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
