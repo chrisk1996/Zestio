@@ -8,7 +8,6 @@ import { MathUtils, type Mesh, Vector2 } from 'three'
 import { color, float, fract, fwidth, mix, positionLocal, uniform } from 'three/tsl'
 import { MeshBasicNodeMaterial } from 'three/webgpu'
 import { useGridEvents } from '../../hooks/use-grid-events'
-import { EDITOR_LAYER } from '../../lib/constants'
 
 export const Grid = ({
   cellSize = 0.5,
@@ -151,7 +150,6 @@ export const Grid = ({
 
   return (
     <mesh
-      layers={EDITOR_LAYER}
       material={material}
       ref={gridRef}
       rotation-x={-Math.PI / 2}
