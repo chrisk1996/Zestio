@@ -35,7 +35,6 @@ export const WallSystem = () => {
     const dirtyWallsByLevel = new Map<string, Set<string>>()
 
     dirtyNodes.forEach((id) => {
-    console.log("[WallSystem] Processing dirty nodes:", dirtyNodes.size)
       const node = nodes[id]
       if (!node || node.type !== 'wall') return
 
@@ -50,7 +49,6 @@ export const WallSystem = () => {
 
     // Process each level that has dirty walls
     for (const [levelId, dirtyWallIds] of dirtyWallsByLevel) {
-    console.log("[WallSystem] Dirty walls by level:", dirtyWallsByLevel)
       const levelWalls = getLevelWalls(levelId)
       const miterData = calculateLevelMiters(levelWalls)
 
@@ -58,7 +56,6 @@ export const WallSystem = () => {
       for (const wallId of dirtyWallIds) {
         const mesh = sceneRegistry.nodes.get(wallId) as THREE.Mesh
         if (mesh) {
-        console.log("[WallSystem] Wall", wallId, "mesh found:", !!mesh)
           updateWallGeometry(wallId, miterData)
           clearDirty(wallId as AnyNodeId)
         }
@@ -135,8 +132,6 @@ function updateWallGeometry(wallId: string, miterData: WallMiterData) {
   mesh.position.set(node.start[0], slabElevation, node.start[1])
   const angle = Math.atan2(node.end[1] - node.start[1], node.end[0] - node.start[0])
   mesh.rotation.y = -angle
-	console.log("[WallSystem] Wall", wallId, "inScene:", !!mesh.parent, "visible:", mesh.visible, "material:", mesh.material?.type, "materialVisible:", mesh.material?.visible)
-	console.log("[WallSystem] Wall", wallId, "position:", mesh.position.toArray(), "rotation:", mesh.rotation.y, "node.start:", node.start, "node.end:", node.end)
 }
 
 /**
@@ -167,7 +162,6 @@ export function generateExtrudedWall(
     return new THREE.BufferGeometry()
   }
   const polyPoints = getWallPlanFootprint(wallNode, miterData)
-  console.log("[WallSystem] Wall", wallNode.id, "polyPoints:", JSON.stringify(polyPoints))
   if (polyPoints.length < 3) {
     return new THREE.BufferGeometry()
   }
@@ -189,7 +183,6 @@ export function generateExtrudedWall(
 
   // Convert polygon to local coordinates
   const localPoints = polyPoints.map(worldToLocal)
-  console.log("[WallSystem] Wall", wallNode.id, "localPoints:", JSON.stringify(localPoints))
 
   // Build THREE.js shape
   // Shape uses (x, y) where we map: shape.x = local.x, shape.y = -local.z
@@ -209,7 +202,6 @@ export function generateExtrudedWall(
 
   // Rotate so extrusion direction (Z) becomes height direction (Y)
   geometry.rotateX(-Math.PI / 2)
-  console.log("[WallSystem] Wall", wallNode.id, "geometry vertices:", geometry.attributes.position.count, "height:", height)
   geometry.computeVertexNormals()
 
   // Apply CSG subtraction for cutouts (doors/windows)
