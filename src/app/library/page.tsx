@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Header } from '@/components/Header';
-import { Library, Image, Download, Trash2, Clock, ChevronLeft } from 'lucide-react';
+import { AppLayout } from '@/components/layout';
+import { Library, Image, Download, Trash2, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 
@@ -17,7 +17,7 @@ interface EnhancementJob {
   completed_at: string | null;
 }
 
-export default function HistoryPage() {
+export default function LibraryPage() {
   const [jobs, setJobs] = useState<EnhancementJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +31,7 @@ export default function HistoryPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        setError('Please log in to view your history');
+        setError('Please log in to view your library');
         setLoading(false);
         return;
       }
@@ -47,7 +47,7 @@ export default function HistoryPage() {
       setJobs(data || []);
     } catch (err) {
       console.error('Error loading jobs:', err);
-      setError('Failed to load enhancement history');
+      setError('Failed to load image library');
     } finally {
       setLoading(false);
     }
@@ -55,7 +55,7 @@ export default function HistoryPage() {
 
   const handleDownload = async (job: EnhancementJob) => {
     if (!job.output_url) return;
-    
+
     try {
       const response = await fetch(job.output_url);
       const blob = await response.blob();
@@ -73,19 +73,19 @@ export default function HistoryPage() {
   };
 
   const handleDelete = async (jobId: string) => {
-    if (!confirm('Are you sure you want to delete this enhancement?')) return;
-    
+    if (!confirm('Are you sure you want to delete this image?')) return;
+
     try {
       const { error: deleteError } = await supabase
         .from('propertypix_jobs')
         .delete()
         .eq('id', jobId);
-      
+
       if (deleteError) throw deleteError;
       setJobs(jobs.filter(j => j.id !== jobId));
     } catch (err) {
       console.error('Error deleting job:', err);
-      alert('Failed to delete enhancement');
+      alert('Failed to delete image');
     }
   };
 
@@ -125,15 +125,10 @@ export default function HistoryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-8">
+    <AppLayout title="Image Library">
+      <div className="p-8">
         {/* Header */}
         <div className="mb-8">
-          <Link href="/dashboard" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4">
-            <ChevronLeft className="w-4 h-4" />
-            Back to Dashboard
-          </Link>
           <div className="flex items-center gap-3">
             <div className="p-2 bg-indigo-100 rounded-lg">
               <Library className="w-6 h-6 text-indigo-600" />
@@ -163,7 +158,7 @@ export default function HistoryPage() {
         {!loading && jobs.length === 0 && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
             <Image className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No enhancements yet</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No images yet</h3>
             <p className="text-gray-500 mb-6">Start by enhancing your first property photo</p>
             <Link
               href="/enhance"
@@ -182,22 +177,15 @@ export default function HistoryPage() {
                 {/* Image Preview */}
                 <div className="relative aspect-video bg-gray-100">
                   {job.output_url ? (
-                    <img
-                      src={job.output_url}
-                      alt="Enhanced"
-                      className="w-full h-full object-cover"
-                    />
+                    <img src={job.output_url} alt="Enhanced" className="w-full h-full object-cover" />
                   ) : job.input_url ? (
-                    <img
-                      src={job.input_url}
-                      alt="Original"
-                      className="w-full h-full object-cover opacity-50"
-                    />
+                    <img src={job.input_url} alt="Original" className="w-full h-full object-cover opacity-50" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <Image className="w-8 h-8 text-gray-300" />
                     </div>
                   )}
+
                   {/* Status Badge */}
                   <span className={`absolute top-3 right-3 px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(job.status)}`}>
                     {job.status}
@@ -248,7 +236,7 @@ export default function HistoryPage() {
             ))}
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 }
