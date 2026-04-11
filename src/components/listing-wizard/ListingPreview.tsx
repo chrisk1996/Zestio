@@ -37,7 +37,7 @@ export function ListingPreview({ data }: ListingPreviewProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-[#006c4d] animate-pulse" />
           <span className="text-[10px] uppercase tracking-widest text-[#006c4d] font-bold">
@@ -46,19 +46,19 @@ export function ListingPreview({ data }: ListingPreviewProps) {
         </div>
         <div className="flex gap-2">
           <button className="p-2 bg-white rounded shadow-sm hover:bg-slate-50 transition-colors">
-            <span className="material-symbols-outlined text-sm text-[#1d2832]">laptop</span>
+            <span className="text-sm">💻</span>
           </button>
-          <button className="p-2 bg-white rounded shadow-sm opacity-50">
-            <span className="material-symbols-outlined text-sm text-[#1d2832]">smartphone</span>
+          <button className="p-2 bg-white/50 rounded opacity-50">
+            <span className="text-sm">📱</span>
           </button>
         </div>
       </div>
 
       {/* Preview Canvas */}
-      <div className="flex-1 bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col border border-slate-200/50">
+      <div className="flex-1 bg-white rounded-xl shadow-xl overflow-hidden flex flex-col border border-slate-200/50">
         
         {/* Hero Section */}
-        <div className="relative h-64 w-full bg-gradient-to-br from-slate-100 to-slate-200">
+        <div className="relative h-56 w-full bg-gradient-to-br from-slate-100 to-slate-200">
           {hasImages ? (
             <img 
               src={data.media_ids[0]} 
@@ -68,65 +68,65 @@ export function ListingPreview({ data }: ListingPreviewProps) {
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center text-slate-400">
-                <span className="material-symbols-outlined text-5xl">home</span>
-                <p className="text-xs mt-2">Upload photos to preview</p>
+                <div className="text-4xl mb-2">🏡</div>
+                <p className="text-xs">Upload photos to preview</p>
               </div>
             </div>
           )}
           
           {/* Price Glass Panel */}
-          <div className="absolute top-6 right-6 glass-panel px-4 py-2 rounded-sm">
-            <span className="font-serif font-bold text-lg text-[#1d2832]">
+          <div className="absolute top-4 right-4 bg-white/80 backdrop-blur-md px-4 py-2 rounded-sm">
+            <span className="font-serif font-bold text-lg text-slate-900">
               {price.main}
             </span>
             <span className="text-sm text-slate-600">{price.period}</span>
           </div>
 
           {/* Gradient Overlay */}
-          <div className="absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-black/60 to-transparent" />
+          <div className="absolute bottom-0 left-0 w-full h-20 bg-gradient-to-t from-black/50 to-transparent" />
           
           {/* Status + Title */}
-          <div className="absolute bottom-4 left-6">
-            <span className="text-white/80 text-[10px] uppercase tracking-widest block mb-1">
+          <div className="absolute bottom-3 left-4">
+            <span className="text-white/70 text-[10px] uppercase tracking-widest block mb-0.5">
               {data.transaction_type === 'rent' ? 'Miete' : 'Kauf'}
             </span>
-            <h2 className="text-white font-serif text-2xl">{titlePreview}</h2>
+            <h2 className="text-white font-serif text-xl">{titlePreview}</h2>
           </div>
         </div>
 
         {/* Editorial Content Grid */}
-        <div className="p-8 space-y-8 overflow-y-auto">
+        <div className="p-6 space-y-6 overflow-y-auto">
           
           {/* Key Facts Row */}
           <div className="flex justify-between border-b border-slate-200/50 pb-4">
             <div className="text-center">
-              <span className="block font-serif text-xl text-[#1d2832]">{data.rooms || '—'}</span>
-              <span className="block text-[10px] uppercase tracking-tight text-[#43474c]">Zimmer</span>
+              <span className="block font-serif text-xl text-slate-900">{data.rooms || '—'}</span>
+              <span className="block text-[10px] uppercase tracking-tight text-slate-500">Zimmer</span>
             </div>
             <div className="text-center">
-              <span className="block font-serif text-xl text-[#1d2832]">{data.living_area || '—'}</span>
-              <span className="block text-[10px] uppercase tracking-tight text-[#43474c]">m²</span>
+              <span className="block font-serif text-xl text-slate-900">{data.living_area || '—'}</span>
+              <span className="block text-[10px] uppercase tracking-tight text-slate-500">m²</span>
             </div>
             <div className="text-center">
-              <span className="block font-serif text-xl text-[#1d2832]">{data.bedrooms || '—'}</span>
-              <span className="block text-[10px] uppercase tracking-tight text-[#43474c]">Schlafz.</span>
+              <span className="block font-serif text-xl text-slate-900">{data.bedrooms || '—'}</span>
+              <span className="block text-[10px] uppercase tracking-tight text-slate-500">Schlafz.</span>
             </div>
             <div className="text-center">
-              <span className="block font-serif text-xl text-[#1d2832]">{data.bathrooms || '—'}</span>
-              <span className="block text-[10px] uppercase tracking-tight text-[#43474c]">Bad</span>
+              <span className="block font-serif text-xl text-slate-900">{data.bathrooms || '—'}</span>
+              <span className="block text-[10px] uppercase tracking-tight text-slate-500">Bad</span>
             </div>
           </div>
 
           {/* Asymmetric Layout: Title + Description */}
           {data.description && (
-            <div className="flex gap-8 items-start">
+            <div className="flex gap-6 items-start">
               <div className="w-1/3">
-                <h3 className="font-serif text-xl text-[#1d2832] leading-snug">
+                <h3 className="font-serif text-lg text-slate-900 leading-snug">
                   {data.city || 'Ihr neues Zuhause'}
                 </h3>
               </div>
               <div className="w-2/3">
-                <p className="text-xs text-[#43474c] leading-relaxed line-clamp-3">
+                <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">
                   {data.description}
                 </p>
               </div>
@@ -135,11 +135,11 @@ export function ListingPreview({ data }: ListingPreviewProps) {
 
           {/* Photo Bento Grid */}
           {hasImages && data.media_ids.length > 1 && (
-            <div className="grid grid-cols-2 gap-4 h-48">
+            <div className="grid grid-cols-2 gap-3 h-36">
               <div className="bg-slate-100 rounded overflow-hidden">
                 <img src={data.media_ids[1]} alt="Interior" className="w-full h-full object-cover" />
               </div>
-              <div className="grid grid-rows-2 gap-4">
+              <div className="grid grid-rows-2 gap-3">
                 <div className="bg-slate-100 rounded overflow-hidden">
                   {data.media_ids[2] && (
                     <img src={data.media_ids[2]} alt="Detail" className="w-full h-full object-cover" />
@@ -153,8 +153,8 @@ export function ListingPreview({ data }: ListingPreviewProps) {
                         alt="More" 
                         className="w-full h-full object-cover opacity-40 blur-[2px]"
                       />
-                      <span className="absolute inset-0 flex items-center justify-center font-label text-xs font-bold text-[#1d2832]">
-                        +{data.media_ids.length - 3} Photos
+                      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-slate-700">
+                        +{data.media_ids.length - 3} Fotos
                       </span>
                     </>
                   )}
@@ -165,17 +165,17 @@ export function ListingPreview({ data }: ListingPreviewProps) {
 
           {/* Feature Badges */}
           {activeFeatures.length > 0 && (
-            <div className="flex flex-wrap gap-2 pt-4">
+            <div className="flex flex-wrap gap-2 pt-3">
               {activeFeatures.slice(0, 4).map((feature) => (
                 <span 
                   key={feature}
-                  className="px-3 py-1 bg-[#006c4d]/10 text-[#006c4d] text-[10px] font-bold uppercase tracking-wider rounded-full"
+                  className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold uppercase tracking-wider rounded-full"
                 >
                   {feature.replace(/_/g, ' ')}
                 </span>
               ))}
               {activeFeatures.length > 4 && (
-                <span className="px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-wider rounded-full">
+                <span className="px-2.5 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-wider rounded-full">
                   +{activeFeatures.length - 4}
                 </span>
               )}
@@ -183,17 +183,6 @@ export function ListingPreview({ data }: ListingPreviewProps) {
           )}
         </div>
       </div>
-
-      {/* CSS for glass-panel */}
-      <style jsx>{`
-        .glass-panel {
-          background: rgba(247, 249, 255, 0.7);
-          backdrop-filter: blur(12px);
-        }
-        .material-symbols-outlined {
-          font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
-        }
-      `}</style>
     </div>
   );
 }
