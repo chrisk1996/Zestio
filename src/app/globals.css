@@ -149,3 +149,22 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* Landing page card hover effect */
+.card-hover-effect {
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card-hover-effect:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px -15px rgba(29, 40, 50, 0.08);
+}
+
+/* Font families for landing page */
+.font-serif {
+  font-family: 'Newsreader', Georgia, serif;
+}
+
+.font-manrope {
+  font-family: 'Manrope', system-ui, sans-serif;
+}
