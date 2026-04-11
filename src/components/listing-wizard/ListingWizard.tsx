@@ -3,13 +3,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AppLayout } from '@/components/layout';
 import { ListingFeatures } from '@/types/listing';
+import { Loader2, Check, ChevronRight, ChevronLeft } from 'lucide-react';
 import { AddressStep } from './steps/AddressStep';
 import { BasicsStep } from './steps/BasicsStep';
 import { MediaStep } from './steps/MediaStep';
 import { DescriptionStep } from './steps/DescriptionStep';
 import { FeaturesStep } from './steps/FeaturesStep';
 import { ReviewStep } from './steps/ReviewStep';
-import { Loader2, Check } from 'lucide-react';
+import { ListingPreview } from './ListingPreview';
 
 export interface ListingData {
   id?: string;
@@ -55,12 +56,12 @@ export interface ListingData {
 }
 
 const STEPS = [
-  { id: 1, title: 'Address', subtitle: 'Auto-enrichment' },
-  { id: 2, title: 'Basics', subtitle: 'Property details' },
-  { id: 3, title: 'Media', subtitle: 'Photos & AI' },
-  { id: 4, title: 'Description', subtitle: 'AI-generated' },
-  { id: 5, title: 'Features', subtitle: 'Amenities' },
-  { id: 6, title: 'Publish', subtitle: 'Review & sync' },
+  { id: 1, title: 'Address', subtitle: 'Location & enrichment', icon: '📍' },
+  { id: 2, title: 'Basics', subtitle: 'Property details', icon: '🏠' },
+  { id: 3, title: 'Media', subtitle: 'Photos & floor plan', icon: '📸' },
+  { id: 4, title: 'Description', subtitle: 'AI-generated', icon: '✍️' },
+  { id: 5, title: 'Features', subtitle: 'Amenities', icon: '✓' },
+  { id: 6, title: 'Publish', subtitle: 'Review & sync', icon: '🚀' },
 ];
 
 const initialData: ListingData = {
@@ -181,74 +182,133 @@ export function ListingWizard() {
     }
   };
 
+  const canProceed = () => {
+    switch (currentStep) {
+      case 1:
+        return data.latitude && data.longitude && data.city;
+      case 2:
+        return data.property_type && data.living_area > 0 && data.rooms > 0;
+      case 4:
+        return data.title && data.description;
+      default:
+        return true;
+    }
+  };
+
   return (
     <AppLayout title="New Listing">
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="min-h-screen bg-gray-50">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Create Listing</h1>
-          <p className="text-gray-600 mt-1">Build a complete, portal-ready property listing</p>
-        </div>
-
-        {/* Step Progress */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            {STEPS.map((step, idx) => (
-              <button
-                key={step.id}
-                onClick={() => goToStep(step.id)}
-                disabled={step.id > currentStep && !completedSteps.has(step.id) && step.id !== currentStep + 1}
-                className={`flex items-center gap-3 transition-all ${
-                  step.id === currentStep
-                    ? 'opacity-100'
-                    : step.id < currentStep || completedSteps.has(step.id)
-                    ? 'opacity-70 hover:opacity-100'
-                    : 'opacity-40 cursor-not-allowed'
-                }`}
-              >
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-medium transition-all ${
-                    step.id === currentStep
-                      ? 'bg-indigo-600 text-white'
-                      : step.id < currentStep || completedSteps.has(step.id)
-                      ? 'bg-green-600 text-white'
-                      : 'bg-gray-200 text-gray-500'
-                  }`}
-                >
-                  {step.id < currentStep || completedSteps.has(step.id) ? (
-                    <Check className="w-5 h-5" />
-                  ) : (
-                    step.id
-                  )}
-                </div>
-                <div className="hidden sm:block text-left">
-                  <div className="text-sm font-medium text-gray-900">{step.title}</div>
-                  <div className="text-xs text-gray-500">{step.subtitle}</div>
-                </div>
+        <div className="bg-white border-b border-gray-200 px-6 py-4">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-semibold text-gray-900">Create New Listing</h1>
+              <p className="text-sm text-gray-500">
+                {isSaving ? (
+                  <span className="flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Saving...
+                  </span>
+                ) : (
+                  'Auto-saved'
+                )}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button className="px-4 py-2 text-gray-600 hover:text-gray-900 font-medium">
+                Save Draft
               </button>
-            ))}
-          </div>
-          {/* Progress line */}
-          <div className="mt-4 h-1 bg-gray-200 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-indigo-600 transition-all duration-300"
-              style={{ width: `${((currentStep - 1) / 5) * 100}%` }}
-            />
+              <button className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200">
+                Preview
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Step Content */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-8">
-          {renderStep()}
-        </div>
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          <div className="grid grid-cols-12 gap-8">
+            {/* Left: Step Navigation */}
+            <div className="col-span-3">
+              <div className="bg-white rounded-xl border border-gray-200 p-4 sticky top-8">
+                <div className="space-y-1">
+                  {STEPS.map((step) => (
+                    <button
+                      key={step.id}
+                      onClick={() => goToStep(step.id)}
+                      disabled={step.id > currentStep && !completedSteps.has(step.id) && step.id !== currentStep + 1}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-left ${
+                        step.id === currentStep
+                          ? 'bg-indigo-50 border border-indigo-200'
+                          : step.id < currentStep || completedSteps.has(step.id)
+                          ? 'hover:bg-gray-50'
+                          : 'opacity-50 cursor-not-allowed'
+                      }`}
+                    >
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                          step.id === currentStep
+                            ? 'bg-indigo-600 text-white'
+                            : step.id < currentStep || completedSteps.has(step.id)
+                            ? 'bg-green-500 text-white'
+                            : 'bg-gray-200 text-gray-500'
+                        }`}
+                      >
+                        {step.id < currentStep || completedSteps.has(step.id) ? (
+                          <Check className="w-4 h-4" />
+                        ) : (
+                          step.id
+                        )}
+                      </div>
+                      <div>
+                        <div className={`text-sm font-medium ${
+                          step.id === currentStep ? 'text-indigo-900' : 'text-gray-700'
+                        }`}>
+                          {step.title}
+                        </div>
+                        <div className="text-xs text-gray-500">{step.subtitle}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
 
-        {/* Saving indicator */}
-        {isSaving && (
-          <div className="fixed bottom-6 right-6 flex items-center gap-2 text-sm text-gray-600 bg-white px-4 py-2 rounded-lg shadow-lg">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Saving...
+                {/* Progress */}
+                <div className="mt-6 pt-4 border-t border-gray-100">
+                  <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                    <span>Progress</span>
+                    <span>{Math.round(((currentStep - 1) / 5) * 100)}%</span>
+                  </div>
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-indigo-600 transition-all duration-300"
+                      style={{ width: `${((currentStep - 1) / 5) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Center: Step Content */}
+            <div className="col-span-5">
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                {renderStep()}
+              </div>
+            </div>
+
+            {/* Right: Live Preview */}
+            <div className="col-span-4">
+              <div className="sticky top-8">
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                    <h3 className="text-sm font-medium text-gray-700">Live Preview</h3>
+                  </div>
+                  <div className="p-4">
+                    <ListingPreview data={data} />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        )}
+        </div>
       </div>
     </AppLayout>
   );
