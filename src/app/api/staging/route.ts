@@ -63,60 +63,55 @@ const STYLE_PROMPTS: Record<string, string> = {
  */
 async function generateDepthMap(imageUrl: string): Promise<string> {
   console.log('Generating depth map from image...');
+  console.log('Input image URL:', imageUrl);
 
-  // Use Depth Anything V2 with explicit version hash (required by Replicate API)
-  const result = await replicate.run(
-    "chenxwh/depth-anything-v2:b239ea33cff32bb7abb5db39ffe9a09c14cbc2894331d1ef66fe096eed88ebd4",
-    {
-      input: {
-        image: imageUrl,
-      },
+  try {
+    // Use Depth Anything V2 with explicit version hash (required by Replicate API)
+    const result = await replicate.run(
+      "chenxwh/depth-anything-v2:b239ea33cff32bb7abb5db39ffe9a09c14cbc2894331d1ef66fe096eed88ebd4",
+      {
+        input: {
+          image: imageUrl,
+        },
+      }
+    );
+
+    console.log('Depth Anything result type:', typeof result);
+    console.log('Is array:', Array.isArray(result));
+
+    // Replicate SDK returns FileOutput for image outputs
+    // FileOutput has a .url() method to get the URL string
+    // The SDK may return either a single FileOutput or [FileOutput]
+
+    // Handle array output
+    if (Array.isArray(result) && result.length > 0) {
+      const first = result[0];
+      if (first && typeof first.url === 'function') {
+        const urlResult = first.url();
+        return typeof urlResult === 'string' ? urlResult : urlResult.toString();
+      }
+      if (typeof first === 'string') {
+        return first;
+      }
     }
-  );
 
-  console.log('Depth Anything result type:', typeof result);
-  console.log('Depth Anything result:', result);
-
-  // Replicate SDK returns FileOutput for image outputs
-  // FileOutput has a .url() method to get the URL string
-  // The SDK also returns arrays, so we may get [FileOutput]
-
-  // Handle array output (common for image models)
-  if (Array.isArray(result) && result.length > 0) {
-    const first = result[0];
-    // FileOutput object has .url() method
-    if (first && typeof first.url === 'function') {
-      const urlResult = first.url();
-      // .url() might return URL object or string
-      return typeof urlResult === 'string' ? urlResult : urlResult.toString();
-    }
-    // Plain string URL
-    if (typeof first === 'string') {
-      return first;
-    }
-  }
-
-  // Handle single FileOutput object
-  if (result && typeof result === 'object') {
-    // FileOutput has .url() method
-    if (typeof (result as any).url === 'function') {
+    // Handle single FileOutput object
+    if (result && typeof result === 'object' && typeof (result as any).url === 'function') {
       const urlResult = (result as any).url();
       return typeof urlResult === 'string' ? urlResult : urlResult.toString();
     }
-    // Fallback: try common output fields
-    const out = result as Record<string, unknown>;
-    const url = out.output || out.url || out.image;
-    if (typeof url === 'string') {
-      return url;
+
+    // String output (direct URL)
+    if (typeof result === 'string') {
+      return result;
     }
-  }
 
-  // String output (direct URL)
-  if (typeof result === 'string') {
-    return result;
+    console.error('Could not extract URL from result. Type:', typeof result, 'IsArray:', Array.isArray(result));
+    throw new Error('Failed to generate depth map - no valid URL returned');
+  } catch (error) {
+    console.error('Depth map generation error:', error);
+    throw error;
   }
-
-  throw new Error('Failed to generate depth map - no valid URL returned');
 }
 
 export async function POST(request: NextRequest) {
