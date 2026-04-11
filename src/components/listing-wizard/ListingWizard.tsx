@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { AppLayout } from '@/components/layout';
 import { ListingFeatures } from '@/types/listing';
-import { Loader2, Check, ChevronRight, ChevronLeft, Sparkles, MapPin, Home, Camera, FileText, Settings, Rocket } from 'lucide-react';
+import { Loader2, Check, Rocket } from 'lucide-react';
 import { AddressStep } from './steps/AddressStep';
 import { BasicsStep } from './steps/BasicsStep';
 import { MediaStep } from './steps/MediaStep';
@@ -51,12 +50,10 @@ export interface ListingData {
 }
 
 const STEPS = [
-  { id: 1, title: 'Address', subtitle: 'Location & enrichment', icon: MapPin, badge: 'auto' },
-  { id: 2, title: 'Basics', subtitle: 'Property details', icon: Home, badge: 'required' },
-  { id: 3, title: 'Media', subtitle: 'Photos & floor plan', icon: Camera, badge: 'ai' },
-  { id: 4, title: 'Description', subtitle: 'AI-generated', icon: FileText, badge: 'ai' },
-  { id: 5, title: 'Features', subtitle: 'Amenities', icon: Settings, badge: 'eu' },
-  { id: 6, title: 'Publish', subtitle: 'Review & sync', icon: Rocket, badge: 'sync' },
+  { id: 1, title: 'Property Details', subtitle: 'Location & identity', icon: EditNote, activeIcon: 'edit_note' },
+  { id: 2, title: 'Media Curation', subtitle: 'Photos & floor plan', icon: PhotoLibrary, activeIcon: 'photo_library' },
+  { id: 3, title: 'Editorial Narrative', subtitle: 'AI description', icon: AutoStories, activeIcon: 'auto_stories' },
+  { id: 4, title: 'Review & Launch', subtitle: 'Publish to portals', icon: Rocket, activeIcon: 'rocket_launch' },
 ];
 
 const initialData: ListingData = {
@@ -143,7 +140,7 @@ export function ListingWizard() {
 
   const nextStep = () => {
     setCompletedSteps(prev => new Set([...prev, currentStep]));
-    setCurrentStep(prev => Math.min(prev + 1, 6));
+    setCurrentStep(prev => Math.min(prev + 1, 4));
   };
 
   const prevStep = () => {
@@ -156,165 +153,114 @@ export function ListingWizard() {
     }
   };
 
+  // Map wizard steps to form sections
   const renderStep = () => {
+    // Step 1 = Address + Basics combined
+    // Step 2 = Media
+    // Step 3 = Description  
+    // Step 4 = Features + Review combined
     switch (currentStep) {
       case 1: return <AddressStep data={data} updateData={updateData} onNext={nextStep} />;
-      case 2: return <BasicsStep data={data} updateData={updateData} onNext={nextStep} onPrev={prevStep} />;
-      case 3: return <MediaStep data={data} updateData={updateData} onNext={nextStep} onPrev={prevStep} />;
-      case 4: return <DescriptionStep data={data} updateData={updateData} onNext={nextStep} onPrev={prevStep} />;
-      case 5: return <FeaturesStep data={data} updateData={updateData} onNext={nextStep} onPrev={prevStep} />;
-      case 6: return <ReviewStep data={data} updateData={updateData} onPrev={prevStep} />;
+      case 2: return <MediaStep data={data} updateData={updateData} onNext={nextStep} onPrev={prevStep} />;
+      case 3: return <DescriptionStep data={data} updateData={updateData} onNext={nextStep} onPrev={prevStep} />;
+      case 4: return <ReviewStep data={data} updateData={updateData} onPrev={prevStep} />;
       default: return null;
     }
   };
 
-  const getBadgeStyle = (badge: string) => {
-    switch (badge) {
-      case 'auto': return 'bg-green-100 text-green-700';
-      case 'ai': return 'bg-amber-100 text-amber-700';
-      case 'required': return 'bg-red-100 text-red-700';
-      case 'eu': return 'bg-red-100 text-red-700';
-      case 'sync': return 'bg-green-100 text-green-700';
-      default: return 'bg-gray-100 text-gray-600';
-    }
-  };
-
-  const getBadgeText = (badge: string) => {
-    switch (badge) {
-      case 'auto': return 'Auto-filled';
-      case 'ai': return 'AI-powered';
-      case 'required': return 'Required';
-      case 'eu': return 'EU Required';
-      case 'sync': return 'Portal Sync';
-      default: return '';
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-[#f5f2eb]">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-8 py-5">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div>
-            <div className="text-xs uppercase tracking-wider text-amber-600 font-medium mb-1">
-              PropertyPix Pro · New Listing
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Create <em className="text-amber-600">Perfect</em> Listing
-            </h1>
+    <div className="min-h-screen bg-[#f7f9ff]">
+      {/* Top Navigation Bar */}
+      <nav className="fixed top-0 w-full z-50 bg-[#f7f9ff]/70 backdrop-blur-xl flex justify-between items-center px-10 py-5 border-b border-slate-200/50">
+        <div className="flex items-center gap-12">
+          <span className="text-2xl font-serif italic text-[#1d2832]">Property-Pix</span>
+          <div className="hidden md:flex gap-8 items-center">
+            <a className="text-[10px] uppercase tracking-widest text-[#1d2832]/60 hover:text-[#1d2832] transition-opacity" href="/dashboard">Dashboard</a>
+            <a className="text-[10px] uppercase tracking-widest text-[#006c4d] border-b-2 border-[#006c4d] pb-1" href="/listing">Portfolio</a>
+            <a className="text-[10px] uppercase tracking-widest text-[#1d2832]/60 hover:text-[#1d2832] transition-opacity" href="/billing">Analytics</a>
           </div>
-          <div className="flex items-center gap-3">
-            {isSaving && (
-              <span className="flex items-center gap-2 text-sm text-gray-500">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Saving...
-              </span>
-            )}
-            <button className="px-4 py-2 text-gray-600 hover:text-gray-900 font-medium">
+        </div>
+        <div className="flex items-center gap-6">
+          {isSaving && (
+            <span className="flex items-center gap-2 text-xs text-slate-500">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Saving...
+            </span>
+          )}
+          <button className="bg-[#1d2832] text-white px-5 py-2 text-sm font-medium hover:opacity-80 transition-opacity">
+            Publish Listing
+          </button>
+        </div>
+      </nav>
+
+      {/* Main Layout */}
+      <div className="flex pt-20 min-h-screen">
+        {/* Side Navigation */}
+        <aside className="fixed left-0 top-20 h-[calc(100vh-5rem)] flex flex-col bg-[#edf4ff] w-72 border-r border-slate-200/50">
+          <div className="px-8 py-8">
+            <h2 className="font-serif text-2xl text-[#1d2832]">Listing Builder</h2>
+            <p className="text-xs text-[#43474c] mt-1">
+              Step {currentStep} of 4: {STEPS[currentStep - 1]?.title}
+            </p>
+          </div>
+          
+          <div className="flex flex-col flex-1">
+            {STEPS.map((step, index) => {
+              const isActive = step.id === currentStep;
+              const isCompleted = step.id < currentStep || completedSteps.has(step.id);
+              const isAccessible = step.id <= currentStep || completedSteps.has(step.id) || step.id === currentStep + 1;
+
+              return (
+                <button
+                  key={step.id}
+                  onClick={() => goToStep(step.id)}
+                  disabled={!isAccessible}
+                  className={`px-6 py-4 flex items-center gap-4 transition-all ${
+                    isActive
+                      ? 'bg-white text-[#006c4d] rounded-r-full shadow-sm translate-x-1'
+                      : isCompleted
+                      ? 'text-[#1d2832]/70 hover:bg-white/50'
+                      : 'text-[#1d2832]/40 cursor-not-allowed'
+                  }`}
+                >
+                  {isActive ? (
+                    <span className="material-symbols-outlined text-[#006c4d]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                      {step.activeIcon}
+                    </span>
+                  ) : isCompleted ? (
+                    <Check className="w-5 h-5 text-emerald-500" />
+                  ) : (
+                    <span className="material-symbols-outlined text-[#1d2832]/30">
+                      {step.activeIcon}
+                    </span>
+                  )}
+                  <span className="font-medium text-sm">{step.title}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="px-6 pb-8">
+            <button className="w-full bg-[#333e48] text-white py-3 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity">
               Save Draft
             </button>
           </div>
-        </div>
-      </div>
+        </aside>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-8 py-8">
-        <div className="flex gap-8">
-          {/* Left Sidebar - Steps */}
-          <div className="w-72 flex-shrink-0">
-            <div className="space-y-3">
-              {STEPS.map((step, index) => {
-                const Icon = step.icon;
-                const isActive = step.id === currentStep;
-                const isCompleted = step.id < currentStep || completedSteps.has(step.id);
-                const isAccessible = step.id <= currentStep || completedSteps.has(step.id) || step.id === currentStep + 1;
-
-                return (
-                  <button
-                    key={step.id}
-                    onClick={() => goToStep(step.id)}
-                    disabled={!isAccessible}
-                    className={`w-full flex items-start gap-4 p-4 rounded-xl transition-all text-left ${
-                      isActive
-                        ? 'bg-white border-2 border-amber-500 shadow-lg'
-                        : isCompleted
-                        ? 'bg-white border border-gray-200 hover:border-amber-300'
-                        : 'bg-white/50 border border-gray-200 opacity-50 cursor-not-allowed'
-                    }`}
-                  >
-                    {/* Step Number Circle */}
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center font-bold flex-shrink-0 ${
-                        isActive
-                          ? 'bg-gray-900 text-white'
-                          : isCompleted
-                          ? 'bg-green-600 text-white'
-                          : 'bg-gray-200 text-gray-500'
-                      }`}
-                    >
-                      {isCompleted ? <Check className="w-5 h-5" /> : step.id}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`font-semibold ${isActive ? 'text-gray-900' : 'text-gray-700'}`}>
-                          {step.title}
-                        </span>
-                        {step.badge && (
-                          <span className={`text-[10px] font-medium uppercase tracking-wide px-2 py-0.5 rounded-full ${getBadgeStyle(step.badge)}`}>
-                            {getBadgeText(step.badge)}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-500">{step.subtitle}</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Progress */}
-            <div className="mt-6 p-4 bg-white rounded-xl border border-gray-200">
-              <div className="flex items-center justify-between text-sm mb-2">
-                <span className="text-gray-600">Progress</span>
-                <span className="font-medium text-gray-900">{Math.round(((currentStep - 1) / 5) * 100)}%</span>
-              </div>
-              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-amber-500 to-amber-600 transition-all duration-500"
-                  style={{ width: `${((currentStep - 1) / 5) * 100}%` }}
-                />
-              </div>
+        {/* Main Content - Split Pane */}
+        <main className="flex-1 ml-72 flex overflow-hidden">
+          {/* Left Pane: Form */}
+          <div className="w-1/2 p-12 overflow-y-auto bg-[#f7f9ff]">
+            <div className="max-w-xl mx-auto">
+              {renderStep()}
             </div>
           </div>
 
-          {/* Center - Step Content */}
-          <div className="flex-1 max-w-2xl">
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-              {/* Step Header Bar */}
-              <div className="h-1 bg-gradient-to-r from-amber-500 to-amber-600" />
-              
-              <div className="p-8">
-                {renderStep()}
-              </div>
-            </div>
+          {/* Right Pane: Live Preview */}
+          <div className="w-1/2 bg-[#edf4ff] p-12 flex flex-col">
+            <ListingPreview data={data} />
           </div>
-
-          {/* Right - Live Preview */}
-          <div className="w-80 flex-shrink-0">
-            <div className="sticky top-8">
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
-                  <h3 className="text-sm font-semibold text-gray-700">Live Preview</h3>
-                  <p className="text-xs text-gray-500">Updates as you type</p>
-                </div>
-                <div className="p-4">
-                  <ListingPreview data={data} />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        </main>
       </div>
     </div>
   );
