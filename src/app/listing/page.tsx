@@ -1,7 +1,5 @@
-'use client';
+import ListingsGrid from './ListingsGrid';
 
-import { ListingWizard } from '@/components/listing-wizard/ListingWizard';
-
-export default function ListingBuilderPage() {
-  return <ListingWizard />;
+export default function ListingPage() {
+  return <ListingsGrid />;
 }

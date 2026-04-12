@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import { ListingFeatures } from '@/types/listing';
 import { Loader2, Check } from 'lucide-react';
 import { AddressStep } from './steps/AddressStep';
@@ -84,16 +85,42 @@ const initialData: ListingData = {
   media_ids: [],
 };
 
-export function ListingWizard() {
+interface ListingWizardProps {
+  editId?: string;
+}
+
+export function ListingWizard({ editId }: ListingWizardProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [data, setData] = useState<ListingData>(initialData);
+  const [isLoading, setIsLoading] = useState(!!editId);
   const [isSaving, setIsSaving] = useState(false);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    createDraft();
-  }, []);
+    if (editId) {
+      loadListing(editId);
+    } else {
+      createDraft();
+    }
+  }, [editId]);
+
+  const loadListing = async (id: string) => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/listings/${id}`);
+      if (res.ok) {
+        const result = await res.json();
+        setData(result);
+        // Mark all steps as completed for existing listings
+        setCompletedSteps(new Set([1, 2, 3, 4, 5, 6]));
+      }
+    } catch (e) {
+      console.error('Error loading listing:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const createDraft = async () => {
     setIsSaving(true);
@@ -167,10 +194,25 @@ export function ListingWizard() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#f7f9ff] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-[#006c4d]" />
+          <span className="text-sm text-slate-500">Loading listing...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f7f9ff]">
       {/* Top Navigation Bar */}
       <nav className="fixed top-0 w-full z-50 bg-[#f7f9ff]/70 backdrop-blur-xl flex justify-between items-center px-10 py-5">
+        <Link href="/listing" className="flex items-center gap-2 text-slate-500 hover:text-slate-700 transition-colors mr-4">
+          <span className="material-symbols-outlined text-sm">arrow_back</span>
+          <span className="text-xs font-medium">Back to Listings</span>
+        </Link>
         <div className="flex items-center gap-12">
           <span className="text-2xl font-serif italic text-[#1d2832]">Property-Pix</span>
           <div className="hidden md:flex gap-8 items-center">
