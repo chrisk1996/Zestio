@@ -87,25 +87,6 @@ export default function ListingsGrid() {
 
   return (
     <div className="p-8">
-      {/* Page Header */}
-      <div className="flex justify-between items-end mb-8">
-        <div>
-          <span className="text-xs uppercase tracking-wider text-[#006c4d] mb-2 block font-semibold">
-            Portfolio Management
-          </span>
-          <h2 className="text-3xl font-bold text-slate-900 tracking-tight font-serif">
-            Property Listings
-          </h2>
-        </div>
-        <Link 
-          href="/listing/new" 
-          className="bg-[#006c4d] text-white px-6 py-3 rounded-lg flex items-center gap-2 hover:bg-[#005a41] transition-colors"
-        >
-          <span className="material-symbols-outlined text-sm">add</span>
-          <span className="text-sm font-semibold">New Listing</span>
-        </Link>
-      </div>
-
       {/* Filters Bar */}
       <div className="flex items-center gap-4 mb-8 border-b border-slate-200 pb-6">
         <button 

@@ -3,5 +3,9 @@
 import { ListingWizard } from '@/components/listing-wizard/ListingWizard';
 
 export default function NewListingPage() {
-  return <ListingWizard />;
+  return (
+    <div className="ml-64 pt-20">
+      <ListingWizard />
+    </div>
+  );
 }
