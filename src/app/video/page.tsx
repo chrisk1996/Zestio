@@ -6,6 +6,7 @@ import { VideoModeToggle } from '@/components/VideoModeToggle';
 import { VideoPipelineProgress } from '@/components/VideoPipelineProgress';
 import { VideoJobCard, VideoJobCardSkeleton, VideoJobCardEmpty } from '@/components/VideoJobCard';
 import { useVideoJob, useVideoJobs } from '@/hooks/useVideoJob';
+import { useListingVideoContext } from '@/hooks/useListingVideoContext';
 import { createClient } from '@/utils/supabase/client';
 import { cn } from '@/utils/cn';
 import type { VideoJob } from '@/types/video-job';
