@@ -1,7 +1,7 @@
 'use client';
-
 import { useState } from 'react';
-import { Check, Loader2, Building, Bed, Bath, Home, Calendar, Download, FileText } from 'lucide-react';
+import { Check, Loader2, Building, Bed, Bath, Home, Calendar, FileText, Video } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import type { ListingData } from '../ListingWizard';
 
 interface ReviewStepProps {
@@ -17,10 +17,12 @@ const PORTALS = [
 ];
 
 export function ReviewStep({ data, updateData, onPrev }: ReviewStepProps) {
+  const router = useRouter();
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishStatus, setPublishStatus] = useState<'idle' | 'publishing' | 'draft' | 'published'>('idle');
   const [portalsSynced, setPortalsSynced] = useState<string[]>([]);
   const [isExporting, setIsExporting] = useState(false);
+  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
 
   const formatPrice = () => {
     if (data.transaction_type === 'rent') {
@@ -53,8 +55,7 @@ export function ReviewStep({ data, updateData, onPrev }: ReviewStepProps) {
 
   const handleExportPDF = async () => {
     setIsExporting(true);
-    
-    // Create a printable version
+
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       alert('Please allow popups to export PDF');
@@ -76,102 +77,23 @@ export function ReviewStep({ data, updateData, onPrev }: ReviewStepProps) {
   <title>Expose - ${data.title || 'Immobilie'}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { 
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-      max-width: 800px; 
-      margin: 0 auto; 
-      padding: 40px;
-      color: #1d2832;
-      background: #fff;
-    }
-    .header {
-      text-align: center;
-      border-bottom: 3px solid #006c4d;
-      padding-bottom: 30px;
-      margin-bottom: 40px;
-    }
-    .logo {
-      font-size: 28px;
-      font-weight: bold;
-      font-style: italic;
-      color: #006c4d;
-      margin-bottom: 10px;
-    }
-    .title {
-      font-size: 32px;
-      font-weight: 300;
-      margin-bottom: 10px;
-    }
-    .price {
-      font-size: 36px;
-      font-weight: bold;
-      color: #006c4d;
-      margin: 20px 0;
-    }
-    .location {
-      font-size: 18px;
-      color: #666;
-    }
-    .section {
-      margin-bottom: 30px;
-    }
-    .section-title {
-      font-size: 14px;
-      text-transform: uppercase;
-      letter-spacing: 2px;
-      color: #006c4d;
-      margin-bottom: 15px;
-      border-bottom: 1px solid #e0e0e0;
-      padding-bottom: 10px;
-    }
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
-    }
-    .stat-box {
-      background: #f7f9f7;
-      padding: 20px;
-      border-radius: 8px;
-      text-align: center;
-    }
-    .stat-value {
-      font-size: 28px;
-      font-weight: bold;
-      color: #1d2832;
-    }
-    .stat-label {
-      font-size: 12px;
-      color: #666;
-      margin-top: 5px;
-    }
-    .features {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    .feature {
-      background: #f0f7f4;
-      padding: 8px 16px;
-      border-radius: 20px;
-      font-size: 14px;
-    }
-    .description {
-      line-height: 1.8;
-      color: #43474c;
-    }
-    .footer {
-      margin-top: 50px;
-      padding-top: 30px;
-      border-top: 1px solid #e0e0e0;
-      text-align: center;
-      color: #999;
-      font-size: 12px;
-    }
-    @media print {
-      body { padding: 20px; }
-      .no-print { display: none; }
-    }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 800px; margin: 0 auto; padding: 40px; color: #1d2832; background: #fff; }
+    .header { text-align: center; border-bottom: 3px solid #006c4d; padding-bottom: 30px; margin-bottom: 40px; }
+    .logo { font-size: 28px; font-weight: bold; font-style: italic; color: #006c4d; margin-bottom: 10px; }
+    .title { font-size: 32px; font-weight: 300; margin-bottom: 10px; }
+    .price { font-size: 36px; font-weight: bold; color: #006c4d; margin: 20px 0; }
+    .location { font-size: 18px; color: #666; }
+    .section { margin-bottom: 30px; }
+    .section-title { font-size: 14px; text-transform: uppercase; letter-spacing: 2px; color: #006c4d; margin-bottom: 15px; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .stat-box { background: #f7f9f7; padding: 20px; border-radius: 8px; text-align: center; }
+    .stat-value { font-size: 28px; font-weight: bold; color: #1d2832; }
+    .stat-label { font-size: 12px; color: #666; margin-top: 5px; }
+    .features { display: flex; flex-wrap: wrap; gap: 10px; }
+    .feature { background: #f0f7f4; padding: 8px 16px; border-radius: 20px; font-size: 14px; }
+    .description { line-height: 1.8; color: #43474c; }
+    .footer { margin-top: 50px; padding-top: 30px; border-top: 1px solid #e0e0e0; text-align: center; color: #999; font-size: 12px; }
+    @media print { body { padding: 20px; } .no-print { display: none; } }
   </style>
 </head>
 <body>
@@ -181,67 +103,48 @@ export function ReviewStep({ data, updateData, onPrev }: ReviewStepProps) {
     <div class="price">${formatPrice()}</div>
     <div class="location">📍 ${data.street || ''} ${data.house_number || ''}, ${data.postal_code || ''} ${data.city || 'Draft'}</div>
   </div>
-
   <div class="section">
     <div class="section-title">Immobilien Details</div>
     <div class="stats-grid">
-      <div class="stat-box">
-        <div class="stat-value">${data.rooms || '-'}</div>
-        <div class="stat-label">Zimmer</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-value">${data.living_area || '-'} m²</div>
-        <div class="stat-label">Wohnfläche</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-value">${data.bedrooms || '-'}</div>
-        <div class="stat-label">Schlafzimmer</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-value">${data.bathrooms || '-'}</div>
-        <div class="stat-label">Badezimmer</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-value">${data.construction_year || '-'}</div>
-        <div class="stat-label">Baujahr</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-value">${data.energy_rating || '-'}</div>
-        <div class="stat-label">Energieklasse</div>
-      </div>
+      <div class="stat-box"><div class="stat-value">${data.rooms || '-'}</div><div class="stat-label">Zimmer</div></div>
+      <div class="stat-box"><div class="stat-value">${data.living_area || '-'} m²</div><div class="stat-label">Wohnfläche</div></div>
+      <div class="stat-box"><div class="stat-value">${data.bedrooms || '-'}</div><div class="stat-label">Schlafzimmer</div></div>
+      <div class="stat-box"><div class="stat-value">${data.bathrooms || '-'}</div><div class="stat-label">Badezimmer</div></div>
+      <div class="stat-box"><div class="stat-value">${data.construction_year || '-'}</div><div class="stat-label">Baujahr</div></div>
+      <div class="stat-box"><div class="stat-value">${data.energy_rating || '-'}</div><div class="stat-label">Energieklasse</div></div>
     </div>
   </div>
-
-  ${features.length > 0 ? `
-  <div class="section">
-    <div class="section-title">Ausstattung</div>
-    <div class="features">
-      ${features.map(f => `<span class="feature">${f}</span>`).join('')}
-    </div>
-  </div>
-  ` : ''}
-
-  ${data.description ? `
-  <div class="section">
-    <div class="section-title">Beschreibung</div>
-    <p class="description">${data.description}</p>
-  </div>
-  ` : ''}
-
+  ${features.length > 0 ? `<div class="section"><div class="section-title">Ausstattung</div><div class="features">${features.map(f => `<span class="feature">${f}</span>`).join('')}</div></div>` : ''}
+  ${data.description ? `<div class="section"><div class="section-title">Beschreibung</div><p class="description">${data.description}</p></div>` : ''}
   <div class="footer">
     <p>Erstellt mit Property-Pix Pro | ${new Date().toLocaleDateString('de-DE')}</p>
-    <button class="no-print" onclick="window.print()" style="margin-top: 20px; padding: 12px 24px; background: #006c4d; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px;">
-      Als PDF speichern
-    </button>
+    <button class="no-print" onclick="window.print()" style="margin-top: 20px; padding: 12px 24px; background: #006c4d; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px;">Als PDF speichern</button>
   </div>
 </body>
-</html>
-    `;
+</html>`;
 
     printWindow.document.write(html);
     printWindow.document.close();
-    
     setIsExporting(false);
+  };
+
+  const handleGenerateVideo = async () => {
+    setIsGeneratingVideo(true);
+    
+    // Store listing data in sessionStorage for video page to access
+    const videoData = {
+      listingId: data.id,
+      title: data.title,
+      images: data.images || [],
+      city: data.city,
+      propertyType: data.property_type,
+    };
+    
+    sessionStorage.setItem('videoFromListing', JSON.stringify(videoData));
+    
+    // Navigate to video page with listing context
+    router.push('/video?from=listings');
+    setIsGeneratingVideo(false);
   };
 
   const renderFeatures = () => {
@@ -250,6 +153,8 @@ export function ReviewStep({ data, updateData, onPrev }: ReviewStepProps) {
       .map(([k]) => k);
     return activeFeatures;
   };
+
+  const hasMinImages = data.images && data.images.length >= 3;
 
   return (
     <div className="space-y-8">
@@ -268,7 +173,6 @@ export function ReviewStep({ data, updateData, onPrev }: ReviewStepProps) {
 
       {/* Listing Preview Card */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        {/* Preview Header */}
         <div className="p-6 border-b border-gray-100">
           <h3 className="text-xl font-semibold text-gray-900 mb-2">
             {data.title || 'Untitled Listing'}
@@ -278,9 +182,7 @@ export function ReviewStep({ data, updateData, onPrev }: ReviewStepProps) {
           </p>
         </div>
 
-        {/* Preview Body */}
         <div className="p-6">
-          {/* Price Badge */}
           <div className="mb-4">
             <span className="text-2xl font-bold text-indigo-600">{formatPrice()}</span>
             {data.transaction_type === 'rent' && data.cold_rent && data.additional_costs && (
@@ -290,7 +192,6 @@ export function ReviewStep({ data, updateData, onPrev }: ReviewStepProps) {
             )}
           </div>
 
-          {/* Quick Stats */}
           <div className="flex flex-wrap gap-4 mb-4">
             <div className="flex items-center gap-2 text-gray-600">
               <Home className="w-4 h-4" />
@@ -314,7 +215,6 @@ export function ReviewStep({ data, updateData, onPrev }: ReviewStepProps) {
             </div>
           </div>
 
-          {/* Features */}
           {renderFeatures().length > 0 && (
             <div className="flex flex-wrap gap-2 mb-4">
               {renderFeatures().slice(0, 6).map((feature) => (
@@ -328,7 +228,6 @@ export function ReviewStep({ data, updateData, onPrev }: ReviewStepProps) {
             </div>
           )}
 
-          {/* Description Preview */}
           <div className="text-gray-600 text-sm line-clamp-3">
             {data.description || 'No description generated yet.'}
           </div>
@@ -419,6 +318,28 @@ export function ReviewStep({ data, updateData, onPrev }: ReviewStepProps) {
             <>
               <FileText className="w-5 h-5" />
               Export as Exposé (PDF)
+            </>
+          )}
+        </button>
+
+        {/* Generate Video Button */}
+        <button
+          onClick={handleGenerateVideo}
+          disabled={isGeneratingVideo || !hasMinImages}
+          className="w-full py-3 px-4 bg-purple-600 text-white rounded-xl font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+        >
+          {isGeneratingVideo ? (
+            <span className="flex items-center gap-2">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Opening Video Creator...
+            </span>
+          ) : (
+            <>
+              <Video className="w-5 h-5" />
+              Generate Property Video
+              {!hasMinImages && (
+                <span className="text-xs opacity-75">(need 3+ images)</span>
+              )}
             </>
           )}
         </button>
