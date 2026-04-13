@@ -99,7 +99,7 @@ export default function LandingPage() {
                   <img
                     alt="Staged modern living room"
                     className="w-full h-full object-cover"
-                    src="https://images.unsplash.com/photo-1586023492125-27b2c090efd?w=600&q=80"
+                    src="https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=600&q=80"
                   />
                   <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1.5 rounded-sm">
                     <span className="font-manrope text-[10px] uppercase tracking-widest text-[#1d2832]">
@@ -131,7 +131,7 @@ export default function LandingPage() {
                   <img
                     alt="Cinematic property video frame"
                     className="w-full h-full object-cover opacity-80"
-                    src="https://images.unsplash.com/photo-1560518883-ce09059da4d7?w=600&q=80"
+                    src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&q=80"
                   />
                   <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1.5 rounded-sm">
                     <span className="font-manrope text-[10px] uppercase tracking-widest text-[#1d2832]">
@@ -201,7 +201,7 @@ export default function LandingPage() {
                   <img
                     alt="Luxury real estate"
                     className="w-full h-full object-cover"
-                    src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600&q=80"
+                    src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&q=80"
                   />
                   <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1.5 rounded-sm">
                     <span className="font-manrope text-[10px] uppercase tracking-widest text-[#1d2832]">
