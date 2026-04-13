@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     // Ensure user exists in public.users table (trigger should create it, but verify)
     const { data: existingUser } = await supabase
-      .from('users')
+      .from('propertypix_users')
       .select('id')
       .eq('id', user.id)
       .single();
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
     if (!existingUser) {
       // User doesn't exist in public.users, create it
       const { error: createUserError } = await supabase
-        .from('users')
+        .from('propertypix_users')
         .insert({
           id: user.id,
           email: user.email || '',
