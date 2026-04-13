@@ -127,7 +127,7 @@ export function ListingWizard({ editId }: ListingWizardProps) {
     try {
       const res = await fetch('/api/listings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' }, credentials: 'include',
         body: JSON.stringify({ ...initialData, status: 'draft' }),
       });
       if (res.ok) {
@@ -151,7 +151,7 @@ export function ListingWizard({ editId }: ListingWizardProps) {
     try {
       await fetch(`/api/listings/${data.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' }, credentials: 'include',
         body: JSON.stringify(data),
       });
     } catch (e) {
