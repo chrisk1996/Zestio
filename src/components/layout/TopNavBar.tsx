@@ -1,7 +1,7 @@
 'use client';
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { createClient } from '@/utils/supabase/client';
 
 interface TopNavBarProps {
   title?: string;
@@ -11,6 +11,16 @@ interface TopNavBarProps {
 
 export default function TopNavBar({ title = 'Editor Workspace', onSave, onExport }: TopNavBarProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [userInitial, setUserInitial] = useState('U');
+  const supabase = createClient();
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user?.email) {
+        setUserInitial(data.user.email.charAt(0).toUpperCase());
+      }
+    });
+  }, [supabase.auth]);
 
   return (
     <header className="fixed top-0 right-0 left-64 h-20 flex items-center justify-between px-10 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200">
@@ -27,7 +37,6 @@ export default function TopNavBar({ title = 'Editor Workspace', onSave, onExport
           />
         </div>
       </div>
-
       <div className="flex items-center gap-6">
         {/* Tab Navigation */}
         <nav className="flex gap-8">
@@ -35,9 +44,7 @@ export default function TopNavBar({ title = 'Editor Workspace', onSave, onExport
           <Link href="#" className="text-slate-500 hover:text-slate-900 transition-all py-1 text-sm">Shared</Link>
           <Link href="#" className="text-slate-500 hover:text-slate-900 transition-all py-1 text-sm">Archived</Link>
         </nav>
-
         <div className="h-6 w-px bg-slate-200 mx-2" />
-
         {/* Actions */}
         <div className="flex items-center gap-4">
           <button className="text-slate-500 hover:text-blue-600 transition-colors">
@@ -46,7 +53,6 @@ export default function TopNavBar({ title = 'Editor Workspace', onSave, onExport
           <button className="text-slate-500 hover:text-blue-600 transition-colors">
             <span className="material-symbols-outlined">history</span>
           </button>
-
           {onSave && (
             <button
               onClick={onSave}
@@ -55,7 +61,6 @@ export default function TopNavBar({ title = 'Editor Workspace', onSave, onExport
               Save
             </button>
           )}
-
           {onExport && (
             <button
               onClick={onExport}
@@ -64,11 +69,14 @@ export default function TopNavBar({ title = 'Editor Workspace', onSave, onExport
               Export
             </button>
           )}
-
           {/* User Avatar */}
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center ml-2 border-2 border-white shadow-sm">
-            <span className="text-white font-bold text-sm">C</span>
-          </div>
+          <Link 
+            href="/settings" 
+            className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center ml-2 border-2 border-white shadow-sm hover:opacity-80 transition-opacity"
+            title="Settings"
+          >
+            <span className="text-white font-bold text-sm">{userInitial}</span>
+          </Link>
         </div>
       </div>
     </header>
