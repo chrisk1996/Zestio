@@ -27,24 +27,9 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('listings')
       .select(`
-        id,
-        transaction_type,
-        property_type,
-        title,
-        street,
-        house_number,
-        postal_code,
-        city,
-        price,
-        living_area,
-        rooms,
-        bedrooms,
-        bathrooms,
-        publish_status,
-        media_ids,
-        created_at,
-        updated_at,
-        published_at
+        id, transaction_type, property_type, title, street, house_number, postal_code, city,
+        price, living_area, rooms, bedrooms, bathrooms, publish_status, media_ids,
+        created_at, updated_at, published_at
       `)
       .eq('agent_id', user.id)
       .order('created_at', { ascending: false })
@@ -109,11 +94,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Ensure user exists in public.users table (trigger should create it, but verify)
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', user.id)
+      .single();
+
+    if (!existingUser) {
+      // User doesn't exist in public.users, create it
+      const { error: createUserError } = await supabase
+        .from('users')
+        .insert({
+          id: user.id,
+          email: user.email || '',
+        });
+      if (createUserError) {
+        console.error('Error creating user record:', createUserError);
+        return NextResponse.json(
+          { error: 'Failed to create user record', details: createUserError.message },
+          { status: 500 }
+        );
+      }
+    }
+
     const body = await request.json();
 
     // Validate required fields
     const { transaction_type, property_type, city } = body;
-    
+
     // city can be empty for drafts - use placeholder
     if (!transaction_type || !property_type) {
       return NextResponse.json(
