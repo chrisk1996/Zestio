@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { AppLayout } from '@/components/layout';
-import { CreditCard, Loader2, AlertCircle, Check, Zap, Crown, Building2, ArrowUpRight, TrendingUp } from 'lucide-react';
+import { CreditCard, Loader2, AlertCircle, Check, Zap, Crown, Building2, ArrowUpRight, TrendingUp, ExternalLink } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 interface UserData {
@@ -11,6 +11,7 @@ interface UserData {
   credits_total: number;
   credits_used: number;
   credits_remaining: number;
+  stripe_customer_id?: string;
 }
 
 const plans = [
@@ -51,10 +52,17 @@ export default function BillingPage() {
   const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
     loadUser();
+    // Check for success/cancel params
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('success')) {
+      // Refresh to get updated subscription
+      setTimeout(() => loadUser(), 2000);
+    }
   }, []);
 
   const loadUser = async () => {
@@ -66,39 +74,34 @@ export default function BillingPage() {
       }
 
       // Fetch user profile with credits from propertypix_users table
-      // Columns: subscription_tier, credits, used_credits
       const { data: profile, error: profileError } = await supabase
         .from('propertypix_users')
-        .select('id, subscription_tier, credits, used_credits')
+        .select('id, subscription_tier, credits, used_credits, stripe_customer_id')
         .eq('id', authUser.id)
         .single();
 
       if (profileError) {
         console.error('Profile fetch error:', profileError);
-        console.log('Auth user ID:', authUser.id);
-        console.log('Auth user email:', authUser.email);
-        // Set defaults if user record doesn't exist yet
         setUser({
           email: authUser.email || '',
           plan: 'free',
-          credits_total: 5,
+          credits_total: 10,
           credits_used: 0,
-          credits_remaining: 5,
+          credits_remaining: 10,
         });
         return;
       }
 
-      console.log('Profile loaded:', { id: profile?.id, credits: profile?.credits, used: profile?.used_credits });
-
-      const creditsTotal = profile?.credits ?? 5;
+      const creditsTotal = profile?.credits ?? 10;
       const creditsUsed = profile?.used_credits ?? 0;
 
       setUser({
-        email: profile?.email || authUser.email || '',
+        email: authUser.email || '',
         plan: profile?.subscription_tier || 'free',
         credits_total: creditsTotal,
         credits_used: creditsUsed,
-        credits_remaining: creditsTotal - creditsUsed,
+        credits_remaining: creditsTotal === -1 ? 999999 : creditsTotal - creditsUsed,
+        stripe_customer_id: profile?.stripe_customer_id,
       });
     } catch (err) {
       console.error('Error loading user:', err);
@@ -112,6 +115,56 @@ export default function BillingPage() {
     if (!user || user.plan === 'enterprise') return 100;
     const total = user.credits_total || 1;
     return Math.max(0, Math.round((user.credits_remaining / total) * 100));
+  };
+
+  const handleSubscribe = async (plan: string) => {
+    setCheckoutLoading(plan);
+    try {
+      // Use hardcoded test price IDs for development
+      // These should be created in Stripe Dashboard first
+      const priceIds: Record<string, string> = {
+        pro: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID || 'price_pro_test',
+        enterprise: process.env.NEXT_PUBLIC_STRIPE_ENTERPRISE_PRICE_ID || 'price_enterprise_test',
+      };
+
+      const response = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan, priceId: priceIds[plan] }),
+      });
+
+      const data = await response.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setError(data.error || 'Failed to create checkout session');
+      }
+    } catch (err) {
+      console.error('Checkout error:', err);
+      setError('Failed to start checkout');
+    } finally {
+      setCheckoutLoading(null);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    setCheckoutLoading('portal');
+    try {
+      const response = await fetch('/api/stripe/portal', { method: 'POST' });
+      const data = await response.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setError(data.error || 'Failed to open billing portal');
+      }
+    } catch (err) {
+      console.error('Portal error:', err);
+      setError('Failed to open billing portal');
+    } finally {
+      setCheckoutLoading(null);
+    }
   };
 
   if (loading) {
@@ -164,20 +217,42 @@ export default function BillingPage() {
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-indigo-200">Credits Remaining</span>
               <span className="text-lg font-bold">
-                {user?.plan === 'enterprise' ? '∞' : `${user?.credits_remaining} / ${user?.credits_total}`}
+                {user?.plan === 'enterprise' ? '∞ Unlimited' : `${user?.credits_remaining} / ${user?.credits_total}`}
               </span>
             </div>
-            <div className="h-3 bg-white/20 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-white rounded-full transition-all duration-500"
-                style={{ width: `${getCreditPercentage()}%` }}
-              />
-            </div>
-            <div className="flex justify-between mt-2 text-xs text-indigo-200">
-              <span>{user?.credits_used} used</span>
-              <span>{getCreditPercentage()}% remaining</span>
-            </div>
+            {user?.plan !== 'enterprise' && (
+              <>
+                <div className="h-3 bg-white/20 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-white rounded-full transition-all duration-500"
+                    style={{ width: `${getCreditPercentage()}%` }}
+                  />
+                </div>
+                <div className="flex justify-between mt-2 text-xs text-indigo-200">
+                  <span>{user?.credits_used} used</span>
+                  <span>{getCreditPercentage()}% remaining</span>
+                </div>
+              </>
+            )}
           </div>
+
+          {/* Manage Subscription Button */}
+          {user?.plan !== 'free' && user?.stripe_customer_id && (
+            <button
+              onClick={handleManageSubscription}
+              disabled={checkoutLoading === 'portal'}
+              className="mt-4 w-full bg-white/20 hover:bg-white/30 text-white font-medium py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+            >
+              {checkoutLoading === 'portal' ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <CreditCard className="w-4 h-4" />
+                  Manage Subscription
+                </>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Plans Comparison */}
@@ -187,72 +262,81 @@ export default function BillingPage() {
             {plans.map((plan) => {
               const Icon = plan.icon;
               const isCurrent = user?.plan === plan.id;
+
               return (
                 <div
                   key={plan.id}
-                  className={`relative bg-white rounded-xl border-2 p-5 ${
-                    isCurrent
-                      ? 'border-indigo-500 ring-2 ring-indigo-500/20'
-                      : 'border-gray-200'
+                  className={`relative bg-white rounded-xl border-2 p-5 transition-shadow hover:shadow-md ${
+                    isCurrent ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-gray-200'
                   } ${plan.popular && !isCurrent ? 'border-indigo-300' : ''}`}
                 >
-                  {plan.popular && (
+                  {plan.popular && !isCurrent && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-indigo-600 text-white text-xs font-medium rounded-full">
                       Most Popular
                     </div>
                   )}
                   {isCurrent && (
                     <div className="absolute -top-3 right-4 px-3 py-1 bg-green-600 text-white text-xs font-medium rounded-full flex items-center gap-1">
-                      <Check className="w-3 h-3" /> Current
+                      <Check className="w-3 h-3" />
+                      Current
                     </div>
                   )}
+
                   <div className={`w-12 h-12 ${plan.color} rounded-lg flex items-center justify-center mb-3`}>
                     <Icon className="w-6 h-6" />
                   </div>
+
                   <h3 className="font-bold text-gray-900">{plan.name}</h3>
                   <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-2xl font-bold text-gray-900">{plan.price}</span>
                     <span className="text-sm text-gray-500">{plan.period}</span>
                   </div>
-                  <p className="text-sm text-gray-600 mt-2">{plan.credits} credits/month</p>
+                  <p className="text-sm text-gray-600 mt-2">
+                    {plan.credits} {plan.credits !== 'Unlimited' ? 'credits/month' : ''}
+                  </p>
+
                   <ul className="mt-4 space-y-2">
                     {plan.features.map((feature, i) => (
                       <li key={i} className="flex items-center gap-2 text-sm text-gray-600">
-                        <Check className="w-4 h-4 text-green-500" />
+                        <Check className="w-4 h-4 text-green-500 shrink-0" />
                         {feature}
                       </li>
                     ))}
                   </ul>
+
+                  {/* Subscribe Button */}
+                  {plan.id !== 'free' && !isCurrent && (
+                    <button
+                      onClick={() => handleSubscribe(plan.id)}
+                      disabled={checkoutLoading === plan.id}
+                      className={`mt-4 w-full py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors ${
+                        plan.popular
+                          ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-900'
+                      } disabled:opacity-50`}
+                    >
+                      {checkoutLoading === plan.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          {user?.plan !== 'free' ? 'Switch Plan' : 'Subscribe'}
+                          <ArrowUpRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Usage Breakdown */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <TrendingUp className="w-5 h-5 text-gray-500" />
-            <h2 className="text-lg font-semibold text-gray-900">Usage Breakdown</h2>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-sm text-gray-500">Enhancements</p>
-              <p className="text-2xl font-bold text-gray-900">{user?.credits_used || 0}</p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-sm text-gray-500">Virtual Staging</p>
-              <p className="text-2xl font-bold text-gray-900">0</p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-sm text-gray-500">3D Floor Plans</p>
-              <p className="text-2xl font-bold text-gray-900">0</p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-sm text-gray-500">Videos</p>
-              <p className="text-2xl font-bold text-gray-900">0</p>
-            </div>
-          </div>
+        {/* Stripe Test Mode Notice */}
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+          <p className="text-yellow-800 text-sm">
+            <strong>Test Mode:</strong> You're in Stripe test mode. Use test card number{' '}
+            <code className="bg-yellow-100 px-1 rounded">4242 4242 4242 4242</code> with any future expiry date and CVC.
+          </p>
         </div>
       </div>
     </AppLayout>
