@@ -106,7 +106,8 @@ async function generateDepthMap(imageUrl: string): Promise<string> {
       return result;
     }
 
-    console.error('Could not extract URL from result. Type:', typeof result, 'IsArray:', Array.isArray(result));
+    // Debug: log the full result structure
+    console.error('Could not extract URL from result. Full result:', JSON.stringify(result, null, 2));
     throw new Error('Failed to generate depth map - no valid URL returned');
   } catch (error) {
     console.error('Depth map generation error:', error);
