@@ -69,7 +69,7 @@ export default function BillingPage() {
       // Columns: subscription_tier, credits, used_credits
       const { data: profile, error: profileError } = await supabase
         .from('propertypix_users')
-        .select('id, email, subscription_tier, credits, used_credits')
+        .select('id, subscription_tier, credits, used_credits')
         .eq('id', authUser.id)
         .single();
 
