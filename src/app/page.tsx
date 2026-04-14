@@ -163,13 +163,12 @@ export default function LandingPage() {
 
               {/* Floor Plans */}
               <div className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10">
-                <div className="h-64 relative overflow-hidden bg-[#e3efff] flex items-center justify-center gap-8">
-                  <div className="w-20 h-20 bg-white rounded-lg flex items-center justify-center border border-[#c4c6cd]/15">
-                    <span className="material-symbols-outlined text-3xl text-[#1d2832]/30">architecture</span>
-                  </div>
-                  <div className="w-20 h-20 bg-white rounded-lg flex items-center justify-center border border-[#c4c6cd]/15">
-                    <span className="material-symbols-outlined text-3xl text-[#1d2832]/30">view_in_ar</span>
-                  </div>
+                <div className="h-64 relative overflow-hidden">
+              <img
+                alt="Modern 3D floor plan rendering with minimalist interior design"
+                className="w-full h-full object-cover"
+                src="https://images.unsplash.com/photo-1600607687939-ce8fe6d661cf?w=600&q=80"
+              />
                   <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1.5 rounded-sm">
                     <span className="font-manrope text-[10px] uppercase tracking-widest text-[#1d2832]">
                       04 / Precision
