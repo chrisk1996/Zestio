@@ -117,15 +117,20 @@ export async function POST(request: NextRequest) {
       .update({ used_credits: (userData?.used_credits ?? 0) + 1 })
       .eq('id', user.id);
 
-    // Enqueue job for processing
-    await queueVideoPipeline({
-      jobId: job.id,
-      userId: user.id,
-      listingUrl: normalizedUrl,
-      platform,
-      renovationStyle: renovation_style,
-      musicGenre: music_genre,
-    });
+    // Enqueue job for processing (optional - may fail on serverless)
+    try {
+      await queueVideoPipeline({
+        jobId: job.id,
+        userId: user.id,
+        listingUrl: normalizedUrl,
+        platform,
+        renovationStyle: renovation_style,
+        musicGenre: music_genre,
+      });
+    } catch (queueError) {
+      console.warn('[VideoJobs] Queue unavailable (serverless mode):', queueError);
+      // Job is created, will be processed by cron or manual trigger
+    }
 
     console.log(`[VideoJobs] Created job ${job.id} for user ${user.id}`);
 
