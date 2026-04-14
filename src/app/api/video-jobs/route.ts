@@ -36,9 +36,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Auto-prepend https:// if missing protocol
+    let normalizedUrl = listing_url;
+    if (!normalizedUrl.match(/^https?:\/\//i)) {
+      normalizedUrl = 'https://' + normalizedUrl;
+    }
+    
     // Validate URL format
     try {
-      new URL(listing_url);
+      new URL(normalizedUrl);
     } catch {
       return NextResponse.json(
         { error: 'Invalid URL format' },
@@ -96,14 +102,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Detect platform from URL
-    const platform = detectPlatform(listing_url);
+    const platform = detectPlatform(normalizedUrl);
 
     // Create job record
     const { data: job, error: jobError } = await supabase
       .from('video_jobs')
       .insert({
         user_id: user.id,
-        listing_url,
+        listing_url: normalizedUrl,
         platform,
         renovation_style,
         music_genre,
@@ -139,7 +145,7 @@ export async function POST(request: NextRequest) {
     await queueVideoPipeline({
       jobId: job.id,
       userId: user.id,
-      listingUrl: listing_url,
+      listingUrl: normalizedUrl,
       platform,
       renovationStyle: renovation_style,
       musicGenre: music_genre,
