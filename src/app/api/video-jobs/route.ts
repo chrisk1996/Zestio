@@ -70,31 +70,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check user credits
-    // Try enhancement_credits table first
-    let hasCredits = false;
-    const { data: credits } = await supabase
-      .from('enhancement_credits')
-      .select('credits_total, credits_used')
-      .eq('user_id', user.id)
+    // Check user credits from propertypix_users table
+    const { data: userData } = await supabase
+      .from('propertypix_users')
+      .select('credits, used_credits')
+      .eq('id', user.id)
       .single();
 
-    if (credits && credits.credits_total - credits.credits_used >= 1) {
-      hasCredits = true;
-    } else {
-      // Fallback: check propertypix_users table
-      const { data: userData } = await supabase
-        .from('propertypix_users')
-        .select('credits, used_credits')
-        .eq('id', user.id)
-        .single();
-
-      if (userData && userData.credits - userData.used_credits >= 1) {
-        hasCredits = true;
-      }
-    }
-
-    if (!hasCredits) {
+    const creditsRemaining = (userData?.credits ?? 0) - (userData?.used_credits ?? 0);
+    if (creditsRemaining < 1) {
       return NextResponse.json(
         { error: 'Insufficient credits. Video generation requires 1 credit.' },
         { status: 402 }
@@ -127,19 +111,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Deduct credit from enhancement_credits
-    if (credits) {
-      await supabase
-        .from('enhancement_credits')
-        .update({ credits_used: credits.credits_used + 1 })
-        .eq('user_id', user.id);
-    } else {
-      // Fallback: deduct from propertypix_users
-      await supabase
-        .from('propertypix_users')
-        .update({ used_credits: (await supabase.from('propertypix_users').select('used_credits').eq('id', user.id).single()).data?.used_credits + 1 })
-        .eq('id', user.id);
-    }
+    // Deduct credit from propertypix_users
+    await supabase
+      .from('propertypix_users')
+      .update({ used_credits: (userData?.used_credits ?? 0) + 1 })
+      .eq('id', user.id);
 
     // Enqueue job for processing
     await queueVideoPipeline({
