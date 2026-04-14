@@ -230,11 +230,11 @@ export default function VirtualStagingPage() {
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 bg-slate-100 flex items-center justify-center p-8">
+        <div className="flex-1 bg-slate-100 flex items-center justify-center p-8 overflow-auto">
           {!uploadedImage ? (
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="w-full max-w-4xl aspect-[4/3] bg-white rounded-2xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-purple-500 hover:bg-purple-50/50 transition-all"
+              className="w-full max-w-4xl max-h-[calc(100vh-16rem)] aspect-[4/3] bg-white rounded-2xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-purple-500 hover:bg-purple-50/50 transition-all"
             >
               <span className="material-symbols-outlined text-7xl text-slate-400">add_photo_alternate</span>
               <div className="text-center">
@@ -251,7 +251,7 @@ export default function VirtualStagingPage() {
               />
             </div>
           ) : stagedImage ? (
-            <div className="w-full max-w-4xl">
+            <div className="w-full max-w-4xl max-h-[calc(100vh-16rem)]">
               <ImageCompareSlider beforeSrc={uploadedImage} afterSrc={stagedImage} />
               <div className="mt-6 bg-purple-50 rounded-xl p-4 border border-purple-200">
                 <p className="text-sm text-purple-800">
@@ -262,8 +262,8 @@ export default function VirtualStagingPage() {
               </div>
             </div>
           ) : (
-            <div className="relative w-full max-w-4xl">
-              <img src={uploadedImage} alt="Uploaded" className="w-full rounded-2xl shadow-2xl" />
+            <div className="relative w-full max-w-4xl max-h-[calc(100vh-16rem)]">
+              <img src={uploadedImage} alt="Uploaded" className="w-full max-h-[calc(100vh-20rem)] object-contain rounded-2xl shadow-2xl" />
               {isProcessing && (
                 <div className="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center">
                   <div className="bg-white px-8 py-6 rounded-xl shadow-lg flex items-center gap-4">
