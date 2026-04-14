@@ -5,6 +5,47 @@ import { createClient } from '@/utils/supabase/server';
 
 const replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN! });
 
+
+// Helper: Convert data URL to File and upload to Supabase storage
+async function uploadImageToStorage(supabase: any, userId: string, dataUrl: string): Promise<string> {
+  // Extract base64 data from data URL
+  const matches = dataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+  if (!matches) {
+    throw new Error('Invalid image data URL format');
+  }
+  
+  const extension = matches[1];
+  const base64Data = matches[2];
+  
+  // Convert base64 to buffer
+  const buffer = Buffer.from(base64Data, 'base64');
+  
+  // Generate unique filename
+  const filename = `staging/${userId}/${Date.now()}.${extension}`;
+  
+  // Upload to Supabase storage
+  const { data, error } = await supabase
+    .storage
+    .from('images')
+    .upload(filename, buffer, {
+      contentType: `image/${extension}`,
+      upsert: true,
+    });
+  
+  if (error) {
+    console.error('Storage upload error:', error);
+    throw new Error(`Failed to upload image: ${error.message}`);
+  }
+  
+  // Get public URL
+  const { data: urlData } = supabase
+    .storage
+    .from('images')
+    .getPublicUrl(filename);
+  
+  return urlData.publicUrl;
+}
+
 // Rate limiting
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT = 10;
@@ -136,6 +177,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    // If image is a data URL, upload to storage first (Replicate needs public URLs)
+    let imageUrl = image;
+    if (image.startsWith('data:')) {
+      console.log('Image is a data URL, uploading to storage...');
+      imageUrl = await uploadImageToStorage(supabase, user.id, image);
+      console.log('Image uploaded to:', imageUrl);
+    }
+
     let resultUrl: string;
     let creditsUsed: number;
 
@@ -156,7 +205,7 @@ export async function POST(request: NextRequest) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          input_image_url: image,
+          input_image_url: imageUrl,
           room_type: roomTypeDecor8,
           design_style: designStyle,
           num_images: 1,
@@ -190,7 +239,7 @@ export async function POST(request: NextRequest) {
 
       // Step 1: Generate depth map
       console.log('Step 1: Generating depth map...');
-      const depthMapUrl = await generateDepthMap(image);
+      const depthMapUrl = await generateDepthMap(imageUrl);
       console.log('Depth map generated successfully');
 
       // Step 2: Use depth map with FLUX Depth Pro

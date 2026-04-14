@@ -276,7 +276,7 @@ export default function VirtualStagingPage() {
                 </div>
               )}
               {error && (
-                <div className="absolute top-4 left-4 right-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex justify-between items-center">
+                <div className="absolute top-4 left-4 right-4 z-10 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex justify-between items-center shadow-lg">
                   {error}
                   <button onClick={() => setError(null)} className="font-bold text-lg">×</button>
                 </div>
