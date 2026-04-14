@@ -167,7 +167,7 @@ export default function LandingPage() {
               <img
                 alt="Modern 3D floor plan rendering with minimalist interior design"
                 className="w-full h-full object-cover"
-                src="https://images.unsplash.com/photo-1600607687939-ce8fe6d661cf?w=600&q=80"
+                src="/images/3d-floorplan.png"
               />
                   <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1.5 rounded-sm">
                     <span className="font-manrope text-[10px] uppercase tracking-widest text-[#1d2832]">
