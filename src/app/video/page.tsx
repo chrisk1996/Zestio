@@ -81,12 +81,9 @@ export default function VideoPage() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
-        const { data: creditsData } = await supabase.from('enhancement_credits').select('credits_total, credits_used').eq('user_id', user.id).single();
+        const { data: creditsData } = await supabase.from('propertypix_users').select('credits, used_credits').eq('id', user.id).single();
         if (creditsData) {
-          setCredits({ total: creditsData.credits_total ?? 0, used: creditsData.credits_used ?? 0 });
-        } else {
-          const { data: userData } = await supabase.from('propertypix_users').select('credits, used_credits').eq('id', user.id).single();
-          if (userData) setCredits({ total: userData.credits ?? 0, used: userData.used_credits ?? 0 });
+          setCredits({ total: creditsData.credits ?? 0, used: creditsData.used_credits ?? 0 });
         }
       } catch (err) {
         console.error('Failed to fetch credits:', err);

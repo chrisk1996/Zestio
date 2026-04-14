@@ -150,14 +150,14 @@ export async function getCurrentUser() {
   return user;
 }
 
-// Credit helpers
-export async function getUserCredits(userId: string): Promise<EnhancementCredit | null> {
+// Credit helpers - uses propertypix_users table
+export async function getUserCredits(userId: string): Promise<{ credits: number; used_credits: number } | null> {
   if (!supabase) return null;
 
   const { data, error } = await supabase
-    .from('enhancement_credits')
-    .select('*')
-    .eq('user_id', userId)
+    .from('propertypix_users')
+    .select('credits, used_credits')
+    .eq('id', userId)
     .single();
 
   if (error) {
