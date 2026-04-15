@@ -7,12 +7,22 @@ import { createClient } from '@/utils/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-03-31.basil',
-});
+// Lazy-initialize Stripe to avoid build-time errors when key is missing
+let stripe: Stripe | null = null;
+function getStripe(): Stripe {
+  if (!stripe) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) {
+      throw new Error('STRIPE_SECRET_KEY environment variable is not set');
+    }
+    stripe = new Stripe(key, { apiVersion: '2025-03-31.basil' });
+  }
+  return stripe;
+}
 
 export async function POST(request: NextRequest) {
   try {
+    const stripe = getStripe();
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
