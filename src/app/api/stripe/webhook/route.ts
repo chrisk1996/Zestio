@@ -61,6 +61,15 @@ function getPlanFromPrice(price: Stripe.Price): string {
   return 'pro';
 }
 
+// Helper to map Stripe subscription status to our status
+function mapSubscriptionStatus(subscription: Stripe.Subscription): string {
+  // Handle cancel_at_period_end - user still has access until period ends
+  if (subscription.cancel_at_period_end) {
+    return 'cancel_at_period_end';
+  }
+  return subscription.status;
+}
+
 export async function POST(request: NextRequest) {
   const stripe = getStripe();
   const supabaseAdmin = getSupabaseAdmin();
@@ -92,7 +101,7 @@ export async function POST(request: NextRequest) {
         const userId = session.metadata?.user_id;
         const plan = session.metadata?.plan;
 
-        console.log(`[Stripe] Checkout completed - userId: ${userId}, plan: ${plan}, metadata:`, session.metadata);
+        console.log(`[Stripe] Checkout completed - userId: ${userId}, plan: ${plan}`);
 
         if (userId && plan) {
           const { error: updateError } = await supabaseAdmin
@@ -103,6 +112,9 @@ export async function POST(request: NextRequest) {
               credits: plan === 'pro' ? 100 : -1,
               used_credits: 0,
               stripe_subscription_id: session.subscription as string,
+              // Clear any cancellation dates on new subscription
+              subscription_cancel_at: null,
+              subscription_canceled_at: null,
             })
             .eq('id', userId);
 
@@ -128,23 +140,39 @@ export async function POST(request: NextRequest) {
           .single();
 
         if (user) {
-          const status = subscription.status;
+          const status = mapSubscriptionStatus(subscription);
           const price = subscription.items.data[0]?.price;
           const plan = price ? getPlanFromPrice(price) : 'pro';
+          
+          // If cancel_at_period_end, keep their plan until period ends
+          const effectivePlan = status === 'cancel_at_period_end' ? plan : (status === 'active' ? plan : 'free');
+          const effectiveStatus = status === 'cancel_at_period_end' ? 'cancel_at_period_end' : subscription.status;
+
+          // Get period end date from Stripe
+          const periodEnd = subscription.current_period_end 
+            ? new Date(subscription.current_period_end * 1000).toISOString() 
+            : null;
+          const cancelAt = subscription.cancel_at 
+            ? new Date(subscription.cancel_at * 1000).toISOString() 
+            : null;
 
           const { error: updateError } = await supabaseAdmin
             .from('zestio_users')
             .update({
-              subscription_tier: status === 'active' ? plan : 'free',
-              subscription_status: status,
-              credits: status === 'active' ? (plan === 'enterprise' ? -1 : 100) : 10,
+              subscription_tier: effectivePlan,
+              subscription_status: effectiveStatus,
+              credits: status === 'cancel_at_period_end' || status === 'active' 
+                ? (plan === 'enterprise' ? -1 : 100) 
+                : 10,
+              subscription_current_period_end: periodEnd,
+              subscription_cancel_at: cancelAt,
             })
             .eq('id', user.id);
 
           if (updateError) {
             console.error(`[Stripe] Failed to update subscription:`, updateError);
           } else {
-            console.log(`[Stripe] Subscription updated for user ${user.id}: ${status}, tier: ${plan}`);
+            console.log(`[Stripe] Subscription updated for user ${user.id}: ${effectiveStatus}, tier: ${effectivePlan}, periodEnd: ${periodEnd}`);
           }
         }
         break;
@@ -169,6 +197,11 @@ export async function POST(request: NextRequest) {
               subscription_tier: 'free',
               subscription_status: 'canceled',
               credits: 10,
+              // Clear Stripe subscription ID and dates
+              stripe_subscription_id: null,
+              subscription_cancel_at: null,
+              subscription_current_period_end: null,
+              subscription_canceled_at: new Date().toISOString(),
             })
             .eq('id', user.id);
 
