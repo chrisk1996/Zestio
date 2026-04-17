@@ -218,21 +218,32 @@ export async function POST(request: NextRequest) {
         const invoice = event.data.object as Stripe.Invoice;
         const customerId = invoice.customer as string;
 
+        // Get the subscription from the invoice to determine the correct plan
+        const subscriptionId = invoice.subscription as string | undefined;
+        let plan = 'free';
+        
+        if (subscriptionId) {
+          // Fetch the subscription to get the current price
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+          const price = subscription.items.data[0]?.price;
+          plan = price ? getPlanFromPrice(price) : 'pro';
+        }
+
         const { data: user } = await supabaseAdmin
           .from('zestio_users')
           .select('id, subscription_tier')
           .eq('stripe_customer_id', customerId)
           .single();
 
-        if (user && user.subscription_tier !== 'free') {
+        if (user && plan !== 'free') {
           await supabaseAdmin
             .from('zestio_users')
             .update({
               used_credits: 0,
-              credits: user.subscription_tier === 'enterprise' ? -1 : 100,
+              credits: plan === 'enterprise' ? -1 : 100,
             })
             .eq('id', user.id);
-          console.log(`[Stripe] Credits reset for user ${user.id}`);
+          console.log(`[Stripe] Credits reset for user ${user.id} based on plan: ${plan}`);
         }
         break;
       }
