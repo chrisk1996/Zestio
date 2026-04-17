@@ -9,9 +9,8 @@ export const dynamic = 'force-dynamic';
 
 // Plan mapping by price ID (fallback when metadata not set)
 const PLAN_BY_PRICE_ID: Record<string, string> = {
-  // Add your actual price IDs here as fallback
-  // 'price_pro_xxx': 'pro',
-  // 'price_enterprise_xxx': 'enterprise',
+  'price_1TMa2mA6xKRaC5AwwNZeerHl': 'pro', // Pro subscription
+  'price_1TMa3oA6xKRaC5AwPM8TLeER': 'enterprise', // Enterprise subscription
 };
 
 // Lazy-initialize Stripe to avoid build-time errors when key is missing
