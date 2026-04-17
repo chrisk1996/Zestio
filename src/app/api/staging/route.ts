@@ -99,65 +99,49 @@ const STYLE_PROMPTS: Record<string, string> = {
 };
 
 /**
- * Generate depth map from input image using Depth Anything V2
- * V2 has better fine-grained details and robustness than V1
+ * Generate depth map from input image using Depth Pro (Apple's model)
+ * Depth Pro provides sharp metric depth in less than a second
  */
 async function generateDepthMap(imageUrl: string): Promise<string> {
   console.log('Generating depth map from image...');
   console.log('Input image URL:', imageUrl);
 
   try {
-    // Use Depth Anything V2 - try different model versions
-    // First try the official black-forest-labs version
-    let result;
-    try {
-      result = await replicate.run(
-        "adirik/depth-anything:cd7710d8a5cd3d5a5e7e8c8c8e5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3",
-        {
-          input: {
-            image: imageUrl,
-          },
-        }
-      );
-    } catch (e) {
-      console.log('First model failed, trying fallback...');
-      // Fallback to a simpler approach - use depth estimation via image-to-image
-      result = await replicate.run(
-        "stability-ai/stable-diffusion-img2img:51a67e2f-8b5e-4c8e-9c6d-7b8a9c0d1e2f",
-        {
-          input: {
-            image: imageUrl,
-            prompt: "depth map, grayscale, black and white depth estimation",
-            strength: 0.8,
-          },
-        }
-      );
-    }
+    // Use Depth Pro - Apple's state-of-the-art depth estimation model
+    // https://replicate.com/chenxwh/ml-depth-pro
+    const result = await replicate.run(
+      "chenxwh/ml-depth-pro",
+      {
+        input: {
+          image: imageUrl,
+        },
+      }
+    );
 
-    console.log('Depth Anything result:', JSON.stringify(result, null, 2));
+    console.log('Depth Pro result:', JSON.stringify(result, null, 2));
 
-    // Handle different response formats from Replicate
-    // The SDK returns FileOutput objects with .url() method
+    // Handle response from Depth Pro
     if (result && typeof result === 'object') {
-      // Check for color_depth/grey_depth keys (new format)
       const r = result as any;
-      if (r.color_depth && typeof r.color_depth === 'string') {
-        return r.color_depth;
-      }
-      if (r.grey_depth && typeof r.grey_depth === 'string') {
-        return r.grey_depth;
-      }
+      
+      // Try common output property names
       if (r.depth && typeof r.depth === 'string') {
         return r.depth;
       }
-
+      if (r.depth_map && typeof r.depth_map === 'string') {
+        return r.depth_map;
+      }
+      if (r.output && typeof r.output === 'string') {
+        return r.output;
+      }
+      
       // Try to get URL from FileOutput
       if (typeof r.url === 'function') {
         const url = r.url();
         if (typeof url === 'string') return url;
         if (url && typeof url.toString === 'function') return url.toString();
       }
-
+      
       // Try array output
       if (Array.isArray(result) && result.length > 0) {
         const first = result[0];
