@@ -165,6 +165,9 @@ export async function POST(request: NextRequest) {
           const effectivePlan = status === 'cancel_at_period_end' ? plan : (status === 'active' ? plan : 'free');
           const effectiveStatus = status === 'cancel_at_period_end' ? 'cancel_at_period_end' : fullSubscription.status;
 
+          // If reactivating (no longer cancel_at_period_end), clear canceled_at
+          const canceledAt = status === 'cancel_at_period_end' ? null : undefined;
+
           const { error: updateError } = await supabaseAdmin
             .from('zestio_users')
             .update({
@@ -175,6 +178,8 @@ export async function POST(request: NextRequest) {
                 : 10,
               subscription_current_period_end: periodEnd,
               subscription_cancel_at: cancelAt,
+              // Clear canceled_at if reactivating
+              ...(canceledAt !== undefined && { subscription_canceled_at: canceledAt }),
             })
             .eq('id', user.id);
 
