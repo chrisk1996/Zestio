@@ -132,8 +132,6 @@ export async function POST(request: NextRequest) {
           const price = subscription.items.data[0]?.price;
           const plan = price ? getPlanFromPrice(price) : 'pro';
 
-          console.log(`[Stripe] Subscription update - status: ${status}, priceId: ${price?.id}, metadata:`, price?.metadata, `, detected plan: ${plan}`);
-
           const { error: updateError } = await supabaseAdmin
             .from('zestio_users')
             .update({
