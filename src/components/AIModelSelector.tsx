@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-export type AIModel = | 'auto' | 'flux-kontext' | 'flux-depth' | 'sdxl' | 'ideogram' | 'llava' | 'llama-vision' | 'stable-video' | 'decor8';
+export type AIModel = | 'auto' | 'flux-kontext' | 'flux-depth' | 'interior-design' | 'sdxl' | 'ideogram' | 'llava' | 'llama-vision' | 'stable-video' | 'decor8';
 
 interface AIModelOption {
   id: AIModel;
@@ -22,7 +22,8 @@ export const AI_MODELS: Record<string, AIModelOption[]> = {
     { id: 'ideogram', name: 'Ideogram v2', description: 'Best for text in images', cost: '$0.02', quality: '⭐⭐⭐⭐', speed: '⚡⚡', bestFor: 'Text/logos' },
   ],
   staging: [
-    { id: 'flux-depth', name: 'FLUX Depth Pro', description: 'Budget virtual staging', cost: '$0.02', quality: '⭐⭐⭐', speed: '⚡⚡⚡', bestFor: 'Budget staging' },
+    { id: 'interior-design', name: 'Interior Design (Best)', description: 'Preserves room layout, ControlNet-based', cost: '$0.006', quality: '⭐⭐⭐⭐', speed: '⚡⚡⚡', bestFor: 'Best value' },
+    { id: 'flux-depth', name: 'FLUX Depth Pro', description: 'Depth-based staging', cost: '$0.02', quality: '⭐⭐⭐', speed: '⚡⚡⚡', bestFor: 'Budget staging' },
     { id: 'decor8', name: 'Decor8 AI (Premium)', description: 'Professional staging, preserves structure', cost: '$0.20', quality: '⭐⭐⭐⭐⭐', speed: '⚡⚡', bestFor: 'Premium staging' },
   ],
   floorplan: [

@@ -5,7 +5,6 @@ import { createClient } from '@/utils/supabase/server';
 
 const replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN! });
 
-
 // Helper: Convert data URL to File and upload to Supabase storage
 async function uploadImageToStorage(supabase: any, userId: string, dataUrl: string): Promise<string> {
   // Extract base64 data from data URL
@@ -141,7 +140,7 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json();
-    const { image, roomType, furnitureStyle, model = 'flux-depth' } = body;
+    const { image, roomType, furnitureStyle, model = 'interior-design' } = body;
 
     if (!image) {
       return NextResponse.json({ error: 'Image is required' }, { status: 400 });
@@ -172,7 +171,7 @@ export async function POST(request: NextRequest) {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            input_image_url: imageUrl,
+            input_image_url: image,
             room_type: roomTypeDecor8,
             design_style: designStyle,
             num_images: 1,
@@ -191,24 +190,68 @@ export async function POST(request: NextRequest) {
           throw new Error('No output from Decor8 API');
         }
       } else if (model === 'flux-depth') {
+        // FLUX Depth Pro workflow:
+        // 1. Generate depth map from input image using Marigold
+        // 2. Use depth map as control_image for FLUX Depth Pro
+        creditsUsed = 2;
+        
+        const roomPrompt = ROOM_PROMPTS[roomType] || ROOM_PROMPTS.living;
+        const stylePrompt = STYLE_PROMPTS[furnitureStyle] || STYLE_PROMPTS.modern;
+        const prompt = `${roomPrompt}, ${stylePrompt}, professional real estate photography, well-lit, high quality, interior design magazine, bright and clean`;
+        
+        console.log('FLUX Depth Pro workflow:', { roomType, furnitureStyle });
+        
+        // Step 1: Generate depth map
+        console.log('Step 1: Generating depth map...');
+        const depthMapUrl = await generateDepthMap(image);
+        console.log('Depth map generated:', depthMapUrl);
+        
+        // Step 2: Use depth map with FLUX Depth Pro
+        console.log('Step 2: Running FLUX Depth Pro...');
+        const result = await replicate.run(
+          "black-forest-labs/flux-depth-pro",
+          {
+            input: {
+              control_image: depthMapUrl,
+              prompt: prompt,
+              num_inference_steps: 30,
+              guidance_scale: 2.5,
+              output_format: 'jpg',
+            },
+          }
+        );
+        
+        if (Array.isArray(result) && result.length > 0) {
+          const first = result[0];
+          resultUrl = first && typeof first.url === 'function' ? first.url() : String(first);
+        } else if (typeof result === 'string') {
+          resultUrl = result;
+        } else {
+          resultUrl = String(result);
+        }
+        
+        if (!resultUrl || resultUrl === '[object Object]') {
+          throw new Error('No output from FLUX Depth Pro');
+        }
+      } else if (model === 'interior-design') {
         // Use adirik/interior-design - specifically designed for virtual staging
         // Uses Realistic Vision V3.0 + segmentation + MLSD ControlNets
-        // Preserves original room layout unlike FLUX Depth Pro
+        // Preserves original room layout better than FLUX Depth Pro
         // https://replicate.com/adirik/interior-design
         creditsUsed = 2;
-
+        
         const roomPrompt = ROOM_PROMPTS[roomType] || ROOM_PROMPTS.living;
         const stylePrompt = STYLE_PROMPTS[furnitureStyle] || STYLE_PROMPTS.modern;
         const prompt = `${roomPrompt}, ${stylePrompt}, professional real estate photography, well-lit, high quality, interior design magazine, bright and clean`;
         const negativePrompt = 'empty room, unfurnished, blurry, low quality, distorted, overexposed, underexposed, noisy, pixelated, watermark, text, dark, cluttered, structural changes, different room, hallucinated architecture';
-
+        
         console.log('Interior design model:', { roomType, furnitureStyle, prompt });
-
+        
         const result = await replicate.run(
           "adirik/interior-design",
           {
             input: {
-              image: imageUrl,
+              image: image,
               prompt: prompt,
               negative_prompt: negativePrompt,
               num_inference_steps: 50,
@@ -217,7 +260,7 @@ export async function POST(request: NextRequest) {
             },
           }
         );
-
+        
         // Handle output
         if (Array.isArray(result) && result.length > 0) {
           const first = result[0];
@@ -233,7 +276,7 @@ export async function POST(request: NextRequest) {
         } else {
           resultUrl = String(result);
         }
-
+        
         if (!resultUrl || resultUrl === '[object Object]') {
           throw new Error('No output from interior design model');
         }
