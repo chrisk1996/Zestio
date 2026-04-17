@@ -140,6 +140,16 @@ export async function POST(request: NextRequest) {
           cancel_at: subscription.cancel_at,
         }));
 
+        // Fetch full subscription from Stripe to get all fields
+        // Webhook payload may not include current_period_end
+        const fullSubscription = await stripe.subscriptions.retrieve(subscription.id);
+        const periodEnd = fullSubscription.current_period_end 
+          ? new Date(fullSubscription.current_period_end * 1000).toISOString() 
+          : null;
+        const cancelAt = fullSubscription.cancel_at 
+          ? new Date(fullSubscription.cancel_at * 1000).toISOString() 
+          : null;
+
         const { data: user } = await supabaseAdmin
           .from('zestio_users')
           .select('id')
@@ -147,21 +157,13 @@ export async function POST(request: NextRequest) {
           .single();
 
         if (user) {
-          const status = mapSubscriptionStatus(subscription);
-          const price = subscription.items.data[0]?.price;
+          const status = mapSubscriptionStatus(fullSubscription);
+          const price = fullSubscription.items.data[0]?.price;
           const plan = price ? getPlanFromPrice(price) : 'pro';
           
           // If cancel_at_period_end, keep their plan until period ends
           const effectivePlan = status === 'cancel_at_period_end' ? plan : (status === 'active' ? plan : 'free');
-          const effectiveStatus = status === 'cancel_at_period_end' ? 'cancel_at_period_end' : subscription.status;
-
-          // Get period end date from Stripe
-          const periodEnd = subscription.current_period_end 
-            ? new Date(subscription.current_period_end * 1000).toISOString() 
-            : null;
-          const cancelAt = subscription.cancel_at 
-            ? new Date(subscription.cancel_at * 1000).toISOString() 
-            : null;
+          const effectiveStatus = status === 'cancel_at_period_end' ? 'cancel_at_period_end' : fullSubscription.status;
 
           const { error: updateError } = await supabaseAdmin
             .from('zestio_users')
