@@ -26,6 +26,12 @@ function getSupabaseAdmin() {
   if (!supabaseAdmin) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    console.log('[Stripe Webhook] Environment check:', {
+      hasUrl: !!url,
+      hasKey: !!key,
+      urlPrefix: url ? url.substring(0, 30) + '...' : 'missing',
+      keyPrefix: key ? key.substring(0, 10) + '...' : 'missing',
+    });
     if (!url || !key) {
       throw new Error('Missing Supabase environment variables');
     }
