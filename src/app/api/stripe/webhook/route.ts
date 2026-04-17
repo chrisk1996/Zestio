@@ -133,6 +133,13 @@ export async function POST(request: NextRequest) {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
 
+        console.log('[Stripe] Raw subscription object:', JSON.stringify({
+          status: subscription.status,
+          cancel_at_period_end: subscription.cancel_at_period_end,
+          current_period_end: subscription.current_period_end,
+          cancel_at: subscription.cancel_at,
+        }));
+
         const { data: user } = await supabaseAdmin
           .from('zestio_users')
           .select('id')
