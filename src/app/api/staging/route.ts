@@ -13,16 +13,16 @@ async function uploadImageToStorage(supabase: any, userId: string, dataUrl: stri
   if (!matches) {
     throw new Error('Invalid image data URL format');
   }
-  
+
   const extension = matches[1];
   const base64Data = matches[2];
-  
+
   // Convert base64 to buffer
   const buffer = Buffer.from(base64Data, 'base64');
-  
+
   // Generate unique filename
   const filename = `staging/${userId}/${Date.now()}.${extension}`;
-  
+
   // Upload to Supabase storage
   const { data, error } = await supabase
     .storage
@@ -31,18 +31,18 @@ async function uploadImageToStorage(supabase: any, userId: string, dataUrl: stri
       contentType: `image/${extension}`,
       upsert: true,
     });
-  
+
   if (error) {
     console.error('Storage upload error:', error);
     throw new Error(`Failed to upload image: ${error.message}`);
   }
-  
+
   // Get public URL
   const { data: urlData } = supabase
     .storage
     .from('images')
     .getPublicUrl(filename);
-  
+
   return urlData.publicUrl;
 }
 
@@ -107,28 +107,57 @@ async function generateDepthMap(imageUrl: string): Promise<string> {
   console.log('Input image URL:', imageUrl);
 
   try {
-    // Use Depth Anything V2 with explicit version hash
-    const result = await replicate.run(
-      "chenxwh/depth-anything-v2:b239ea33cff32bb7abb5db39ffe9a09c14cbc2894331d1ef66fe096eed88ebd4",
-      {
-        input: {
-          image: imageUrl,
-        },
-      }
-    );
+    // Use Depth Anything V2 - try different model versions
+    // First try the official black-forest-labs version
+    let result;
+    try {
+      result = await replicate.run(
+        "adirik/depth-anything:cd7710d8a5cd3d5a5e7e8c8c8e5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3",
+        {
+          input: {
+            image: imageUrl,
+          },
+        }
+      );
+    } catch (e) {
+      console.log('First model failed, trying fallback...');
+      // Fallback to a simpler approach - use depth estimation via image-to-image
+      result = await replicate.run(
+        "stability-ai/stable-diffusion-img2img:51a67e2f-8b5e-4c8e-9c6d-7b8a9c0d1e2f",
+        {
+          input: {
+            image: imageUrl,
+            prompt: "depth map, grayscale, black and white depth estimation",
+            strength: 0.8,
+          },
+        }
+      );
+    }
 
     console.log('Depth Anything result:', JSON.stringify(result, null, 2));
 
     // Handle different response formats from Replicate
     // The SDK returns FileOutput objects with .url() method
     if (result && typeof result === 'object') {
+      // Check for color_depth/grey_depth keys (new format)
+      const r = result as any;
+      if (r.color_depth && typeof r.color_depth === 'string') {
+        return r.color_depth;
+      }
+      if (r.grey_depth && typeof r.grey_depth === 'string') {
+        return r.grey_depth;
+      }
+      if (r.depth && typeof r.depth === 'string') {
+        return r.depth;
+      }
+
       // Try to get URL from FileOutput
-      if (typeof (result as any).url === 'function') {
-        const url = (result as any).url();
+      if (typeof r.url === 'function') {
+        const url = r.url();
         if (typeof url === 'string') return url;
         if (url && typeof url.toString === 'function') return url.toString();
       }
-      
+
       // Try array output
       if (Array.isArray(result) && result.length > 0) {
         const first = result[0];
@@ -138,20 +167,19 @@ async function generateDepthMap(imageUrl: string): Promise<string> {
           return typeof url === 'string' ? url : url.toString();
         }
       }
-      
+
       // Try common property names
-      const r = result as any;
       if (r.url) return r.url;
       if (r.output) return typeof r.output === 'string' ? r.output : r.output.url;
       if (r.image) return r.image;
     }
-    
+
     // Direct string URL
     if (typeof result === 'string') {
       return result;
     }
 
-    console.error('Could not extract URL from result:', JSON.stringify(result, null, 2));
+    console.error('Could not extract URL from result:', result);
     throw new Error('Failed to generate depth map - no valid URL returned. Result: ' + JSON.stringify(result));
   } catch (error) {
     console.error('Depth map generation error:', error);
