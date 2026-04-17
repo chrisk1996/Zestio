@@ -49,6 +49,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Create portal session
+    // Note: Billing portal must be configured in Stripe Dashboard to allow subscription updates
+    // Dashboard: https://dashboard.stripe.com/settings/billing/portal
     const session = await stripe.billingPortal.sessions.create({
       customer: userData.stripe_customer_id,
       return_url: `${baseUrl}/billing`,
