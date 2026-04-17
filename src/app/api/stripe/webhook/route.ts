@@ -37,8 +37,8 @@ function getSupabaseAdmin() {
 export async function POST(request: NextRequest) {
   const stripe = getStripe();
   const supabaseAdmin = getSupabaseAdmin();
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!webhookSecret) {
     console.error('STRIPE_WEBHOOK_SECRET is not set');
     return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 });
@@ -90,6 +90,7 @@ export async function POST(request: NextRequest) {
         }
         break;
       }
+
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
@@ -103,24 +104,29 @@ export async function POST(request: NextRequest) {
 
         if (user) {
           const status = subscription.status;
-          const plan = subscription.items.data[0]?.price.metadata?.plan || 'pro';
+          const priceMetadata = subscription.items.data[0]?.price?.metadata;
+          const plan = priceMetadata?.plan || 'pro';
+
+          console.log(`[Stripe] Subscription update - status: ${status}, price metadata:`, priceMetadata, `, detected plan: ${plan}`);
 
           const { error: updateError } = await supabaseAdmin
             .from('zestio_users')
             .update({
               subscription_tier: status === 'active' ? plan : 'free',
               subscription_status: status,
+              credits: status === 'active' ? (plan === 'enterprise' ? -1 : 100) : 10,
             })
             .eq('id', user.id);
 
           if (updateError) {
             console.error(`[Stripe] Failed to update subscription:`, updateError);
           } else {
-            console.log(`[Stripe] Subscription updated for user ${user.id}: ${status}`);
+            console.log(`[Stripe] Subscription updated for user ${user.id}: ${status}, tier: ${plan}`);
           }
         }
         break;
       }
+
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
@@ -152,6 +158,7 @@ export async function POST(request: NextRequest) {
         }
         break;
       }
+
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object as Stripe.Invoice;
         const customerId = invoice.customer as string;
@@ -175,14 +182,17 @@ export async function POST(request: NextRequest) {
         }
         break;
       }
+
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice;
         const customerId = invoice.customer as string;
+
         // Notify about failed payment
         console.log(`[Stripe] Payment failed for customer ${customerId}`);
         // Could send email notification here
         break;
       }
+
       default:
         console.log(`[Stripe] Unhandled event type: ${event.type}`);
     }
