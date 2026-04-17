@@ -1,5 +1,6 @@
 -- Migration: Add Stripe subscription columns to propertypix_users
 -- Required for Stripe subscription integration
+-- Note: Migration 010 will rename propertypix_users to zestio_users
 
 -- Add Stripe-related columns
 ALTER TABLE propertypix_users
