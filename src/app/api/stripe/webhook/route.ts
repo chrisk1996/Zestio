@@ -38,21 +38,19 @@ export async function POST(request: NextRequest) {
   const stripe = getStripe();
   const supabaseAdmin = getSupabaseAdmin();
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  
+
   if (!webhookSecret) {
     console.error('STRIPE_WEBHOOK_SECRET is not set');
     return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 });
   }
-  
+
   const body = await request.text();
   const signature = request.headers.get('stripe-signature');
-
   if (!signature) {
     return NextResponse.json({ error: 'No signature' }, { status: 400 });
   }
 
   let event: Stripe.Event;
-
   try {
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err) {
@@ -67,9 +65,11 @@ export async function POST(request: NextRequest) {
         const userId = session.metadata?.user_id;
         const plan = session.metadata?.plan;
 
+        console.log(`[Stripe] Checkout completed - userId: ${userId}, plan: ${plan}, metadata:`, session.metadata);
+
         if (userId && plan) {
           // Update user subscription
-          await supabaseAdmin
+          const { error: updateError } = await supabaseAdmin
             .from('zestio_users')
             .update({
               subscription_tier: plan,
@@ -80,11 +80,16 @@ export async function POST(request: NextRequest) {
             })
             .eq('id', userId);
 
-          console.log(`[Stripe] Subscription created for user ${userId}: ${plan}`);
+          if (updateError) {
+            console.error(`[Stripe] Failed to update subscription_tier:`, updateError);
+          } else {
+            console.log(`[Stripe] Subscription created for user ${userId}: ${plan}`);
+          }
+        } else {
+          console.warn(`[Stripe] Missing metadata - userId: ${userId}, plan: ${plan}`);
         }
         break;
       }
-
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
@@ -100,7 +105,7 @@ export async function POST(request: NextRequest) {
           const status = subscription.status;
           const plan = subscription.items.data[0]?.price.metadata?.plan || 'pro';
 
-          await supabaseAdmin
+          const { error: updateError } = await supabaseAdmin
             .from('zestio_users')
             .update({
               subscription_tier: status === 'active' ? plan : 'free',
@@ -108,11 +113,14 @@ export async function POST(request: NextRequest) {
             })
             .eq('id', user.id);
 
-          console.log(`[Stripe] Subscription updated for user ${user.id}: ${status}`);
+          if (updateError) {
+            console.error(`[Stripe] Failed to update subscription:`, updateError);
+          } else {
+            console.log(`[Stripe] Subscription updated for user ${user.id}: ${status}`);
+          }
         }
         break;
       }
-
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
@@ -133,12 +141,10 @@ export async function POST(request: NextRequest) {
               credits: 10,
             })
             .eq('id', user.id);
-
           console.log(`[Stripe] Subscription canceled for user ${user.id}`);
         }
         break;
       }
-
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object as Stripe.Invoice;
         const customerId = invoice.customer as string;
@@ -158,23 +164,18 @@ export async function POST(request: NextRequest) {
               credits: user.subscription_tier === 'enterprise' ? -1 : 100,
             })
             .eq('id', user.id);
-
           console.log(`[Stripe] Credits reset for user ${user.id}`);
         }
         break;
       }
-
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice;
         const customerId = invoice.customer as string;
-
         // Notify about failed payment
         console.log(`[Stripe] Payment failed for customer ${customerId}`);
-        
         // Could send email notification here
         break;
       }
-
       default:
         console.log(`[Stripe] Unhandled event type: ${event.type}`);
     }
