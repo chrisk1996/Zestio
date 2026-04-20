@@ -45,7 +45,7 @@ export function StagingPanel({
   image,
   onResult,
   onError,
-  defaultModel = 'flux-depth',
+  defaultModel = 'interior-design',
   defaultRoom = 'living',
   defaultStyle = 'modern',
   compact = false,

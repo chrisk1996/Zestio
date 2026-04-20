@@ -45,7 +45,6 @@ export default function AIModelSelector({ category, selected, onSelect }: AIMode
   const [isExpanded, setIsExpanded] = useState(false);
   const models = AI_MODELS[category] || [];
   const selectedModel = models.find(m => m.id === selected) || models[0];
-  const otherModels = models.filter(m => m.id !== 'auto');
 
   return (
     <div className="space-y-2">
@@ -54,21 +53,10 @@ export default function AIModelSelector({ category, selected, onSelect }: AIMode
         AI Model
       </label>
       
-      {/* Selected Model Button (Auto by default) */}
+      {/* Selected Model Button */}
       <button
-        onClick={() => {
-          if (selected === 'auto' && otherModels.length > 0) {
-            setIsExpanded(!isExpanded);
-          } else {
-            onSelect('auto' as AIModel);
-            setIsExpanded(false);
-          }
-        }}
-        className={`w-full text-left p-2.5 rounded-lg transition-all flex items-center justify-between ${
-          selected === 'auto' || !isExpanded
-            ? 'bg-blue-600 text-white'
-            : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
-        }`}
+        onClick={() => setIsExpanded(!isExpanded)}
+        className={`w-full text-left p-2.5 rounded-lg transition-all flex items-center justify-between bg-blue-600 text-white`}
       >
         <div>
           <div className="flex items-center justify-between">
@@ -77,7 +65,7 @@ export default function AIModelSelector({ category, selected, onSelect }: AIMode
           </div>
           <p className="text-xs opacity-75 mt-0.5">{selectedModel.description}</p>
         </div>
-        {otherModels.length > 0 && (
+        {models.length > 1 && (
           <span className={`material-symbols-outlined text-sm transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
             expand_more
           </span>
@@ -85,20 +73,16 @@ export default function AIModelSelector({ category, selected, onSelect }: AIMode
       </button>
 
       {/* Expanded Options */}
-      {isExpanded && otherModels.length > 0 && (
+      {isExpanded && models.length > 1 && (
         <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
-          {otherModels.map((model) => (
+          {models.filter(m => m.id !== selected).map((model) => (
             <button
               key={model.id}
               onClick={() => {
                 onSelect(model.id);
                 setIsExpanded(false);
               }}
-              className={`w-full text-left p-2.5 rounded-lg transition-all ${
-                selected === model.id
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
-              }`}
+              className="w-full text-left p-2.5 rounded-lg transition-all bg-slate-50 text-slate-700 hover:bg-slate-100"
             >
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-sm">{model.name}</span>

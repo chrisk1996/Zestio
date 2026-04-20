@@ -185,27 +185,36 @@ export async function POST(request: NextRequest) {
         
         console.log('Interior design model:', { roomType, furnitureStyle });
         
-        const result = await replicate.run(
-          "adirik/interior-design",
-          {
-            input: {
-              image: image,
-              prompt: prompt,
-              negative_prompt: negativePrompt,
-              num_inference_steps: 50,
-              guidance_scale: 7.5,
-              prompt_strength: 0.8,
-            },
-          }
-        );
+        const prediction = await replicate.predictions.create({
+          model: "adirik/interior-design",
+          input: {
+            image: image,
+            prompt: prompt,
+            negative_prompt: negativePrompt,
+            num_inference_steps: 50,
+            guidance_scale: 7.5,
+            prompt_strength: 0.8,
+          },
+        });
         
+        // Poll until complete
+        let finalPrediction = prediction;
+        while (finalPrediction.status !== 'succeeded' && finalPrediction.status !== 'failed' && finalPrediction.status !== 'canceled') {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          finalPrediction = await replicate.predictions.get(finalPrediction.id);
+        }
+        
+        if (finalPrediction.status === 'failed') {
+          throw new Error(finalPrediction.error || 'Interior design model failed');
+        }
+        
+        const result = finalPrediction.output;
         if (Array.isArray(result) && result.length > 0) {
-          const first = result[0];
-          resultUrl = first && typeof first.url === 'function' ? first.url() : String(first);
+          resultUrl = String(result[0]);
         } else if (typeof result === 'string') {
           resultUrl = result;
-        } else {
-          resultUrl = String(result);
+        } else if (result && typeof result === 'object') {
+          resultUrl = String((result as any).url || (result as any)[0] || '');
         }
         
         if (!resultUrl || resultUrl === '[object Object]') {
