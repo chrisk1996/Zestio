@@ -78,7 +78,7 @@ export default function VirtualStagingPage() {
   const [stagedImage, setStagedImage] = useState<string | null>(null);
   const [selectedRoom, setSelectedRoom] = useState<StagingRoom>('living');
   const [selectedStyle, setSelectedStyle] = useState<FurnitureStyle>('modern');
-  const [selectedModel, setSelectedModel] = useState<AIModel>('flux-depth');
+  const [selectedModel, setSelectedModel] = useState<AIModel>('interior-design');
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -113,7 +113,7 @@ export default function VirtualStagingPage() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Staging failed');
-      setStagedImage(data.output);
+      setStagedImage(data.resultUrl || data.output);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to stage room');
     } finally {

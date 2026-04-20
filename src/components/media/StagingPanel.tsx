@@ -81,7 +81,7 @@ export function StagingPanel({
         throw new Error(data.error || 'Staging failed');
       }
 
-      onResult(data.output, {
+      onResult(data.resultUrl || data.output, {
         roomType: selectedRoom,
         furnitureStyle: selectedStyle,
         model: data.model || selectedModel,
