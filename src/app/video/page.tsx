@@ -299,9 +299,8 @@ export default function VideoPage() {
                         </>
                       )}
                     </div>
-                      <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleUpload} className="hidden" />
-                    </div>
                     {uploadedImages.length > 0 && (<div className="grid grid-cols-5 gap-2 mb-4">{uploadedImages.map((img, idx) => (<div key={idx} className="relative aspect-square rounded-lg overflow-hidden group"><img src={img} alt={`Upload ${idx + 1}`} className="w-full h-full object-cover" /><button type="button" onClick={() => removeImage(idx)} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><span className="material-symbols-outlined text-sm">close</span></button></div>))}</div>)}
+                    <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleUpload} className="hidden" />
                     <p className="text-sm text-slate-500">{uploadedImages.length}/5 minimum images uploaded</p>
                   </div>
                 )}
