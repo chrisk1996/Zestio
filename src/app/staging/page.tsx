@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { AppLayout } from '@/components/layout';
 import AIModelSelector, { type AIModel } from '@/components/AIModelSelector';
 
-type StagingRoom = 'living' | 'bedroom' | 'kitchen' | 'dining' | 'office';
+type StagingRoom = 'living' | 'bedroom' | 'kitchen' | 'dining' | 'bathroom' | 'office' | 'basement' | 'patio';
 type FurnitureStyle = 'modern' | 'scandinavian' | 'luxury' | 'minimalist' | 'industrial';
 
 const stagingRooms = [
@@ -12,7 +12,10 @@ const stagingRooms = [
   { id: 'bedroom' as const, icon: 'bed', label: 'Bedroom' },
   { id: 'kitchen' as const, icon: 'kitchen', label: 'Kitchen' },
   { id: 'dining' as const, icon: 'table_restaurant', label: 'Dining' },
+  { id: 'bathroom' as const, icon: 'bathtub', label: 'Bathroom' },
   { id: 'office' as const, icon: 'desk', label: 'Home Office' },
+  { id: 'basement' as const, icon: 'foundation', label: 'Basement' },
+  { id: 'patio' as const, icon: 'deck', label: 'Patio' },
 ];
 
 const furnitureStyles = [
@@ -21,6 +24,9 @@ const furnitureStyles = [
   { id: 'luxury' as const, label: 'Luxury', icon: 'diamond' },
   { id: 'minimalist' as const, label: 'Minimalist', icon: 'minimize' },
   { id: 'industrial' as const, label: 'Industrial', icon: 'factory' },
+  { id: 'bohemian' as const, label: 'Bohemian', icon: 'local_florist' },
+  { id: 'midcentury' as const, label: 'Mid-Century', icon: 'hourglass_top' },
+  { id: 'farmhouse' as const, label: 'Farmhouse', icon: 'cottage' },
 ];
 
 function ImageCompareSlider({ beforeSrc, afterSrc }: { beforeSrc: string; afterSrc: string }) {
@@ -113,7 +119,7 @@ export default function VirtualStagingPage() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Staging failed');
-      setStagedImage(data.resultUrl || data.output);
+      setStagedImage(data.output);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to stage room');
     } finally {

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import AIModelSelector, { type AIModel } from '@/components/AIModelSelector';
 
-type StagingRoom = 'living' | 'bedroom' | 'kitchen' | 'dining' | 'office';
+type StagingRoom = 'living' | 'bedroom' | 'kitchen' | 'dining' | 'bathroom' | 'office' | 'basement' | 'patio';
 type FurnitureStyle = 'modern' | 'scandinavian' | 'luxury' | 'minimalist' | 'industrial';
 
 const stagingRooms = [
@@ -11,8 +11,11 @@ const stagingRooms = [
   { id: 'bedroom' as const, icon: 'bed', label: 'Bedroom' },
   { id: 'kitchen' as const, icon: 'kitchen', label: 'Kitchen' },
   { id: 'dining' as const, icon: 'table_restaurant', label: 'Dining' },
+  { id: 'bathroom' as const, icon: 'bathtub', label: 'Bathroom' },
   { id: 'office' as const, icon: 'desk', label: 'Home Office' },
-];
+  { id: 'basement' as const, icon: 'foundation', label: 'Basement' },
+  { id: 'patio' as const, icon: 'deck', label: 'Patio' },
+];;
 
 const furnitureStyles = [
   { id: 'modern' as const, icon: 'weekend', label: 'Modern' },
@@ -20,7 +23,10 @@ const furnitureStyles = [
   { id: 'luxury' as const, icon: 'diamond', label: 'Luxury' },
   { id: 'minimalist' as const, icon: 'minimize', label: 'Minimalist' },
   { id: 'industrial' as const, icon: 'factory', label: 'Industrial' },
-];
+  { id: 'bohemian' as const, icon: 'local_florist', label: 'Bohemian' },
+  { id: 'midcentury' as const, icon: 'hourglass_top', label: 'Mid-Century' },
+  { id: 'farmhouse' as const, icon: 'cottage', label: 'Farmhouse' },
+];;
 
 interface StagingPanelProps {
   /** Image URL or base64 data URL to stage */
@@ -81,7 +87,7 @@ export function StagingPanel({
         throw new Error(data.error || 'Staging failed');
       }
 
-      onResult(data.resultUrl || data.output, {
+      onResult(data.output, {
         roomType: selectedRoom,
         furnitureStyle: selectedStyle,
         model: data.model || selectedModel,

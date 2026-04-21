@@ -5,6 +5,25 @@ import { createClient } from '@/utils/supabase/server';
 
 const replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN! });
 
+// Rate limiting by IP (in-memory, resets on deploy)
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT = 10; // requests per hour
+const RATE_WINDOW = 60 * 60 * 1000; // 1 hour
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const record = rateLimitMap.get(ip);
+  if (!record || now > record.resetTime) {
+    rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_WINDOW });
+    return true;
+  }
+  if (record.count >= RATE_LIMIT) {
+    return false;
+  }
+  record.count++;
+  return true;
+}
+
 // Room type prompts for virtual staging
 const ROOM_PROMPTS: Record<string, string> = {
   living: 'furnished living room with comfortable sofa, coffee table, rug, lamps, wall art, plants, curtains',
@@ -27,43 +46,117 @@ const STYLE_PROMPTS: Record<string, string> = {
   midcentury: 'mid-century modern style, retro furniture, warm wood tones, bold colors',
   farmhouse: 'farmhouse style, rustic wood, shiplap walls, vintage accessories, cozy textiles',
   luxury: 'luxury style, high-end furniture, marble accents, gold fixtures, elegant decor',
+  minimalist: 'minimalist style, simple furniture, clean lines, neutral tones, uncluttered space',
 };
+
+// Max time to wait for a prediction (ms)
+const POLL_TIMEOUT_MS = 120_000;
+const POLL_INTERVAL_MS = 1_000;
+
+/** Extract a URL string from various Replicate response shapes */
+function extractOutputUrl(result: unknown): string | null {
+  if (typeof result === 'string') return result;
+  if (Array.isArray(result) && result.length > 0) {
+    const first = result[0];
+    if (typeof first === 'string') return first;
+    if (first && typeof first === 'object' && 'url' in first) {
+      const url = typeof first.url === 'function' ? first.url() : first.url;
+      return typeof url === 'string' ? url : url.toString();
+    }
+    return String(first);
+  }
+  if (result && typeof result === 'object') {
+    const obj = result as Record<string, unknown>;
+    if (typeof obj.url === 'string') return obj.url;
+    if (typeof obj.output === 'string') return obj.output;
+  }
+  return null;
+}
 
 // Generate depth map using Marigold
 async function generateDepthMap(imageUrl: string): Promise<string> {
   const result = await replicate.run(
     "adirik/marigold:1a363593bc4882684fc58042d19db5e13a810e44e02f8d4c32afd1eb30464818",
-    {
-      input: {
-        image: imageUrl,
-      },
-    }
+    { input: { image: imageUrl } }
   );
 
-  console.log('Marigold result:', JSON.stringify(result, null, 2));
+  const url = extractOutputUrl(result);
+  if (!url) {
+    throw new Error('Failed to generate depth map - no valid URL returned. Result: ' + JSON.stringify(result));
+  }
+  return url;
+}
 
-  // Marigold returns an array of URLs [grayscale, spectral]
-  if (Array.isArray(result) && result.length > 0) {
-    const first = result[0];
-    if (typeof first === 'string') return first;
-    if (first && typeof first.url === 'function') {
-      const url = first.url();
-      return typeof url === 'string' ? url : url.toString();
+/** Poll a Replicate prediction until it completes or times out */
+async function waitForPrediction(predictionId: string): Promise<Replicate.Prediction> {
+  const deadline = Date.now() + POLL_TIMEOUT_MS;
+  let pred = await replicate.predictions.get(predictionId);
+
+  while (pred.status !== 'succeeded' && pred.status !== 'failed' && pred.status !== 'canceled') {
+    if (Date.now() > deadline) {
+      throw new Error('AI model timed out — please try again');
     }
+    await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+    pred = await replicate.predictions.get(predictionId);
   }
 
-  // Try common property names
-  const r = result as any;
-  if (r.url) return r.url;
-  if (r.output) return typeof r.output === 'string' ? r.output : r.output.url;
-  if (r.image) return r.image;
-  if (typeof result === 'string') return result;
+  if (pred.status === 'failed') {
+    throw new Error(pred.error || 'AI model failed to generate output');
+  }
 
-  throw new Error('Failed to generate depth map - no valid URL returned. Result: ' + JSON.stringify(result));
+  return pred;
+}
+
+/** Atomically deduct credits, returns updated credits or throws if insufficient */
+async function deductCredits(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, amount: number): Promise<number> {
+  // Atomic decrement: only succeeds if credits >= amount (or unlimited = -1)
+  const { data, error } = await supabase.rpc('deduct_credits', {
+    p_user_id: userId,
+    p_amount: amount,
+  });
+
+  if (error) {
+    // Fallback: if RPC doesn't exist, do a safe manual decrement
+    const { data: userData } = await supabase
+      .from('zestio_users')
+      .select('credits, used_credits')
+      .eq('id', userId)
+      .single();
+
+    if (!userData) throw new Error('User not found for credit deduction');
+
+    const isUnlimited = userData.credits === -1;
+    if (!isUnlimited && userData.credits < amount) {
+      throw new Error('Insufficient credits');
+    }
+
+    const newCredits = isUnlimited ? -1 : userData.credits - amount;
+    await supabase
+      .from('zestio_users')
+      .update({
+        credits: newCredits,
+        used_credits: (userData.used_credits || 0) + amount,
+      })
+      .eq('id', userId);
+
+    return newCredits;
+  }
+
+  return data;
 }
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || request.headers.get('x-real-ip') || 'unknown';
+    if (!checkRateLimit(ip)) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -96,14 +189,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No credits remaining' }, { status: 402 });
     }
 
-    let resultUrl: string | null = null;
-    let creditsUsed = 1;
+    let outputUrl: string | null = null;
+    let creditsUsed = 2;
+    let usedModel = model;
 
     try {
+      const roomPrompt = ROOM_PROMPTS[roomType] || ROOM_PROMPTS.living;
+      const stylePrompt = STYLE_PROMPTS[furnitureStyle] || STYLE_PROMPTS[furnitureStyle === 'minimalist' ? 'minimalist' : 'modern'];
+      const prompt = `${roomPrompt}, ${stylePrompt}, professional real estate photography, well-lit, high quality`;
+      const negativePrompt = 'empty room, unfurnished, blurry, low quality, distorted, watermark, text, dark, structural changes, different room';
+
       if (model === 'decor8') {
         // Use Decor8 API for virtual staging
-        creditsUsed = 2;
-
         const roomTypeDecor8 = roomType?.toUpperCase() || 'LIVING_ROOM';
         const designStyle = furnitureStyle?.toUpperCase() || 'MODERN';
 
@@ -128,112 +225,70 @@ export async function POST(request: NextRequest) {
         }
 
         const decor8Data = await decor8Response.json();
-        resultUrl = decor8Data?.info?.images?.[0]?.url;
-        if (!resultUrl) {
+        outputUrl = decor8Data?.info?.images?.[0]?.url;
+        if (!outputUrl) {
           throw new Error('No output from Decor8 API');
         }
+        usedModel = 'decor8';
+
       } else if (model === 'flux-depth') {
         // FLUX Depth Pro workflow: depth map + FLUX
-        creditsUsed = 2;
-        
-        const roomPrompt = ROOM_PROMPTS[roomType] || ROOM_PROMPTS.living;
-        const stylePrompt = STYLE_PROMPTS[furnitureStyle] || STYLE_PROMPTS.modern;
-        const prompt = `${roomPrompt}, ${stylePrompt}, professional real estate photography, well-lit, high quality`;
-        
         console.log('FLUX Depth Pro workflow:', { roomType, furnitureStyle });
-        
-        // Step 1: Generate depth map
-        console.log('Step 1: Generating depth map...');
+
         const depthMapUrl = await generateDepthMap(image);
         console.log('Depth map generated:', depthMapUrl);
-        
-        // Step 2: Use depth map with FLUX Depth Pro
-        console.log('Step 2: Running FLUX Depth Pro...');
+
         const result = await replicate.run(
           "black-forest-labs/flux-depth-pro",
           {
             input: {
               control_image: depthMapUrl,
-              prompt: prompt,
+              prompt,
               num_inference_steps: 30,
               guidance_scale: 2.5,
               output_format: 'jpg',
             },
           }
         );
-        
-        if (Array.isArray(result) && result.length > 0) {
-          const first = result[0];
-          resultUrl = first && typeof first.url === 'function' ? first.url() : String(first);
-        } else if (typeof result === 'string') {
-          resultUrl = result;
-        } else {
-          resultUrl = String(result);
-        }
-        
-        if (!resultUrl || resultUrl === '[object Object]') {
+
+        outputUrl = extractOutputUrl(result);
+        if (!outputUrl) {
           throw new Error('No output from FLUX Depth Pro');
         }
+        usedModel = 'flux-depth';
+
       } else if (model === 'interior-design') {
         // Use adirik/interior-design - ControlNet-based virtual staging
-        creditsUsed = 2;
-        
-        const roomPrompt = ROOM_PROMPTS[roomType] || ROOM_PROMPTS.living;
-        const stylePrompt = STYLE_PROMPTS[furnitureStyle] || STYLE_PROMPTS.modern;
-        const prompt = `${roomPrompt}, ${stylePrompt}, professional real estate photography, well-lit, high quality, interior design magazine`;
-        const negativePrompt = 'empty room, unfurnished, blurry, low quality, distorted, watermark, text, dark, structural changes, different room';
-        
         console.log('Interior design model:', { roomType, furnitureStyle });
-        
+
+        const fullPrompt = prompt + ', interior design magazine';
         const prediction = await replicate.predictions.create({
           model: "adirik/interior-design",
           input: {
             image: image,
-            prompt: prompt,
+            prompt: fullPrompt,
             negative_prompt: negativePrompt,
             num_inference_steps: 50,
             guidance_scale: 7.5,
             prompt_strength: 0.8,
           },
         });
-        
-        // Poll until complete
-        let finalPrediction = prediction;
-        while (finalPrediction.status !== 'succeeded' && finalPrediction.status !== 'failed' && finalPrediction.status !== 'canceled') {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          finalPrediction = await replicate.predictions.get(finalPrediction.id);
-        }
-        
-        if (finalPrediction.status === 'failed') {
-          throw new Error(finalPrediction.error || 'Interior design model failed');
-        }
-        
-        const result = finalPrediction.output;
-        if (Array.isArray(result) && result.length > 0) {
-          resultUrl = String(result[0]);
-        } else if (typeof result === 'string') {
-          resultUrl = result;
-        } else if (result && typeof result === 'object') {
-          resultUrl = String((result as any).url || (result as any)[0] || '');
-        }
-        
-        if (!resultUrl || resultUrl === '[object Object]') {
+
+        const finalPrediction = await waitForPrediction(prediction.id);
+        outputUrl = extractOutputUrl(finalPrediction.output);
+        if (!outputUrl) {
           throw new Error('No output from interior design model');
         }
+        usedModel = 'interior-design';
+
       } else {
         // Fallback to SDXL
-        creditsUsed = 2;
-        const roomPrompt = ROOM_PROMPTS[roomType] || ROOM_PROMPTS.living;
-        const stylePrompt = STYLE_PROMPTS[furnitureStyle] || STYLE_PROMPTS.modern;
-        const prompt = `${roomPrompt}, ${stylePrompt}, professional real estate photography, well-lit, high quality`;
-        const negativePrompt = 'empty room, unfurnished, blurry, low quality, distorted, watermark, text, dark';
-
         const result = await replicate.run(
           "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
           {
             input: {
               image: image,
-              prompt: prompt,
+              prompt,
               negative_prompt: negativePrompt,
               num_inference_steps: 30,
               prompt_strength: 0.7,
@@ -243,40 +298,22 @@ export async function POST(request: NextRequest) {
           }
         );
 
-        if (typeof result === 'string') {
-          resultUrl = result;
-        } else if (Array.isArray(result) && result.length > 0) {
-          resultUrl = String(result[0]);
-        } else if (result && typeof result === 'object') {
-          const out = result as Record<string, unknown>;
-          resultUrl = String(out.url || out.output || JSON.stringify(result));
-        } else {
-          resultUrl = String(result);
+        outputUrl = extractOutputUrl(result);
+        if (!outputUrl) {
+          throw new Error('No output from SDXL model');
         }
+        usedModel = 'sdxl';
       }
 
-      // Deduct credits
-      const { data: userData } = await supabase
-        .from('zestio_users')
-        .select('credits, used_credits')
-        .eq('id', user.id)
-        .single();
-
-      if (userData) {
-        await supabase
-          .from('zestio_users')
-          .update({
-            credits: Math.max(0, userData.credits - creditsUsed),
-            used_credits: (userData.used_credits || 0) + creditsUsed,
-          })
-          .eq('id', user.id);
-      }
+      // Deduct credits atomically
+      const remainingCredits = await deductCredits(supabase, user.id, creditsUsed);
 
       return NextResponse.json({
         success: true,
-        resultUrl,
+        output: outputUrl,
+        model: usedModel,
         creditsUsed,
-        creditsRemaining: hasUnlimitedCredits ? -1 : Math.max(0, userData!.credits - creditsUsed),
+        creditsRemaining: hasUnlimitedCredits ? -1 : remainingCredits,
       });
     } catch (apiError: any) {
       console.error('API error:', apiError);
