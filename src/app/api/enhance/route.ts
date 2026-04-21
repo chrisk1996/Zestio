@@ -94,8 +94,35 @@ export async function POST(request: NextRequest) {
         case 'sky':
           prompt = "beautiful blue sky, sunny day, real estate exterior photography, clear weather, professional photo, high quality";
           break;
+        case 'sky_sunset':
+          prompt = "golden hour sunset sky, warm orange and pink clouds, dramatic twilight, real estate exterior photography, professional photo, high quality";
+          break;
+        case 'sky_dramatic':
+          prompt = "dramatic clouds, moody sky, professional real estate exterior photography, cinematic lighting, high quality";
+          break;
+        case 'season_summer':
+          prompt = "lush green trees, summer landscape, bright sunlight, vibrant greenery, blooming flowers, real estate exterior photography, high quality";
+          break;
+        case 'season_autumn':
+          prompt = "autumn foliage, golden orange and red leaves, fall colors, warm light, real estate exterior photography, high quality";
+          break;
+        case 'season_winter':
+          prompt = "snow-covered ground, winter scene, pristine white snow, bare trees, soft winter light, real estate exterior photography, high quality";
+          break;
         case 'object_removal':
-          prompt = "clean room, professional real estate photography, empty space, organized, clean, high quality";
+          prompt = "clean room, professional real estate photography, empty space, organized, clean, high quality, no objects, no clutter";
+          break;
+        case 'declutter':
+          prompt = "clean minimalist room, no personal items, no toys, no cables, no pet items, professional real estate photography, organized, tidy, high quality";
+          break;
+        case 'curb_appeal':
+          prompt = "beautiful manicured lawn, green grass, clean facade, trimmed hedges, fresh landscaping, power lines removed, real estate exterior photography, high quality";
+          break;
+        case 'facade_refresh':
+          prompt = "freshly painted clean facade, modern exterior, clean walls, no stains, professional real estate exterior photography, high quality";
+          break;
+        case 'twilight':
+          prompt = "virtual twilight, dusk exterior, warm interior lights glowing, blue hour sky, professional real estate photography, high quality";
           break;
         default:
           prompt = "professional real estate photography, enhanced, high quality, vibrant colors, sharp details, well-lit";
