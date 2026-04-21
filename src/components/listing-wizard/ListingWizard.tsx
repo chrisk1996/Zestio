@@ -186,6 +186,28 @@ export function ListingWizard({ editId }: ListingWizardProps) {
     }
   };
 
+  const handlePublish = async () => {
+    if (!data.id) return;
+    setIsSaving(true);
+    try {
+      const res = await fetch(`/api/listings/${data.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ ...data, publish_status: 'published' }),
+      });
+      if (res.ok) {
+        window.location.href = '/listing';
+      } else {
+        console.error('Publish failed:', res.status);
+      }
+    } catch (e) {
+      console.error('Error publishing:', e);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const renderStep = () => {
     switch (currentStep) {
       case 1: return <AddressStep data={data} updateData={updateData} onNext={nextStep} />;
@@ -218,7 +240,14 @@ export function ListingWizard({ editId }: ListingWizardProps) {
           <span className="text-xs font-medium">Back to Listings</span>
         </Link>
         <div className="flex items-center gap-12">
-          <span className="text-2xl font-serif italic text-[#1d2832]">Zestio</span>
+          <Link href="/dashboard" className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center">
+              <span className="text-white font-extrabold text-sm leading-none">Z</span>
+            </div>
+            <span className="text-xl font-bold tracking-tight text-[#1d2832]">
+              Zestio
+            </span>
+          </Link>
           <div className="hidden md:flex gap-8 items-center">
             <a className="text-[10px] uppercase tracking-widest text-[#1d2832]/60 hover:text-[#1d2832] transition-opacity" href="/dashboard">Dashboard</a>
             <a className="text-[10px] uppercase tracking-widest text-[#006c4d] border-b-2 border-[#006c4d] pb-1" href="/listing">Portfolio</a>
@@ -231,7 +260,7 @@ export function ListingWizard({ editId }: ListingWizardProps) {
               Saving...
             </span>
           )}
-          <button className="bg-[#1d2832] text-white px-5 py-2 text-sm font-medium hover:opacity-80 transition-opacity">
+          <button onClick={handlePublish} disabled={isSaving} className="bg-[#1d2832] text-white px-5 py-2 text-sm font-medium hover:opacity-80 transition-opacity disabled:opacity-50">
             Publish Listing
           </button>
         </div>
@@ -298,7 +327,7 @@ export function ListingWizard({ editId }: ListingWizardProps) {
                 style={{ width: `${((currentStep - 1) / 5) * 100}%` }}
               />
             </div>
-            <button className="w-full mt-4 bg-[#333e48] text-white py-3 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity">
+            <button onClick={saveDraft} disabled={isSaving} className="w-full mt-4 bg-[#333e48] text-white py-3 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
               Save Draft
             </button>
           </div>

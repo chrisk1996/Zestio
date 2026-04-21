@@ -66,8 +66,14 @@ export async function GET(request: NextRequest) {
       console.error('Error counting listings:', countError);
     }
 
+    // Convert prices from cents to display values
+    const displayListings = (listings || []).map((l: any) => ({
+      ...l,
+      price: l.price ? l.price / 100 : l.price,
+    }));
+
     return NextResponse.json({
-      listings: listings || [],
+      listings: displayListings,
       pagination: {
         total: count || 0,
         limit,

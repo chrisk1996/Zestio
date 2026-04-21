@@ -77,8 +77,9 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single();
 
-    const creditsRemaining = (userData?.credits ?? 0) - (userData?.used_credits ?? 0);
-    if (creditsRemaining < 1) {
+    const hasUnlimitedCredits = userData?.credits === -1 || userData?.subscription_tier === 'enterprise';
+    const creditsRemaining = hasUnlimitedCredits ? Infinity : ((userData?.credits ?? 0) - (userData?.used_credits ?? 0));
+    if (!hasUnlimitedCredits && creditsRemaining < 1) {
       return NextResponse.json(
         { error: 'Insufficient credits. Video generation requires 1 credit.' },
         { status: 402 }
@@ -111,11 +112,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Deduct credit from zestio_users
-    await supabase
-      .from('zestio_users')
-      .update({ used_credits: (userData?.used_credits ?? 0) + 1 })
-      .eq('id', user.id);
+    // Deduct credit atomically
+    if (!hasUnlimitedCredits) {
+      try {
+        await supabase.rpc('deduct_credits', {
+          p_user_id: user.id,
+          p_amount: 1,
+        });
+      } catch {
+        // Fallback: manual decrement if RPC not available
+        await supabase
+          .from('zestio_users')
+          .update({
+            credits: Math.max(0, (userData?.credits ?? 0) - 1),
+            used_credits: (userData?.used_credits ?? 0) + 1,
+          })
+          .eq('id', user.id);
+      }
+    }
 
     // Enqueue job for processing (optional - may fail on serverless)
     try {

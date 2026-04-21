@@ -25,25 +25,28 @@ import {
 type Mode = 'url' | 'manual';
 
 function CreditDisplay({ credits, used }: { credits: number; used: number }) {
-  const remaining = credits - used;
-  const percentage = credits > 0 ? (remaining / credits) * 100 : 0;
+  const isUnlimited = credits === -1;
+  const remaining = isUnlimited ? Infinity : credits - used;
+  const percentage = isUnlimited ? 100 : (credits > 0 ? (remaining / credits) * 100 : 0);
   
   return (
     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-medium text-slate-700">Credits Available</span>
-        <span className="text-lg font-bold text-purple-600">{remaining}</span>
+        <span className="text-lg font-bold text-purple-600">{isUnlimited ? '∞' : remaining}</span>
       </div>
-      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-        <div
-          className={cn(
-            'h-full rounded-full transition-all',
-            percentage > 50 ? 'bg-purple-500' : percentage > 25 ? 'bg-yellow-500' : 'bg-red-500'
-          )}
-          style={{ width: `${percentage}%` }}
-        />
-      </div>
-      <p className="text-xs text-slate-500 mt-1">{used} of {credits} used</p>
+      {!isUnlimited && (
+        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+          <div
+            className={cn(
+              'h-full rounded-full transition-all',
+              percentage > 50 ? 'bg-purple-500' : percentage > 25 ? 'bg-yellow-500' : 'bg-red-500'
+            )}
+            style={{ width: `${percentage}%` }}
+          />
+        </div>
+      )}
+      <p className="text-xs text-slate-500 mt-1">{isUnlimited ? 'Unlimited plan' : `${used} of ${credits} used`}</p>
     </div>
   );
 }

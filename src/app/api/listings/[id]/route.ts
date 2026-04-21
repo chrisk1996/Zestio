@@ -55,8 +55,13 @@ export async function GET(
       .order('created_at', { ascending: false })
       .limit(10);
 
+    // Convert price from cents back to display value
+    if (listing.price) {
+      listing.price = listing.price / 100;
+    }
+
     return NextResponse.json({
-      listing,
+      ...listing,
       media,
       syndicationLogs: syndicationLogs || []
     });
