@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { AppLayout } from '@/components/layout';
-import { Loader2, AlertCircle, User, Bell, Globe, Moon, Shield, LogOut } from 'lucide-react';
+import { Loader2, AlertCircle, User, Bell, Globe, Moon, Shield, LogOut, Key, Plus, Trash2, Copy, ExternalLink } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { locales, localeNames, localeFlags, type Locale } from '@/i18n/config';
 
@@ -23,10 +23,19 @@ export default function SettingsPage() {
   const [name, setName] = useState('');
   const [language, setLanguage] = useState<Locale>('de');
 
+  // API Keys state
+  const [apiKeys, setApiKeys] = useState<Array<{ id: string; name: string; key_prefix: string; last_used_at: string | null; created_at: string; is_active: boolean }>>();
+  const [newKeyName, setNewKeyName] = useState('');
+  const [showCreateKey, setShowCreateKey] = useState(false);
+  const [creatingKey, setCreatingKey] = useState(false);
+  const [revealedKey, setRevealedKey] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
   const supabase = createClient();
 
   useEffect(() => {
     loadUser();
+    loadApiKeys();
   }, []);
 
   const loadUser = async () => {
@@ -115,6 +124,54 @@ export default function SettingsPage() {
       setError('Failed to save changes');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const loadApiKeys = async () => {
+    try {
+      const res = await fetch('/api/keys');
+      if (res.ok) {
+        const data = await res.json();
+        setApiKeys(data.keys || []);
+      }
+    } catch {}
+  };
+
+  const handleCreateKey = async () => {
+    if (!newKeyName.trim()) return;
+    setCreatingKey(true);
+    setRevealedKey(null);
+    try {
+      const res = await fetch('/api/keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newKeyName.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create key');
+      setRevealedKey(data.secret);
+      setNewKeyName('');
+      setShowCreateKey(false);
+      loadApiKeys();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create key');
+    } finally {
+      setCreatingKey(false);
+    }
+  };
+
+  const handleRevokeKey = async (keyId: string) => {
+    if (!confirm('Revoke this API key? Any apps using it will lose access.')) return;
+    try {
+      const res = await fetch('/api/keys', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key_id: keyId }),
+      });
+      if (!res.ok) throw new Error('Failed to revoke key');
+      loadApiKeys();
+    } catch {
+      setError('Failed to revoke key');
     }
   };
 
@@ -264,6 +321,125 @@ export default function SettingsPage() {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* API Keys Section */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Key className="w-5 h-5 text-gray-500" />
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">API Keys</h2>
+                <p className="text-sm text-gray-500">Manage keys for external access</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <a
+                href="/docs"
+                className="p-2 text-gray-400 hover:text-indigo-600 transition-colors"
+                title="API Docs"
+              >
+                <ExternalLink className="w-4 h-4" />
+              </a>
+              <button
+                onClick={() => setShowCreateKey(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
+              >
+                <Plus className="w-4 h-4" />
+                New Key
+              </button>
+            </div>
+          </div>
+
+          {/* Create Key Form */}
+          {showCreateKey && (
+            <div className="bg-slate-50 rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-3">
+                <input
+                  type="text"
+                  value={newKeyName}
+                  onChange={(e) => setNewKeyName(e.target.value)}
+                  placeholder="Key name (e.g. 'My App')"
+                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreateKey()}
+                />
+                <button
+                  onClick={handleCreateKey}
+                  disabled={creatingKey || !newKeyName.trim()}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium disabled:opacity-50"
+                >
+                  {creatingKey ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create'}
+                </button>
+                <button
+                  onClick={() => { setShowCreateKey(false); setNewKeyName(''); }}
+                  className="px-3 py-2 text-gray-500 hover:text-gray-700 text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Revealed Key Banner */}
+          {revealedKey && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-4">
+              <p className="text-sm font-medium text-emerald-800 mb-2">🔑 Key created! Copy it now — it won't be shown again.</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-white px-3 py-2 rounded border text-sm font-mono text-slate-800 overflow-x-auto">{revealedKey}</code>
+                <button
+                  onClick={() => { navigator.clipboard.writeText(revealedKey); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                  className="p-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                >
+                  <Copy className="w-4 h-4" />
+                </button>
+                {copied && <span className="text-xs text-emerald-600 font-medium">Copied!</span>}
+              </div>
+            </div>
+          )}
+
+          {/* Keys List */}
+          <div className="space-y-2">
+            {apiKeys === undefined ? (
+              <div className="text-center py-4 text-gray-400 text-sm">Loading keys...</div>
+            ) : apiKeys.length === 0 ? (
+              <div className="text-center py-8">
+                <Key className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm text-gray-500">No API keys yet</p>
+                <p className="text-xs text-gray-400 mt-1">Create one to start using the API</p>
+              </div>
+            ) : (
+              apiKeys.map((key) => (
+                <div key={key.id} className="flex items-center justify-between px-4 py-3 bg-slate-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full ${key.is_active ? 'bg-emerald-500' : 'bg-gray-300'}`} />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{key.name}</p>
+                      <p className="text-xs text-gray-500 font-mono">{key.key_prefix}{'••••••••'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className="text-xs text-gray-400">
+                        {key.last_used_at
+                          ? `Last used ${new Date(key.last_used_at).toLocaleDateString()}`
+                          : 'Never used'}
+                      </p>
+                      <p className="text-xs text-gray-400">Created {new Date(key.created_at).toLocaleDateString()}</p>
+                    </div>
+                    <button
+                      onClick={() => handleRevokeKey(key.id)}
+                      className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
+                      title="Revoke key"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <p className="text-xs text-gray-400 mt-3">Maximum 5 active keys per account.</p>
         </div>
 
         {/* Billing Quick Link */}
