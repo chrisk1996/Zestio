@@ -52,6 +52,9 @@ export function Header() {
           <Link href="/pricing" className="text-[#1d2832] opacity-80 hover:text-[#006c4d] transition-colors">
             Pricing
           </Link>
+          <Link href="/docs" className="text-[#1d2832] opacity-80 hover:text-[#006c4d] transition-colors">
+            API
+          </Link>
           <span className="text-[#1d2832] opacity-40 cursor-not-allowed"> About </span>
         </nav>
 
@@ -110,6 +113,13 @@ export function Header() {
               onClick={() => setMobileMenuOpen(false)}
             >
               Pricing
+            </Link>
+            <Link
+              href="/docs"
+              className="block px-4 py-2 text-[#1d2832] opacity-80 font-manrope text-xs uppercase tracking-widest"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              API
             </Link>
             <span className="block px-4 py-2 text-[#1d2832] opacity-40 cursor-not-allowed font-manrope text-xs uppercase tracking-widest"> About </span>
             <hr className="my-2 border-[#c4c6cd]/20" />
