@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
       .from('video_jobs')
       .insert({
         user_id: user.id,
-        listing_url: normalizedUrl || null,
+        listing_url: normalizedUrl || 'manual-mode'
         platform,
         renovation_style,
         music_genre,
