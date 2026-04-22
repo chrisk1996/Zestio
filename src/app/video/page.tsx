@@ -149,13 +149,24 @@ export default function VideoPage() {
   const removeImage = (index: number) => setUploadedImages(prev => prev.filter((_, i) => i !== index));
   
   const handleCreateJob = useCallback(async () => {
-    if (mode === 'url' && !listingUrl) return;
-    if (mode === 'manual' && uploadedImages.length < 5) return;
-    if (!credits.total || credits.total === -1 || credits.total - credits.used < 1) return;
+    if (mode === 'url' && !listingUrl) {
+      setCreateError('Please enter a listing URL');
+      return;
+    }
+    if (mode === 'manual' && uploadedImages.length < 5) {
+      setCreateError('Please upload at least 5 images');
+      return;
+    }
+    const hasUnlimited = credits.total === -1;
+    if (!hasUnlimited && credits.total - credits.used < 1) {
+      setCreateError('Not enough credits. Please purchase more.');
+      return;
+    }
     
     setIsCreating(true);
     setCreateError(null);
     
+    console.log('[Video] Creating job:', { mode, listingUrl, imageCount: uploadedImages.length, renovationStyle, musicGenre });
     try {
       const response = await fetch('/api/video-jobs', {
         method: 'POST',
@@ -191,7 +202,7 @@ export default function VideoPage() {
   };
   
   const remainingCredits = credits.total - credits.used;
-  const hasCredit = credits.total === -1 || (credits.total - credits.used >= 1);
+  const hasCredit = credits.total === -1 || credits.total > credits.used;
   const canSubmit = hasCredit && ((mode === 'url' && listingUrl.length > 0) || (mode === 'manual' && uploadedImages.length >= 5));
   const currentStageInfo = activeJob ? statusToStage(activeJob.status) : null;
   const isJobComplete = activeJob?.status === 'done';
