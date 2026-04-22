@@ -79,6 +79,31 @@ export default function VideoPage() {
   const { job: activeJob } = useVideoJob({ jobId: activeJobId ?? undefined, autoSubscribe: true });
   const { jobs: recentJobs, isLoading: isLoadingJobs, refetch: refetchJobs } = useVideoJobs({ limit: 5 });
   const supabase = createClient();
+  const processingRef = useRef(false);
+
+  // Trigger processing for active jobs
+  useEffect(() => {
+    if (!activeJob?.id || processingRef.current) return;
+    const activeStatuses = ['scraping', 'renovating', 'animating', 'stitching'];
+    if (!activeStatuses.includes(activeJob.status)) return;
+
+    const processJob = async () => {
+      processingRef.current = true;
+      try {
+        await fetch(`/api/video-jobs/${activeJob.id}/process`, { method: 'POST' });
+        // Refetch job status after processing
+        refetchJobs();
+      } catch (err) {
+        console.error('Process trigger failed:', err);
+      } finally {
+        processingRef.current = false;
+      }
+    };
+
+    // Small delay to let realtime catch up
+    const timer = setTimeout(processJob, 2000);
+    return () => clearTimeout(timer);
+  }, [activeJob?.id, activeJob?.status, refetchJobs]);
   
   useEffect(() => {
     async function fetchCredits() {
