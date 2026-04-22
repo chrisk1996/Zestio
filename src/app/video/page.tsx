@@ -242,9 +242,9 @@ export default function VideoPage() {
                       <VideoPipelineProgress currentStage={currentStageInfo?.stage ?? 'scrape'} stageStatus={currentStageInfo?.stageStatus ?? 'pending'} />
                     </div>
                     <div className="mt-8 text-center">
-                      <span className={cn('inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium', VIDEO_STATUS_CONFIG[activeJob.status]?.bgColor, VIDEO_STATUS_CONFIG[activeJob.status]?.color)}>
-                        <span className={cn('material-symbols-outlined text-lg', !isJobFailed && 'animate-spin')}>{VIDEO_STATUS_CONFIG[activeJob.status]?.icon}</span>
-                        {VIDEO_STATUS_CONFIG[activeJob.status]?.label}
+                      <span className={cn('inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium', (VIDEO_STATUS_CONFIG[activeJob.status] || VIDEO_STATUS_CONFIG.queued)?.bgColor, (VIDEO_STATUS_CONFIG[activeJob.status] || VIDEO_STATUS_CONFIG.queued)?.color)}>
+                        <span className={cn('material-symbols-outlined text-lg', !isJobFailed && 'animate-spin')}>{(VIDEO_STATUS_CONFIG[activeJob.status] || VIDEO_STATUS_CONFIG.queued)?.icon}</span>
+                        {(VIDEO_STATUS_CONFIG[activeJob.status] || VIDEO_STATUS_CONFIG.queued)?.label}
                       </span>
                       <p className="text-slate-400 text-sm mt-2">{activeJob?.status === 'needs_images' ? 'Could not extract images from this URL. Please switch to manual mode and upload images.' : (isJobFailed && activeJob.error_message ? activeJob.error_message : 'Processing your video...')}</p>
                     </div>
