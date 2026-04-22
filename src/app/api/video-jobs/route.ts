@@ -72,12 +72,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Insufficient credits' }, { status: 402 });
     }
 
+    // Detect platform from URL
+    const platform = normalizedUrl ? detectPlatform(normalizedUrl) : 'other';
+
     // Create job record
     const { data: job, error: jobError } = await supabase
       .from('video_jobs')
       .insert({
         user_id: user.id,
         listing_url: normalizedUrl || 'manual-mode',
+        platform,
         renovation_style,
         music_genre,
         status: 'scraping',
