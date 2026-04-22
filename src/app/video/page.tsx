@@ -79,31 +79,36 @@ export default function VideoPage() {
   const { job: activeJob } = useVideoJob({ jobId: activeJobId ?? undefined, autoSubscribe: true });
   const { jobs: recentJobs, isLoading: isLoadingJobs, refetch: refetchJobs } = useVideoJobs({ limit: 5 });
   const supabase = createClient();
-  const processingRef = useRef(false);
 
-  // Trigger processing for active jobs
+  // Polling: trigger processing and refetch for active jobs
   useEffect(() => {
-    if (!activeJob?.id || processingRef.current) return;
+    if (!activeJob?.id) return;
     const activeStatuses = ['scraping', 'renovating', 'animating', 'stitching'];
     if (!activeStatuses.includes(activeJob.status)) return;
 
-    const processJob = async () => {
-      processingRef.current = true;
+    const poll = async () => {
       try {
         await fetch(`/api/video-jobs/${activeJob.id}/process`, { method: 'POST' });
-        // Refetch job status after processing
-        refetchJobs();
       } catch (err) {
         console.error('Process trigger failed:', err);
-      } finally {
-        processingRef.current = false;
+      }
+      // Refetch job to get updated status
+      const { data } = await supabase
+        .from('video_jobs')
+        .select('*')
+        .eq('id', activeJob.id)
+        .single();
+      if (data) {
+        // Force a re-render by updating through the hook
+        refetchJobs();
       }
     };
 
-    // Small delay to let realtime catch up
-    const timer = setTimeout(processJob, 2000);
-    return () => clearTimeout(timer);
-  }, [activeJob?.id, activeJob?.status, refetchJobs]);
+    // Poll every 5 seconds while active
+    poll();
+    const interval = setInterval(poll, 5000);
+    return () => clearInterval(interval);
+  }, [activeJob?.id, activeJob?.status, refetchJobs, supabase]);
   
   useEffect(() => {
     async function fetchCredits() {
@@ -212,6 +217,13 @@ export default function VideoPage() {
       setUploadedImages([]);
       refetchJobs();
       setCredits(prev => ({ ...prev, used: prev.used + 1 }));
+
+      // Trigger first processing step immediately
+      setTimeout(() => {
+        fetch(`/api/video-jobs/${data.job_id}/process`, { method: 'POST' })
+          .then(() => refetchJobs())
+          .catch(err => console.error('Initial process trigger failed:', err));
+      }, 1000);
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Failed to create video job');
     } finally {
