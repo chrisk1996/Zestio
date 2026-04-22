@@ -239,22 +239,22 @@ export async function POST(request: NextRequest) {
         const depthMapUrl = await generateDepthMap(image);
         console.log('Depth map generated:', depthMapUrl);
 
-        const result = await replicate.run(
-          "black-forest-labs/flux-depth-pro",
-          {
-            input: {
-              control_image: depthMapUrl,
-              prompt,
-              num_inference_steps: 30,
-              guidance_scale: 2.5,
-              output_format: 'jpg',
-            },
-          }
-        );
+        const prediction = await replicate.predictions.create({
+          model: "black-forest-labs/flux-depth-pro",
+          input: {
+            control_image: depthMapUrl,
+            prompt,
+            num_inference_steps: 30,
+            guidance_scale: 2.5,
+            output_format: 'webp',
+          },
+        });
 
-        outputUrl = extractOutputUrl(result);
+        const finalPrediction = await waitForPrediction(prediction.id);
+        console.log('FLUX Depth result:', JSON.stringify(finalPrediction.output)?.substring(0, 200));
+        outputUrl = extractOutputUrl(finalPrediction.output);
         if (!outputUrl) {
-          throw new Error('No output from FLUX Depth Pro');
+          throw new Error('No output from FLUX Depth Pro. Output: ' + JSON.stringify(finalPrediction.output)?.substring(0, 300));
         }
         usedModel = 'flux-depth';
 
