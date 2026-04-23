@@ -49,6 +49,8 @@ export async function POST(
     switch (job.status) {
       case 'scraping':
         return await handleScraping(supabase, job);
+      case 'sorting':
+        return await handleSorting(supabase, job);
       case 'renovating':
         return await handleRenovating(supabase, job);
       case 'animating':
@@ -98,17 +100,101 @@ async function handleScraping(supabase: Awaited<ReturnType<typeof createClient>>
     return NextResponse.json({ status: 'needs_images', message: 'No images found. Switch to manual upload.' });
   }
 
-  // Store images and move to renovating
+  // Store images and move to sorting
   await supabase
     .from('video_jobs')
-    .update({ status: 'renovating' })
+    .update({ status: 'sorting' })
     .eq('id', job.id);
 
   return NextResponse.json({
-    status: 'renovating',
-    message: `Found ${images.length} images. Starting renovation.`,
+    status: 'sorting',
+    message: `Found ${images.length} images. Auto-sorting for optimal order...`,
     imageCount: images.length,
   });
+}
+
+// ── Stage 1.5: Auto-sort images ──────────────────────────────────────────
+async function handleSorting(supabase: Awaited<ReturnType<typeof createClient>>, job: Record<string, unknown>) {
+  const inputImages = (job.input_images as string[]) || [];
+  if (inputImages.length <= 1) {
+    // Nothing to sort
+    await supabase.from('video_jobs').update({ status: 'renovating' }).eq('id', job.id);
+    return NextResponse.json({ status: 'renovating', message: 'Only one image, skipping sort.' });
+  }
+
+  console.log(`[VideoProcess] Sorting ${inputImages.length} images by room type`);
+
+  try {
+    // Use Llama 3.2 Vision to classify each image
+    const imageDescriptions: string[] = [];
+    
+    for (let i = 0; i < inputImages.length; i++) {
+      const prompt = `Look at this property photo. What type of room/area is shown? Respond with ONLY one word from: exterior, living, kitchen, bedroom, bathroom, dining, office, hallway, balcony, other. Do not add any other text.`;
+      
+      const result = await replicate.run(
+        "meta/meta-llama-3.2-11b-vision-instruct",
+        {
+          input: {
+            image: inputImages[i],
+            prompt,
+            max_tokens: 10,
+            temperature: 0.1,
+          },
+        }
+      );
+      
+      let label = '';
+      if (typeof result === 'string') label = result.trim().toLowerCase();
+      else if (Array.isArray(result)) label = result.join('').trim().toLowerCase();
+      
+      imageDescriptions.push(label || 'other');
+      console.log(`[Sort] Image ${i}: ${label}`);
+    }
+
+    // Sort order: exterior first, then public rooms, then private, then misc
+    const sortOrder: Record<string, number> = {
+      exterior: 0,
+      balcony: 1,
+      living: 2,
+      dining: 3,
+      kitchen: 4,
+      office: 5,
+      hallway: 6,
+      bedroom: 7,
+      bathroom: 8,
+      other: 9,
+    };
+
+    const indexed = inputImages.map((url, i) => ({
+      url,
+      index: i,
+      label: imageDescriptions[i],
+      sortKey: sortOrder[imageDescriptions[i]] ?? 9,
+    }));
+
+    indexed.sort((a, b) => a.sortKey - b.sortKey);
+
+    const sortedImages = indexed.map(item => item.url);
+    console.log(`[Sort] Order: ${indexed.map(i => `${i.label}(${i.index})`).join(' → ')}`);
+
+    // Update job with sorted images
+    await supabase.from('video_jobs')
+      .update({
+        status: 'renovating',
+        input_images: sortedImages,
+      })
+      .eq('id', job.id);
+
+    return NextResponse.json({
+      status: 'renovating',
+      message: `Images sorted: ${indexed.map(i => i.label).join(' → ')}`,
+    });
+  } catch (err) {
+    console.warn('[Sort] Vision sort failed, using original order:', err);
+    // Fallback: just proceed with original order
+    await supabase.from('video_jobs').update({ status: 'renovating' }).eq('id', job.id);
+    return NextResponse.json({ status: 'renovating', message: 'Sort skipped, using upload order.' });
+  }
 }
 
 // ── Stage 2: Renovate ────────────────────────────────────────────────────

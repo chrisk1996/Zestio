@@ -7,6 +7,7 @@ export type VideoPlatform = 'zillow' | 'immobilienscout24' | 'redfin' | 'rightmo
 export type VideoJobStatus = 
   | 'queued'
   | 'scraping'
+  | 'sorting'
   | 'renovating'
   | 'animating'
   | 'stitching'
@@ -121,6 +122,12 @@ export const VIDEO_STATUS_CONFIG: Record<VideoJobStatus, {
     bgColor: 'bg-blue-100',
     icon: 'downloading',
   },
+  sorting: {
+    label: 'Sorting',
+    color: 'text-blue-700',
+    bgColor: 'bg-blue-100',
+    icon: 'sort',
+  },
   renovating: {
     label: 'Enhancing',
     color: 'text-purple-700',
@@ -201,6 +208,8 @@ export function statusToStage(status: VideoJobStatus): {
     case 'queued':
       return { stage: 'scrape', stageStatus: 'pending' };
     case 'scraping':
+      return { stage: 'scrape', stageStatus: 'active' };
+    case 'sorting':
       return { stage: 'scrape', stageStatus: 'active' };
     case 'renovating':
       return { stage: 'enhance', stageStatus: 'active' };
