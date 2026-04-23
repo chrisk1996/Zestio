@@ -333,13 +333,19 @@ async function handleAnimating(supabase: Awaited<ReturnType<typeof createClient>
     const nextIndex = currentIndex + 1;
     const isDone = nextIndex >= images.length;
 
-    await supabase
+    console.log(`[Animate] Image ${currentIndex + 1}/${images.length} done. Clips so far: ${clips.length}. Done: ${isDone}`);
+
+    const updateResult = await supabase
       .from('video_jobs')
       .update({
         status: isDone ? 'stitching' : 'animating',
         metadata: { ...metadata, animateIndex: nextIndex, clips },
       })
       .eq('id', job.id);
+    
+    if (updateResult.error) {
+      console.error(`[Animate] Failed to update metadata:`, updateResult.error);
+    }
 
     return NextResponse.json({
       status: isDone ? 'stitching' : 'animating',
@@ -382,13 +388,24 @@ async function handleStitching(supabase: Awaited<ReturnType<typeof createClient>
   try {
     console.log(`[Stitch] Downloading ${clips.length} clips...`);
     
-    // Download all clips
+    // Download all clips with timeout
     const clipBuffers: Buffer[] = [];
-    for (const clipUrl of clips) {
-      const response = await fetch(clipUrl);
-      if (!response.ok) throw new Error(`Failed to download clip: ${response.status}`);
-      const arrayBuffer = await response.arrayBuffer();
-      clipBuffers.push(Buffer.from(arrayBuffer));
+    for (let i = 0; i < clips.length; i++) {
+      console.log(`[Stitch] Downloading clip ${i + 1}/${clips.length}: ${clips[i].substring(0, 80)}...`);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+      try {
+        const response = await fetch(clips[i], { signal: controller.signal });
+        clearTimeout(timeout);
+        if (!response.ok) throw new Error(`Failed to download clip ${i}: ${response.status}`);
+        const arrayBuffer = await response.arrayBuffer();
+        console.log(`[Stitch] Clip ${i + 1} downloaded: ${(arrayBuffer.byteLength / 1024).toFixed(0)}KB`);
+        clipBuffers.push(Buffer.from(arrayBuffer));
+      } catch (fetchErr) {
+        clearTimeout(timeout);
+        console.warn(`[Stitch] Failed to download clip ${i + 1}:`, fetchErr);
+        // Skip failed clips, continue with the rest
+      }
     }
 
     // Concatenate MP4 clips (binary concat works for SVD clips — same codec/resolution)
