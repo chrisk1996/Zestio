@@ -14,22 +14,22 @@ export default function LandingPage() {
           <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-12 md:gap-24">
             <div className="md:w-3/5">
               <span className="font-manrope text-xs uppercase tracking-[0.3em] text-[#006c4d] mb-4 block">
-                The Digital Gallerist
+                AI-Powered Real Estate Media
               </span>
               <h1 className="font-serif text-5xl md:text-6xl lg:text-7xl leading-[0.9] text-[#1d2832] mb-6 tracking-tighter">
-                Elevating Real Estate
+                Property Photos
                 <br />
-                to <span className="italic">Fine Art.</span>
+                That <span className="italic">Sell.</span>
               </h1>
               <p className="text-base text-[#43474c] leading-relaxed mb-8 max-w-xl">
-                The visual standard for the world&apos;s most prestigious properties. Zestio transforms
-                standard photography into cinematic narratives that captivate and convert.
+                Enhance, stage, animate, and list — all from one platform. Zestio uses cutting-edge AI
+                to transform standard property photos into marketing that converts.
               </p>
               <Link
                 href="/auth"
                 className="inline-flex items-center gap-3 bg-[#006c4d] text-white px-8 py-4 rounded font-manrope uppercase tracking-widest text-xs hover:opacity-90 transition-all"
               >
-                Start Your Editorial Journey
+                Get Started Free
                 <span className="material-symbols-outlined text-base">arrow_forward</span>
               </Link>
             </div>
@@ -48,79 +48,40 @@ export default function LandingPage() {
         
           <div className="max-w-7xl mx-auto">
             <div className="flex items-baseline justify-between mb-16 border-b border-[#c4c6cd]/30 pb-6">
-              <h2 className="font-serif text-4xl text-[#1d2832]">Service Catalogue</h2>
+              <h2 className="font-serif text-4xl text-[#1d2832]">What You Can Do</h2>
               <span className="font-manrope text-xs uppercase tracking-widest text-[#43474c]">
-                5 Modular Offerings
+                7 AI-Powered Tools
               </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {/* AI Image Enhancer */}
+              {/* Image Studio */}
               <div className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10">
                 <div className="h-64 relative overflow-hidden">
                   <img
-                    alt="Professional property photography"
+                    alt="Enhanced property photography"
                     className="w-full h-full object-cover"
                     src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&q=80"
                   />
                   <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1.5 rounded-sm">
                     <span className="font-manrope text-[10px] uppercase tracking-widest text-[#1d2832]">
-                      01 / Enhancement
+                      01 / Studio
                     </span>
                   </div>
                 </div>
                 <div className="p-8 flex flex-col flex-grow">
-                  <h3 className="font-serif text-3xl text-[#1d2832] mb-2">AI Image Enhancer</h3>
-                  <p className="font-serif italic text-xl text-[#006c4d] mb-4">&apos;Perfect the Shot.&apos;</p>
+                  <h3 className="font-serif text-3xl text-[#1d2832] mb-2">Image Studio</h3>
+                  <p className="font-serif italic text-xl text-[#006c4d] mb-4">Enhance, Stage &amp; Transform</p>
                   <p className="text-sm text-[#43474c] leading-relaxed mb-8 flex-grow">
-                    Beyond simple filters. Our AI reconstructs lighting, balances exposure, and enhances
-                    clarity pixel by pixel.
+                    One workspace for everything: enhance clarity, swap skies, change seasons, virtually
+                    stage rooms, remove objects, and more — 13 AI tools in one.
                   </p>
-                  <div className="flex flex-col gap-3 pt-6 border-t border-[#c4c6cd]/10">
-                    <div className="flex items-center gap-3 text-[#1d2832] opacity-80">
-                      <span className="material-symbols-outlined text-sm text-[#006c4d]">wb_sunny</span>
-                      <span className="font-manrope text-[10px] uppercase tracking-widest">
-                        Dynamic Range Optimization
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3 text-[#1d2832] opacity-80">
-                      <span className="material-symbols-outlined text-sm text-[#006c4d]">shutter_speed</span>
-                      <span className="font-manrope text-[10px] uppercase tracking-widest">
-                        HDR Clarity Engine
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Virtual Staging */}
-              <div className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10">
-                <div className="h-64 relative overflow-hidden">
-                  <img
-                    alt="Staged modern living room"
-                    className="w-full h-full object-cover"
-                    src="https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=600&q=80"
-                  />
-                  <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1.5 rounded-sm">
-                    <span className="font-manrope text-[10px] uppercase tracking-widest text-[#1d2832]">
-                      02 / Atmosphere
-                    </span>
-                  </div>
-                </div>
-                <div className="p-8 flex flex-col flex-grow">
-                  <h3 className="font-serif text-3xl text-[#1d2832] mb-2">Virtual Staging</h3>
-                  <p className="font-serif italic text-xl text-[#006c4d] mb-4">&apos;Invite Them In.&apos;</p>
-                  <p className="text-sm text-[#43474c] leading-relaxed mb-8 flex-grow">
-                    Curate spaces with our proprietary digital library. Hyper-realistic furniture
-                    and decor for empty rooms.
-                  </p>
-                  <div className="flex items-center gap-3 pt-6 border-t border-[#c4c6cd]/10">
-                    <div className="flex items-center gap-3 text-[#1d2832] opacity-80">
-                      <span className="material-symbols-outlined text-sm text-[#006c4d]">chair</span>
-                      <span className="font-manrope text-[10px] uppercase tracking-widest">
-                        Hyper-Realistic Decor
-                      </span>
-                    </div>
+                  <div className="flex flex-wrap gap-2 pt-6 border-t border-[#c4c6cd]/10">
+                    <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">Sky Replace</span>
+                    <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">Virtual Staging</span>
+                    <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">Season Change</span>
+                    <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">Object Removal</span>
+                    <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">+9 More</span>
                   </div>
                 </div>
               </div>
@@ -135,7 +96,7 @@ export default function LandingPage() {
                   />
                   <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1.5 rounded-sm">
                     <span className="font-manrope text-[10px] uppercase tracking-widest text-[#1d2832]">
-                      03 / Motion
+                      02 / Motion
                     </span>
                   </div>
                   <div className="absolute inset-0 flex items-center justify-center">
@@ -146,17 +107,47 @@ export default function LandingPage() {
                 </div>
                 <div className="p-8 flex flex-col flex-grow">
                   <h3 className="font-serif text-3xl text-[#1d2832] mb-2">Video Creator</h3>
-                  <p className="font-serif italic text-xl text-[#006c4d] mb-4">&apos;Tell the Story.&apos;</p>
+                  <p className="font-serif italic text-xl text-[#006c4d] mb-4">Photos → Video, Automatically</p>
                   <p className="text-sm text-[#43474c] leading-relaxed mb-8 flex-grow">
-                    Generate cinematic walk-throughs from static images. Natural parallax and elegant transitions.
+                    Upload property photos and get a cinematic video walkthrough. AI auto-sorts
+                    rooms by type, stages interiors, and animates each shot.
                   </p>
                   <div className="flex items-center gap-3 pt-6 border-t border-[#c4c6cd]/10">
                     <div className="flex items-center gap-3 text-[#1d2832] opacity-80">
                       <span className="material-symbols-outlined text-sm text-[#006c4d]">movie</span>
                       <span className="font-manrope text-[10px] uppercase tracking-widest">
-                        3D Parallax Engine
+                        AI-Powered Pipeline
                       </span>
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Social Media Kit */}
+              <div className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10">
+                <div className="h-64 relative overflow-hidden">
+                  <img
+                    alt="Social media content creation"
+                    className="w-full h-full object-cover"
+                    src="https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=600&q=80"
+                  />
+                  <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1.5 rounded-sm">
+                    <span className="font-manrope text-[10px] uppercase tracking-widest text-[#1d2832]">
+                      03 / Social
+                    </span>
+                  </div>
+                </div>
+                <div className="p-8 flex flex-col flex-grow">
+                  <h3 className="font-serif text-3xl text-[#1d2832] mb-2">Smart Captions &amp; Social Kit</h3>
+                  <p className="font-serif italic text-xl text-[#006c4d] mb-4">Ready to Post</p>
+                  <p className="text-sm text-[#43474c] leading-relaxed mb-8 flex-grow">
+                    AI-generated captions for Instagram, Facebook &amp; more. Auto-resize images
+                    for any platform. Go from edit to post in seconds.
+                  </p>
+                  <div className="flex flex-wrap gap-2 pt-6 border-t border-[#c4c6cd]/10">
+                    <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">Free Captions</span>
+                    <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">Multi-Platform</span>
+                    <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">Auto-Resize</span>
                   </div>
                 </div>
               </div>
@@ -210,29 +201,57 @@ export default function LandingPage() {
                 </div>
                 <div className="p-8 flex flex-col flex-grow">
                   <h3 className="font-serif text-3xl text-[#1d2832] mb-2">AI Listing Builder</h3>
-                  <p className="font-serif italic text-xl text-[#006c4d] mb-4">&apos;Sell Faster.&apos;</p>
+                  <p className="font-serif italic text-xl text-[#006c4d] mb-4">List in Minutes</p>
                   <p className="text-sm text-[#43474c] leading-relaxed mb-8 flex-grow">
-                    Convert data into desire. Descriptions optimized for Zillow, ImmobilienScout24, and more.
+                    Convert property data into compelling descriptions. Optimized for Zillow,
+                    ImmobilienScout24, and more. English &amp; German.
                   </p>
                   <div className="flex flex-wrap gap-2 pt-6 border-t border-[#c4c6cd]/10">
                     <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">Zillow Ready</span>
+                    <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">EN / DE</span>
                     <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">SEO Optimized</span>
-                    <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">Multilingual</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* API Access */}
+              <div className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10">
+                <div className="h-64 relative overflow-hidden bg-[#1d2832] flex items-center justify-center">
+                  <div className="text-center">
+                    <span className="material-symbols-outlined text-white/20 text-[80px]">code</span>
+                  </div>
+                  <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1.5 rounded-sm">
+                    <span className="font-manrope text-[10px] uppercase tracking-widest text-[#1d2832]">
+                      06 / API
+                    </span>
+                  </div>
+                </div>
+                <div className="p-8 flex flex-col flex-grow">
+                  <h3 className="font-serif text-3xl text-[#1d2832] mb-2">Developer API</h3>
+                  <p className="font-serif italic text-xl text-[#006c4d] mb-4">Build With Zestio</p>
+                  <p className="text-sm text-[#43474c] leading-relaxed mb-8 flex-grow">
+                    RESTful API for enhance, staging, and more. Generate API keys, integrate
+                    into your CRM or custom workflow.
+                  </p>
+                  <div className="flex flex-wrap gap-2 pt-6 border-t border-[#c4c6cd]/10">
+                    <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">REST API</span>
+                    <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">API Keys</span>
+                    <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">Full Docs</span>
                   </div>
                 </div>
               </div>
 
               {/* CTA Card */}
               <div className="bg-[#1d2832] flex flex-col justify-center items-center p-8 rounded-lg text-center card-hover-effect">
-                <h3 className="font-serif text-3xl text-white mb-6">Ready to Elevate?</h3>
+                <h3 className="font-serif text-3xl text-white mb-6">Ready to Start?</h3>
                 <p className="text-sm text-white/70 mb-8 max-w-[200px]">
-                  Custom solutions for high-volume agencies.
+                  Free credits included. No credit card needed.
                 </p>
                 <Link
-                  href="/pricing"
+                  href="/auth"
                   className="bg-white text-[#1d2832] px-8 py-3 rounded font-manrope uppercase tracking-widest text-xs hover:bg-[#86f8c8] transition-all"
                 >
-                  Contact Sales
+                  Get Started Free
                 </Link>
               </div>
             </div>
@@ -242,12 +261,12 @@ export default function LandingPage() {
         {/* Final CTA */}
         <section className="px-12 py-32 text-center max-w-4xl mx-auto">
           <h2 className="font-serif text-5xl md:text-6xl text-[#1d2832] mb-6 leading-tight">
-            The gallery is open.
+            Your listings deserve better.
             <br />
-            Your portfolio awaits.
+            Start for free.
           </h2>
           <p className="text-lg text-[#43474c] mb-10 max-w-2xl mx-auto font-light leading-relaxed">
-            Join the world&apos;s leading real estate agencies in redefining the digital property experience.
+            Join real estate professionals using AI to create stunning property media in minutes, not hours.
           </p>
           <div className="flex flex-col md:flex-row items-center justify-center gap-4">
             <Link
@@ -272,18 +291,18 @@ export default function LandingPage() {
           <div className="space-y-6">
             <div className="text-xl font-serif italic text-[#1d2832]">Zestio</div>
             <p className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 leading-relaxed">
-              The Digital Gallerist.
+              AI-Powered Real Estate Media.
               <br />
-              Redefining the visual architecture of real estate marketing.
+              Enhance, stage, animate, list — all from one platform.
             </p>
           </div>
           <div className="space-y-6">
             <h5 className="font-manrope text-xs uppercase tracking-[0.2em] font-bold text-[#1d2832]">Navigation</h5>
             <ul className="space-y-3">
-              <li><Link href="/enhance" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">Products</Link></li>
+              <li><Link href="/studio" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">Image Studio</Link></li>
+              <li><Link href="/video" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">Video Creator</Link></li>
               <li><Link href="/pricing" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">Pricing</Link></li>
               <li><Link href="/docs" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">API Docs</Link></li>
-              <li><Link href="/help" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">Help</Link></li>
             </ul>
           </div>
           <div className="space-y-6">
@@ -304,10 +323,10 @@ export default function LandingPage() {
         </div>
         <div className="px-8 md:px-20 py-8 border-t border-[#c4c6cd]/10 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="font-manrope text-[9px] uppercase tracking-[0.2em] text-[#1d2832]/40">
-            © 2026 Zestio. The Digital Gallerist. All rights reserved.
+            © 2026 Zestio. AI-Powered Real Estate Media. All rights reserved.
           </p>
           <div className="flex gap-4">
-            <span className="text-[#006c4d] font-bold text-[9px] uppercase tracking-widest">Status: Excellence Optimized</span>
+            <span className="text-[#006c4d] font-bold text-[9px] uppercase tracking-widest">Powered by AI</span>
           </div>
         </div>
       </footer>
