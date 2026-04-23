@@ -200,7 +200,7 @@ async function handleAnimating(supabase: Awaited<ReturnType<typeof createClient>
     console.log(`[VideoProcess] Animating image ${currentIndex + 1}/${images.length}`);
     try {
       const prediction = await replicate.predictions.create({
-        version: "stability-ai/stable-video-diffusion",
+        model: "stability-ai/stable-video-diffusion",
         input: {
           input_image: images[currentIndex],
           motion_bucket_id: 127,
@@ -247,21 +247,25 @@ async function handleStitching(supabase: Awaited<ReturnType<typeof createClient>
   const clips = (metadata.clips as string[]) || [];
   const images = (metadata.renovatedImages as string[]) || [];
 
-  // For now — store first clip as output (full FFmpeg stitching later)
-  const outputUrl = clips.length > 0 ? clips[0] : (images.length > 0 ? images[0] : null);
+  // For now — store clips as output. If no clips, store renovated images.
+  const outputUrl = clips.length > 0 ? clips[0] : null;
+  const fallbackImage = images.length > 0 ? images[0] : null;
 
   await supabase
     .from('video_jobs')
     .update({
       status: 'done',
-      output_video_url: outputUrl,
+      output_video_url: outputUrl || fallbackImage,
     })
     .eq('id', job.id);
 
   return NextResponse.json({
     status: 'done',
-    message: `Video complete! ${clips.length} clips, ${images.length} images.`,
-    outputUrl,
+    message: clips.length > 0
+      ? `Video complete! ${clips.length} clips generated.`
+      : `Enhancement complete! ${images.length} images renovated. Video clips could not be generated.`,
+    outputUrl: outputUrl || fallbackImage,
+    hasVideo: clips.length > 0,
   });
 }
 
