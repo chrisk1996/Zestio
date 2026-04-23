@@ -226,7 +226,7 @@ async function handleAnimating(supabase: Awaited<ReturnType<typeof createClient>
 
     try {
       const prediction = await createPredictionWithRetry({
-        model: "stability-ai/stable-video-diffusion",
+        version: "3f0457e4619daac51203dedb472816fd4af51f3149fa7a9e0b5ffcf1b8172438",
         input: {
           input_image: images[currentIndex],
           motion_bucket_id: 127,
