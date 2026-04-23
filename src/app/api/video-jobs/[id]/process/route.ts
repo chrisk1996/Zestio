@@ -216,13 +216,50 @@ async function handleRenovating(supabase: Awaited<ReturnType<typeof createClient
   }
 
   if (currentIndex < toProcess.length) {
-    console.log(`[VideoProcess] Renovating image ${currentIndex + 1}/${toProcess.length}`);
+    // Check if there's an active prediction
+    const activePredictionId = metadata.renovatePredictionId as string | undefined;
+    
+    if (activePredictionId) {
+      // Check status of existing prediction
+      try {
+        const prediction = await replicate.predictions.get(activePredictionId);
+        if (prediction.status === 'succeeded') {
+          const url = extractUrl(prediction.output);
+          renovated.push(url || toProcess[currentIndex]);
+          console.log(`[Renovate] Image ${currentIndex + 1} done. URL: ${url ? 'yes' : 'fallback'}`);
+          
+          // Advance to next image
+          const nextIndex = currentIndex + 1;
+          const isDone = nextIndex >= toProcess.length;
+          await supabase.from('video_jobs').update({
+            status: isDone ? 'animating' : 'renovating',
+            metadata: { renovateIndex: nextIndex, renovatedImages: renovated },
+          }).eq('id', job.id);
+          return NextResponse.json({
+            status: isDone ? 'animating' : 'renovating',
+            message: isDone ? `Renovation done. ${renovated.length} images.` : `Renovated ${nextIndex}/${toProcess.length}...`,
+          });
+        } else if (prediction.status === 'failed') {
+          console.warn(`[Renovate] Prediction failed: ${prediction.error}`);
+          renovated.push(toProcess[currentIndex]);
+          const nextIndex = currentIndex + 1;
+          const isDone = nextIndex >= toProcess.length;
+          await supabase.from('video_jobs').update({
+            status: isDone ? 'animating' : 'renovating',
+            metadata: { renovateIndex: nextIndex, renovatedImages: renovated },
+          }).eq('id', job.id);
+          return NextResponse.json({ status: isDone ? 'animating' : 'renovating', message: `Renovation ${nextIndex}/${toProcess.length} (fallback).` });
+        }
+        // Still processing — poll again later
+        return NextResponse.json({ status: 'renovating', message: `Renovating image ${currentIndex + 1}/${toProcess.length}...` });
+      } catch (err) {
+        console.warn(`[Renovate] Error checking prediction:`, err);
+        // Fall through to create new prediction
+      }
+    }
 
-    // Set lock
-    await supabase.from('video_jobs')
-      .update({ metadata: { ...metadata, renovating: true } })
-      .eq('id', job.id);
-
+    // Start new prediction
+    console.log(`[Renovate] Starting image ${currentIndex + 1}/${toProcess.length}`);
     try {
       const prediction = await createPredictionWithRetry({
         model: "adirik/interior-design",
@@ -236,42 +273,23 @@ async function handleRenovating(supabase: Awaited<ReturnType<typeof createClient
         },
       });
 
-      const result = await waitForPrediction(prediction.id);
-      const url = extractUrl(result.output);
-      if (url) {
-        renovated.push(url);
-      } else {
-        // Fallback to original
-        renovated.push(toProcess[currentIndex]);
-      }
+      // Save prediction ID — don't wait, check on next poll
+      await supabase.from('video_jobs').update({
+        metadata: { ...metadata, renovatePredictionId: prediction.id },
+      }).eq('id', job.id);
+
+      return NextResponse.json({ status: 'renovating', message: `Renovating image ${currentIndex + 1}/${toProcess.length}...` });
     } catch (err) {
-      console.warn(`[VideoProcess] Renovation failed for image ${currentIndex}:`, err);
+      console.warn(`[Renovate] Failed to create prediction:`, err);
       renovated.push(toProcess[currentIndex]);
-    }
-
-    // Save progress
-    const nextIndex = currentIndex + 1;
-    const isDone = nextIndex >= toProcess.length;
-
-    await supabase
-      .from('video_jobs')
-      .update({
+      const nextIndex = currentIndex + 1;
+      const isDone = nextIndex >= toProcess.length;
+      await supabase.from('video_jobs').update({
         status: isDone ? 'animating' : 'renovating',
-        metadata: {
-          ...metadata,
-          renovateIndex: nextIndex,
-          renovatedImages: renovated,
-        },
-      })
-      .eq('id', job.id);
-
-    return NextResponse.json({
-      status: isDone ? 'animating' : 'renovating',
-      message: isDone
-        ? `Renovation complete. ${renovated.length} images ready.`
-        : `Renovated ${nextIndex}/${toProcess.length} images...`,
-      progress: nextIndex / toProcess.length,
-    });
+        metadata: { renovateIndex: nextIndex, renovatedImages: renovated },
+      }).eq('id', job.id);
+      return NextResponse.json({ status: isDone ? 'animating' : 'renovating', message: `Renovation ${nextIndex}/${toProcess.length} (failed, fallback).` });
+    }
   }
 
   // All done already, move to animating
@@ -298,13 +316,46 @@ async function handleAnimating(supabase: Awaited<ReturnType<typeof createClient>
   }
 
   if (currentIndex < images.length) {
-    console.log(`[VideoProcess] Animating image ${currentIndex + 1}/${images.length}`);
+    // Check if there's an active prediction
+    const activePredictionId = metadata.animatePredictionId as string | undefined;
 
-    // Set lock
-    await supabase.from('video_jobs')
-      .update({ metadata: { ...metadata, animating: true } })
-      .eq('id', job.id);
+    if (activePredictionId) {
+      try {
+        const prediction = await replicate.predictions.get(activePredictionId);
+        if (prediction.status === 'succeeded') {
+          const url = extractUrl(prediction.output);
+          if (url) clips.push(url);
+          console.log(`[Animate] Image ${currentIndex + 1}/${images.length} done. Clips: ${clips.length}`);
 
+          const nextIndex = currentIndex + 1;
+          const isDone = nextIndex >= images.length;
+          await supabase.from('video_jobs').update({
+            status: isDone ? 'stitching' : 'animating',
+            metadata: { animateIndex: nextIndex, clips },
+          }).eq('id', job.id);
+          return NextResponse.json({
+            status: isDone ? 'stitching' : 'animating',
+            message: isDone ? `Animation done. ${clips.length} clips.` : `Animating ${nextIndex}/${images.length}...`,
+          });
+        } else if (prediction.status === 'failed') {
+          console.warn(`[Animate] Prediction failed: ${prediction.error}`);
+          const nextIndex = currentIndex + 1;
+          const isDone = nextIndex >= images.length;
+          await supabase.from('video_jobs').update({
+            status: isDone ? 'stitching' : 'animating',
+            metadata: { animateIndex: nextIndex, clips },
+          }).eq('id', job.id);
+          return NextResponse.json({ status: isDone ? 'stitching' : 'animating', message: `Animation ${nextIndex}/${images.length} (skipped failed).` });
+        }
+        // Still processing
+        return NextResponse.json({ status: 'animating', message: `Animating image ${currentIndex + 1}/${images.length}...` });
+      } catch (err) {
+        console.warn(`[Animate] Error checking prediction:`, err);
+      }
+    }
+
+    // Start new prediction
+    console.log(`[Animate] Starting image ${currentIndex + 1}/${images.length}`);
     try {
       const prediction = await createPredictionWithRetry({
         version: "3f0457e4619daac51203dedb472816fd4af51f3149fa7a9e0b5ffcf1b8172438",
@@ -317,11 +368,14 @@ async function handleAnimating(supabase: Awaited<ReturnType<typeof createClient>
         },
       });
 
-      const result = await waitForPrediction(prediction.id, 180000);
-      const url = extractUrl(result.output);
-      if (url) clips.push(url);
+      // Save prediction ID — check on next poll
+      await supabase.from('video_jobs').update({
+        metadata: { ...metadata, animatePredictionId: prediction.id },
+      }).eq('id', job.id);
+
+      return NextResponse.json({ status: 'animating', message: `Animating image ${currentIndex + 1}/${images.length}...` });
     } catch (err) {
-      console.warn(`[VideoProcess] Animation failed for image ${currentIndex}:`, err);
+      console.warn(`[Animate] Failed to start prediction:`, err);
       const errMsg = err instanceof Error ? err.message : 'Animation failed';
       await supabase.from('video_jobs').update({
         status: 'failed',
@@ -329,31 +383,6 @@ async function handleAnimating(supabase: Awaited<ReturnType<typeof createClient>
       }).eq('id', job.id);
       return NextResponse.json({ status: 'failed', error: `Animation failed at image ${currentIndex + 1}: ${errMsg}` });
     }
-
-    const nextIndex = currentIndex + 1;
-    const isDone = nextIndex >= images.length;
-
-    console.log(`[Animate] Image ${currentIndex + 1}/${images.length} done. Clips so far: ${clips.length}. Done: ${isDone}`);
-
-    const updateResult = await supabase
-      .from('video_jobs')
-      .update({
-        status: isDone ? 'stitching' : 'animating',
-        metadata: { ...metadata, animateIndex: nextIndex, clips },
-      })
-      .eq('id', job.id);
-    
-    if (updateResult.error) {
-      console.error(`[Animate] Failed to update metadata:`, updateResult.error);
-    }
-
-    return NextResponse.json({
-      status: isDone ? 'stitching' : 'animating',
-      message: isDone
-        ? `Animation complete. ${clips.length} clips ready.`
-        : `Animating ${nextIndex}/${images.length}...`,
-      progress: nextIndex / images.length,
-    });
   }
 
   await supabase.from('video_jobs').update({ status: 'stitching' }).eq('id', job.id);
