@@ -16,7 +16,7 @@ export function VideoPipelineProgress({
   className,
 }: VideoPipelineProgressProps) {
   // Determine which stages are complete
-  const stageOrder: PipelineStage[] = ['scrape', 'enhance', 'generate', 'complete'];
+  const stageOrder: PipelineStage[] = ['scrape', 'sort', 'enhance', 'generate', 'complete'];
   const currentIndex = stageOrder.indexOf(currentStage);
   
   return (

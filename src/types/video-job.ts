@@ -16,7 +16,7 @@ export type VideoJobStatus =
   | 'needs_images';
 
 // Pipeline stage for progress indicator
-export type PipelineStage = 'scrape' | 'enhance' | 'generate' | 'complete';
+export type PipelineStage = 'scrape' | 'sort' | 'enhance' | 'generate' | 'complete';
 
 // Stage status for progress tracking
 export type StageStatus = 'pending' | 'active' | 'complete' | 'error';
@@ -175,9 +175,15 @@ export const PIPELINE_STAGES: Array<{
 }> = [
   {
     id: 'scrape',
-    label: 'Scrape',
+    label: 'Extract',
     icon: 'downloading',
     description: 'Extracting listing photos',
+  },
+  {
+    id: 'sort',
+    label: 'Sort',
+    icon: 'sort',
+    description: 'Auto-sorting images',
   },
   {
     id: 'enhance',
@@ -210,7 +216,7 @@ export function statusToStage(status: VideoJobStatus): {
     case 'scraping':
       return { stage: 'scrape', stageStatus: 'active' };
     case 'sorting':
-      return { stage: 'scrape', stageStatus: 'active' };
+      return { stage: 'sort', stageStatus: 'active' };
     case 'renovating':
       return { stage: 'enhance', stageStatus: 'active' };
     case 'animating':
