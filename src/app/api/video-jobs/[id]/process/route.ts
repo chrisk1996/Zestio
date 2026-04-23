@@ -149,27 +149,66 @@ async function handleSorting(supabase: Awaited<ReturnType<typeof createClient>>,
     bedroom: 7, bathroom: 8, other: 9,
   };
 
-  try {
-    const prediction = await createPredictionWithRetry({
-      model: "meta/meta-llama-3.2-11b-vision-instruct",
-      input: {
-        image: inputImages[sortIndex],
-        prompt: 'What type of room? Reply ONE word: exterior, living, kitchen, bedroom, bathroom, dining, office, hallway, balcony, other',
-        max_tokens: 5,
-        temperature: 0,
-      },
-    });
-    const result = await waitForPrediction(prediction.id, 30000);
-    let label = '';
-    if (typeof result.output === 'string') label = result.output.trim().toLowerCase();
-    else if (Array.isArray(result.output)) label = result.output.join('').trim().toLowerCase();
-    const match = label.match(/(exterior|facade|building|house|outside|balcony|patio|terrace|garden|living|lounge|dining|kitchen|office|study|hallway|corridor|entrance|bedroom|bathroom|other)/);
-    const cleanLabel = match ? match[1] : 'other';
-    labels.push({ index: sortIndex, label: cleanLabel, sortKey: sortOrder[cleanLabel] ?? 9 });
-    console.log(`[Sort] Image ${sortIndex}: ${cleanLabel}`);
-  } catch (err) {
-    console.warn(`[Sort] Failed image ${sortIndex}:`, err);
-    labels.push({ index: sortIndex, label: 'other', sortKey: 9 });
+  // Track consecutive failures — if sorting keeps failing, skip it
+  const sortFailures = (metadata.sortFailures as number) || 0;
+
+  // Check if there's an active prediction (fire-and-forget pattern)
+  const activeSortPredictionId = metadata.sortPredictionId as string | undefined;
+
+  if (activeSortPredictionId) {
+    // Check status of existing prediction
+    try {
+      const prediction = await replicate.predictions.get(activeSortPredictionId);
+      if (prediction.status === 'succeeded') {
+        let label = '';
+        if (typeof prediction.output === 'string') label = prediction.output.trim().toLowerCase();
+        else if (Array.isArray(prediction.output)) label = prediction.output.join('').trim().toLowerCase();
+        const match = label.match(/(exterior|facade|building|house|outside|balcony|patio|terrace|garden|living|lounge|dining|kitchen|office|study|hallway|corridor|entrance|bedroom|bathroom|other)/);
+        const cleanLabel = match ? match[1] : 'other';
+        labels.push({ index: sortIndex, label: cleanLabel, sortKey: sortOrder[cleanLabel] ?? 9 });
+        console.log(`[Sort] Image ${sortIndex}: ${cleanLabel}`);
+      } else if (prediction.status === 'failed') {
+        console.warn(`[Sort] Prediction failed: ${prediction.error}`);
+        labels.push({ index: sortIndex, label: 'other', sortKey: 9 });
+      } else {
+        // Still processing
+        return NextResponse.json({ status: 'sorting', message: `Classifying image ${sortIndex + 1}/${inputImages.length}...` });
+      }
+    } catch (err) {
+      console.warn(`[Sort] Error checking prediction:`, err);
+      labels.push({ index: sortIndex, label: 'other', sortKey: 9 });
+    }
+  } else {
+    // Start new prediction
+    try {
+      const prediction = await createPredictionWithRetry({
+        model: "meta/meta-llama-3.2-11b-vision-instruct",
+        input: {
+          image: inputImages[sortIndex],
+          prompt: 'What type of room? Reply ONE word: exterior, living, kitchen, bedroom, bathroom, dining, office, hallway, balcony, other',
+          max_tokens: 5,
+          temperature: 0,
+        },
+      });
+
+      // Save prediction ID — check on next poll
+      await supabase.from('video_jobs')
+        .update({ metadata: { ...metadata, sortPredictionId: prediction.id } })
+        .eq('id', job.id);
+      return NextResponse.json({ status: 'sorting', message: `Classifying image ${sortIndex + 1}/${inputImages.length}...` });
+    } catch (err) {
+      console.warn(`[Sort] Failed image ${sortIndex}:`, err);
+      labels.push({ index: sortIndex, label: 'other', sortKey: 9 });
+      // If too many consecutive failures, skip sorting entirely
+      const nextFailures = sortFailures + 1;
+      if (nextFailures >= 2) {
+        console.log('[Sort] Too many failures, skipping sort');
+        await supabase.from('video_jobs')
+          .update({ status: 'renovating', metadata: {} })
+          .eq('id', job.id);
+        return NextResponse.json({ status: 'renovating', message: 'Skipping auto-sort (model unavailable).' });
+      }
+    }
   }
 
   const nextIndex = sortIndex + 1;
@@ -187,7 +226,7 @@ async function handleSorting(supabase: Awaited<ReturnType<typeof createClient>>,
 
   // Save progress, stay in sorting
   await supabase.from('video_jobs')
-    .update({ metadata: { ...metadata, sortIndex: nextIndex, sortLabels: labels } })
+    .update({ metadata: { sortIndex: nextIndex, sortLabels: labels, sortPredictionId: null, sortFailures } })
     .eq('id', job.id);
   return NextResponse.json({ status: 'sorting', message: `Classifying image ${nextIndex}/${inputImages.length}...` });
 }
@@ -262,7 +301,7 @@ async function handleRenovating(supabase: Awaited<ReturnType<typeof createClient
     console.log(`[Renovate] Starting image ${currentIndex + 1}/${toProcess.length}`);
     try {
       const prediction = await createPredictionWithRetry({
-        model: "adirik/interior-design",
+        version: "76604baddc85b1b4616e1c6475eca080da339c8875bd4996705440484a6eac38",
         input: {
           image: toProcess[currentIndex],
           prompt,
@@ -501,7 +540,8 @@ async function waitForPrediction(predictionId: string, timeoutMs = 120000) {
 }
 
 // Create prediction with automatic retry on 429 rate limit
-async function createPredictionWithRetry(params: { model: string; input: Record<string, unknown> }, retries = 3) {
+// Accepts both `model` (for official models) and `version` (for community models)
+async function createPredictionWithRetry(params: { model?: string; version?: string; input: Record<string, unknown> }, retries = 3) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       return await replicate.predictions.create(params);
