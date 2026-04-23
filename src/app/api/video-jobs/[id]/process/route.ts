@@ -124,77 +124,72 @@ async function handleSorting(supabase: Awaited<ReturnType<typeof createClient>>,
 
   console.log(`[VideoProcess] Sorting ${inputImages.length} images by room type`);
 
-  try {
-    // Use Llama 3.2 Vision to classify each image
-    const imageDescriptions: string[] = [];
-    
-    for (let i = 0; i < inputImages.length; i++) {
-      const prompt = `Look at this property photo. What type of room/area is shown? Respond with ONLY one word from: exterior, living, kitchen, bedroom, bathroom, dining, office, hallway, balcony, other. Do not add any other text.`;
-      
-      const result = await replicate.run(
-        "meta/meta-llama-3.2-11b-vision-instruct",
-        {
-          input: {
-            image: inputImages[i],
-            prompt,
-            max_tokens: 10,
-            temperature: 0.1,
-          },
-        }
-      );
-      
-      let label = '';
-      if (typeof result === 'string') label = result.trim().toLowerCase();
-      else if (Array.isArray(result)) label = result.join('').trim().toLowerCase();
-      
-      imageDescriptions.push(label || 'other');
-      console.log(`[Sort] Image ${i}: ${label}`);
-    }
+  // Sort one image per call (same pattern as renovation/animation)
+  const metadata = (job.metadata as Record<string, unknown>) || {};
+  const sortIndex = (metadata.sortIndex as number) || 0;
+  const labels = (metadata.sortLabels as Array<{ index: number; label: string; sortKey: number }>) || [];
 
-    // Sort order: exterior first, then public rooms, then private, then misc
-    const sortOrder: Record<string, number> = {
-      exterior: 0,
-      balcony: 1,
-      living: 2,
-      dining: 3,
-      kitchen: 4,
-      office: 5,
-      hallway: 6,
-      bedroom: 7,
-      bathroom: 8,
-      other: 9,
-    };
-
-    const indexed = inputImages.map((url, i) => ({
-      url,
-      index: i,
-      label: imageDescriptions[i],
-      sortKey: sortOrder[imageDescriptions[i]] ?? 9,
-    }));
-
-    indexed.sort((a, b) => a.sortKey - b.sortKey);
-
-    const sortedImages = indexed.map(item => item.url);
-    console.log(`[Sort] Order: ${indexed.map(i => `${i.label}(${i.index})`).join(' → ')}`);
-
-    // Update job with sorted images
+  // Already sorted?
+  if (sortIndex >= inputImages.length && labels.length > 0) {
+    labels.sort((a, b) => a.sortKey - b.sortKey);
+    const sortedImages = labels.map(item => inputImages[item.index]);
     await supabase.from('video_jobs')
-      .update({
-        status: 'renovating',
-        input_images: sortedImages,
-      })
+      .update({ status: 'renovating', input_images: sortedImages, metadata: {} })
       .eq('id', job.id);
-
-    return NextResponse.json({
-      status: 'renovating',
-      message: `Images sorted: ${indexed.map(i => i.label).join(' → ')}`,
-    });
-  } catch (err) {
-    console.warn('[Sort] Vision sort failed, using original order:', err);
-    // Fallback: just proceed with original order
-    await supabase.from('video_jobs').update({ status: 'renovating' }).eq('id', job.id);
-    return NextResponse.json({ status: 'renovating', message: 'Sort skipped, using upload order.' });
+    return NextResponse.json({ status: 'renovating', message: `Sorted: ${labels.map(l => l.label).join(' → ')}` });
   }
+
+  // Classify one image
+  const sortOrder: Record<string, number> = {
+    exterior: 0, facade: 0, building: 0, house: 0, outside: 0,
+    balcony: 1, patio: 1, terrace: 1, garden: 1,
+    living: 2, lounge: 2,
+    dining: 3, kitchen: 4, office: 5, study: 5,
+    hallway: 6, corridor: 6, entrance: 6,
+    bedroom: 7, bathroom: 8, other: 9,
+  };
+
+  try {
+    const prediction = await createPredictionWithRetry({
+      model: "meta/meta-llama-3.2-11b-vision-instruct",
+      input: {
+        image: inputImages[sortIndex],
+        prompt: 'What type of room? Reply ONE word: exterior, living, kitchen, bedroom, bathroom, dining, office, hallway, balcony, other',
+        max_tokens: 5,
+        temperature: 0,
+      },
+    });
+    const result = await waitForPrediction(prediction.id, 30000);
+    let label = '';
+    if (typeof result.output === 'string') label = result.output.trim().toLowerCase();
+    else if (Array.isArray(result.output)) label = result.output.join('').trim().toLowerCase();
+    const match = label.match(/(exterior|facade|building|house|outside|balcony|patio|terrace|garden|living|lounge|dining|kitchen|office|study|hallway|corridor|entrance|bedroom|bathroom|other)/);
+    const cleanLabel = match ? match[1] : 'other';
+    labels.push({ index: sortIndex, label: cleanLabel, sortKey: sortOrder[cleanLabel] ?? 9 });
+    console.log(`[Sort] Image ${sortIndex}: ${cleanLabel}`);
+  } catch (err) {
+    console.warn(`[Sort] Failed image ${sortIndex}:`, err);
+    labels.push({ index: sortIndex, label: 'other', sortKey: 9 });
+  }
+
+  const nextIndex = sortIndex + 1;
+  const isDone = nextIndex >= inputImages.length;
+
+  if (isDone) {
+    // All classified — sort and proceed
+    labels.sort((a, b) => a.sortKey - b.sortKey);
+    const sortedImages = labels.map(item => inputImages[item.index]);
+    await supabase.from('video_jobs')
+      .update({ status: 'renovating', input_images: sortedImages, metadata: {} })
+      .eq('id', job.id);
+    return NextResponse.json({ status: 'renovating', message: `Sorted: ${labels.map(l => l.label).join(' → ')}` });
+  }
+
+  // Save progress, stay in sorting
+  await supabase.from('video_jobs')
+    .update({ metadata: { ...metadata, sortIndex: nextIndex, sortLabels: labels } })
+    .eq('id', job.id);
+  return NextResponse.json({ status: 'sorting', message: `Classifying image ${nextIndex}/${inputImages.length}...` });
 }
 
 // ── Stage 2: Renovate ────────────────────────────────────────────────────
