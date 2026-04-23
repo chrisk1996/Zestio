@@ -61,6 +61,23 @@ function PlatformBadge({ platform }: { platform: VideoPlatform }) {
   );
 }
 
+function getFailedMessage(job: Record<string, unknown>): string {
+  const metadata = job.metadata as Record<string, unknown> | null;
+  const metaError = metadata?.error as string | undefined;
+  const stageLabels: Record<string, string> = {
+    scraping: 'Image extraction',
+    renovating: 'AI renovation',
+    animating: 'Video animation',
+    stitching: 'Final assembly',
+  };
+  if (metaError) {
+    const stage = metaError.split(':')[0];
+    const detail = metaError.split(':').slice(1).join(':').trim();
+    return `Failed at ${stageLabels[stage] || stage}: ${detail || 'Unknown error'}`;
+  }
+  return 'Processing failed. Please try again.';
+}
+
 export default function VideoPage() {
   const [mode, setMode] = useState<Mode>('url');
   const [listingUrl, setListingUrl] = useState('');
@@ -280,7 +297,7 @@ export default function VideoPage() {
                         <span className={cn('material-symbols-outlined text-lg', !isJobFailed && 'animate-spin')}>{(VIDEO_STATUS_CONFIG[activeJob.status] || VIDEO_STATUS_CONFIG.queued)?.icon}</span>
                         {(VIDEO_STATUS_CONFIG[activeJob.status] || VIDEO_STATUS_CONFIG.queued)?.label}
                       </span>
-                      <p className="text-slate-400 text-sm mt-2">{activeJob?.status === 'needs_images' ? 'Could not extract images from this URL. Please switch to manual mode and upload images.' : (isJobFailed && activeJob.error_message ? activeJob.error_message : 'Processing your video...')}</p>
+                      <p className="text-slate-400 text-sm mt-2">{activeJob?.status === 'needs_images' ? 'Could not extract images from this URL. Please switch to manual mode and upload images.' : (activeJob?.status === 'failed' ? getFailedMessage(activeJob) : 'Processing your video...')}</p>
                     </div>
                   </div>
                 )}
