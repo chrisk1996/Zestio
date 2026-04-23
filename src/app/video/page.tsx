@@ -286,7 +286,7 @@ export default function VideoPage() {
                   <div className="aspect-video bg-gradient-to-br from-slate-800 to-slate-900 flex flex-col items-center justify-center p-8">
                     {activeJob.platform && activeJob.platform !== 'other' && <PlatformBadge platform={activeJob.platform} />}
                     <div className="w-full max-w-2xl mt-8">
-                      <VideoPipelineProgress currentStage={currentStageInfo?.stage ?? 'scrape'} stageStatus={currentStageInfo?.stageStatus ?? 'pending'} />
+                      <VideoPipelineProgress currentStage={currentStageInfo?.stage ?? 'scrape'} stageStatus={currentStageInfo?.stageStatus ?? 'pending'} job={activeJob} />
                     </div>
                     <div className="mt-8 text-center">
                       <span className={cn('inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium', (VIDEO_STATUS_CONFIG[activeJob.status] || VIDEO_STATUS_CONFIG.queued)?.bgColor, (VIDEO_STATUS_CONFIG[activeJob.status] || VIDEO_STATUS_CONFIG.queued)?.color)}>

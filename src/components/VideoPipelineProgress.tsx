@@ -7,12 +7,60 @@ import { PIPELINE_STAGES } from '@/types/video-job';
 interface VideoPipelineProgressProps {
   currentStage: PipelineStage;
   stageStatus: StageStatus;
+  job?: Record<string, unknown> | null;
   className?: string;
+}
+
+// Get dynamic description based on job state
+function getStageDescription(stageId: PipelineStage, job: Record<string, unknown> | null | undefined, isComplete: boolean): string {
+  if (isComplete || !job) {
+    // Use defaults when complete or no job data
+    const defaults: Record<string, string> = {
+      scrape: 'Extracting listing photos',
+      sort: 'Auto-sorting images',
+      enhance: 'AI virtual renovation',
+      generate: 'Creating video clips',
+      complete: 'Final video assembly',
+    };
+    return defaults[stageId] || '';
+  }
+
+  const metadata = (job.metadata as Record<string, unknown>) || {};
+  const status = job.status as string;
+
+  if (stageId === 'scrape') {
+    const count = Array.isArray(job.input_images) ? job.input_images.length : 0;
+    if (status === 'scraping') return count > 0 ? `Found ${count} images` : 'Fetching listing...';
+    return 'Extracting listing photos';
+  }
+
+  if (stageId === 'sort') {
+    if (status === 'sorting') return 'Analyzing room types...';
+    return 'Auto-sorting images';
+  }
+
+  if (stageId === 'enhance') {
+    const idx = (metadata.renovateIndex as number) || 0;
+    const total = Array.isArray(job.input_images) ? job.input_images.length : 0;
+    if (status === 'renovating' && total > 0) return `Image ${Math.min(idx + 1, total)} of ${total}`;
+    if (isComplete) return `${total} images enhanced`;
+    return 'AI virtual renovation';
+  }
+
+  if (stageId === 'generate') {
+    const idx = (metadata.animateIndex as number) || 0;
+    const images = (metadata.renovatedImages as string[]) || [];
+    if (status === 'animating' && images.length > 0) return `Clip ${Math.min(idx + 1, images.length)} of ${images.length}`;
+    return 'Creating video clips';
+  }
+
+  return '';
 }
 
 export function VideoPipelineProgress({
   currentStage,
   stageStatus,
+  job,
   className,
 }: VideoPipelineProgressProps) {
   // Determine which stages are complete
@@ -75,7 +123,7 @@ export function VideoPipelineProgress({
                 
                 {/* Description */}
                 <span className="text-xs text-slate-500 text-center mt-0.5 max-w-[80px]">
-                  {stage.description}
+                  {getStageDescription(stage.id, job, isComplete)}
                 </span>
               </div>
               
@@ -146,7 +194,7 @@ export function VideoPipelineProgress({
                 >
                   {stage.label}
                 </span>
-                <p className="text-xs text-slate-500 truncate">{stage.description}</p>
+                <p className="text-xs text-slate-500 truncate">{getStageDescription(stage.id, job, isComplete)}</p>
               </div>
               
               {/* Status indicator */}
