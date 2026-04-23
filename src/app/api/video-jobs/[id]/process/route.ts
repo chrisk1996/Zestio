@@ -67,13 +67,19 @@ export async function POST(
   } catch (error) {
     console.error(`[VideoProcess ${jobId}] Error:`, error);
     const msg = error instanceof Error ? error.message : 'Unknown error';
-    const currentStatus = await supabase.from('video_jobs').select('status').eq('id', jobId).single();
-    const failedStage = currentStatus.data?.status || 'unknown';
-    await supabase.from('video_jobs').update({
-      status: 'failed',
-      metadata: { error: `${failedStage}: ${msg}` },
-    }).eq('id', jobId);
-    return NextResponse.json({ error: msg, failedStage }, { status: 500 });
+    // Try to mark as failed — supabase might be out of scope
+    try {
+      const supabaseFallback = await createClient();
+      const currentStatus = await supabaseFallback.from('video_jobs').select('status').eq('id', jobId).single();
+      const failedStage = currentStatus.data?.status || 'unknown';
+      await supabaseFallback.from('video_jobs').update({
+        status: 'failed',
+        metadata: { error: `${failedStage}: ${msg}` },
+      }).eq('id', jobId);
+    } catch (dbErr) {
+      console.error(`[VideoProcess ${jobId}] Also failed to update DB:`, dbErr);
+    }
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 

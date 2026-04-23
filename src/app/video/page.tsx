@@ -66,6 +66,7 @@ function getFailedMessage(job: Record<string, unknown>): string {
   const metaError = metadata?.error as string | undefined;
   const stageLabels: Record<string, string> = {
     scraping: 'Image extraction',
+    sorting: 'Image sorting',
     renovating: 'AI renovation',
     animating: 'Video animation',
     stitching: 'Final assembly',
