@@ -15,9 +15,9 @@ export default function AppLayout({ children, title, onSave, onExport, hideTopNa
   return (
     <div className="min-h-screen bg-slate-50 font-['Inter'] text-slate-900">
       <SideNavBar />
-      <div className="ml-64">
+      <div className="lg:ml-64">
         {!hideTopNav && <TopNavBar title={title} onSave={onSave} onExport={onExport} />}
-        <main className={hideTopNav ? '' : 'pt-20'}>
+        <main className={hideTopNav ? '' : 'pt-20 lg:pt-20 pt-16'}>
           {children}
         </main>
       </div>

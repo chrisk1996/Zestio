@@ -189,12 +189,10 @@ async function handleSorting(supabase: Awaited<ReturnType<typeof createClient>>,
     // Start new prediction
     try {
       const prediction = await createPredictionWithRetry({
-        model: "meta/meta-llama-3.2-11b-vision-instruct",
+        version: "72ccb656353c348c1385df54b237eeb7bfa874bf11486cf0b9473e691b662d31",
         input: {
           image: inputImages[sortIndex],
-          prompt: 'What type of room? Reply ONE word: exterior, living, kitchen, bedroom, bathroom, dining, office, hallway, balcony, other',
-          max_tokens: 5,
-          temperature: 0,
+          prompt: 'What type of room is shown in this image? Reply with exactly ONE word from: exterior, living, kitchen, bedroom, bathroom, dining, office, hallway, balcony, other',
         },
       });
 

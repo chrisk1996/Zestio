@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+import { logCreditTransaction } from '@/lib/credit-transactions';
 
 export const dynamic = 'force-dynamic';
 
@@ -127,6 +128,7 @@ export async function POST(request: NextRequest) {
               console.error(`[Stripe] Top-up failed:`, updateError);
             } else {
               console.log(`[Stripe] Top-up: added ${topUpAmount} credits to user ${userId}. New total: ${newCredits}`);
+              logCreditTransaction({ userId, type: 'topup', amount: topUpAmount, description: `${topUpAmount} credit top-up` });
             }
           }
           break;
@@ -152,6 +154,7 @@ export async function POST(request: NextRequest) {
             console.error(`[Stripe] Failed to update subscription_tier:`, updateError);
           } else {
             console.log(`[Stripe] Subscription created for user ${userId}: ${plan}`);
+            logCreditTransaction({ userId, type: 'subscription', amount: plan === 'enterprise' ? 500 : 100, description: `${plan} plan — monthly credits` });
           }
         } else {
           console.warn(`[Stripe] Missing metadata - userId: ${userId}, plan: ${plan}`);
@@ -308,6 +311,7 @@ export async function POST(request: NextRequest) {
             })
             .eq('id', user.id);
           console.log(`[Stripe] Credits reset for user ${user.id} based on plan: ${plan}`);
+          logCreditTransaction({ userId: user.id, type: 'reset', amount: plan === 'enterprise' ? 500 : 100, description: `Monthly credit reset (${plan})` });
         }
         break;
       }
