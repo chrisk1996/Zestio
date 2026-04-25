@@ -70,8 +70,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check if user has credits (skip for enterprise with -1/unlimited)
-    if (userData && userData.credits !== -1 && userData.credits <= 0) {
+    // Check if user has credits
+    if (userData && userData.credits <= 0) {
       return NextResponse.json(
         { error: 'No credits remaining. Please upgrade your plan.' },
         { status: 402 }
@@ -217,7 +217,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Deduct credits if not unlimited (enterprise)
-      if (userData && userData.credits !== -1) {
+      if (userData) {
         await supabase
           .from('zestio_users')
           .update({

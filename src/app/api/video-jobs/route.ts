@@ -56,8 +56,7 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single();
 
-    const hasUnlimited = userData?.subscription_tier === 'enterprise' && userData?.credits === -1;
-    if (!hasUnlimited && ((userData?.credits ?? 0) - (userData?.used_credits ?? 0)) < 1) {
+    if (((userData?.credits ?? 0) - (userData?.used_credits ?? 0)) < 1) {
       return NextResponse.json({ error: 'Insufficient credits' }, { status: 402 });
     }
 
@@ -85,7 +84,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Deduct credit
-    if (!hasUnlimited) {
       try {
         await supabase.rpc('deduct_credits', { p_user_id: user.id, p_amount: CREDIT_COSTS.VIDEO_GENERATION });
       } catch {
@@ -97,7 +95,6 @@ export async function POST(request: NextRequest) {
           })
           .eq('id', user.id);
       }
-    }
 
     console.log(`[VideoJobs] Created job ${job.id}. Client will trigger processing.`);
 

@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       .from('zestio_users')
       .update({
         subscription_tier: newPlan,
-        credits: newPlan === 'enterprise' ? -1 : 100,
+        credits: newPlan === 'enterprise' ? 500 : 100,
       })
       .eq('id', user.id);
 

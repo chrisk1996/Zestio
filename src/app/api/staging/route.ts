@@ -111,7 +111,7 @@ async function waitForPrediction(predictionId: string): Promise<Replicate.Predic
 
 /** Atomically deduct credits, returns updated credits or throws if insufficient */
 async function deductCredits(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, amount: number): Promise<number> {
-  // Atomic decrement: only succeeds if credits >= amount (or unlimited = -1)
+  // Atomic decrement: only succeeds if credits >= amount
   const { data, error } = await supabase.rpc('deduct_credits', {
     p_user_id: userId,
     p_amount: amount,
@@ -127,12 +127,11 @@ async function deductCredits(supabase: Awaited<ReturnType<typeof createClient>>,
 
     if (!userData) throw new Error('User not found for credit deduction');
 
-    const isUnlimited = userData.subscription_tier === 'enterprise' && userData.credits === -1;
-    if (!isUnlimited && userData.credits < amount) {
+    if (userData.credits < amount) {
       throw new Error('Insufficient credits');
     }
 
-    const newCredits = isUnlimited ? -1 : userData.credits - amount;
+    const newCredits = userData.credits - amount;
     await supabase
       .from('zestio_users')
       .update({
@@ -187,7 +186,7 @@ export async function POST(request: NextRequest) {
 
     // Check credits (enterprise has unlimited)
     const remaining = (userData.credits ?? 0) - (userData.used_credits ?? 0);
-    if (remaining <= 0 && userData.credits !== -1) {
+    if (remaining <= 0) {
       return NextResponse.json({ error: 'No credits remaining' }, { status: 402 });
     }
 
@@ -326,7 +325,7 @@ export async function POST(request: NextRequest) {
         output: outputUrl,
         model: usedModel,
         creditsUsed,
-        creditsRemaining: userData?.credits === -1 ? -1 : remainingCredits,
+        creditsRemaining: remainingCredits,
       });
     } catch (apiError: any) {
       console.error('API error:', apiError);

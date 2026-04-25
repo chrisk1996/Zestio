@@ -45,8 +45,8 @@ const plans = [
     name: 'Enterprise',
     price: '€99',
     period: '/month',
-    credits: 'Unlimited',
-    features: ['Unlimited enhancements', 'All Pro features', 'API access', 'Dedicated support', 'Custom integrations'],
+    credits: 500,
+    features: ['500 credits/month', 'All Pro features', 'API access', 'Dedicated support', 'Custom integrations'],
     icon: Building2,
     color: 'text-amber-600 bg-amber-100',
   },
@@ -100,14 +100,13 @@ export default function BillingPage() {
 
       const creditsTotal = profile?.credits ?? 10;
       const creditsUsed = profile?.used_credits ?? 0;
-      const isEnterpriseUnlimited = profile?.subscription_tier === 'enterprise' && creditsTotal === -1;
 
       setUser({
         email: authUser.email || '',
         plan: profile?.subscription_tier || 'free',
-        credits_total: isEnterpriseUnlimited ? -1 : creditsTotal,
+        credits_total: creditsTotal,
         credits_used: creditsUsed,
-        credits_remaining: isEnterpriseUnlimited ? -1 : Math.max(0, creditsTotal - creditsUsed),
+        credits_remaining: Math.max(0, creditsTotal - creditsUsed),
         stripe_customer_id: profile?.stripe_customer_id,
         subscription_status: profile?.subscription_status,
         subscription_current_period_end: profile?.subscription_current_period_end,
@@ -123,7 +122,7 @@ export default function BillingPage() {
   };
 
   const getCreditPercentage = () => {
-    if (!user || user.credits_remaining === -1) return 100;
+    if (!user || user.credits_total <= 0) return 0;
     const total = user.credits_total || 1;
     return Math.max(0, Math.round((user.credits_remaining / total) * 100));
   };
@@ -304,28 +303,24 @@ export default function BillingPage() {
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-indigo-200">Credits Remaining</span>
               <span className="text-lg font-bold">
-                {user?.credits_remaining === -1 ? 'Unlimited' : `${user?.credits_remaining} / ${user?.credits_total}`}
+                {`${user?.credits_remaining} / ${user?.credits_total}`}
               </span>
             </div>
             <div className="h-3 bg-white/20 rounded-full overflow-hidden">
-        {user?.credits_remaining === -1 ? (
-          <div className="h-full bg-gradient-to-r from-purple-400 via-purple-500 to-purple-600 animate-pulse" />
-        ) : (
-          <div
-            className="h-full bg-white rounded-full transition-all duration-500"
-            style={{ width: `${getCreditPercentage()}%` }}
-          />
-        )}
+        <div
+          className="h-full bg-white rounded-full transition-all duration-500"
+          style={{ width: `${getCreditPercentage()}%` }}
+        />
       </div>
       <div className="flex justify-between mt-2 text-xs text-indigo-200">
         <span>{user?.credits_used} used</span>
-        <span>{user?.credits_remaining === -1 ? 'Unlimited' : `${getCreditPercentage()}% remaining`}</span>
+        <span>{`${getCreditPercentage()}% remaining`}</span>
       </div>
             </div>
           </div>
 
       {/* Top Up Credits */}
-      {user?.credits_remaining !== -1 && (
+      
           <div className="mt-4 bg-white/10 rounded-lg p-4">
             <span className="text-sm text-indigo-200 block mb-3">Need more credits?</span>
             <div className="flex gap-2">
@@ -428,7 +423,7 @@ export default function BillingPage() {
                   </div>
 
                   <p className="text-sm text-gray-600 mt-2">
-                    {plan.credits} {plan.credits !== 'Unlimited' ? 'credits/month' : ''}
+                    {plan.credits} credits/month
                   </p>
 
                   <ul className="mt-4 space-y-2">

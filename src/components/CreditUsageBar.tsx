@@ -49,9 +49,9 @@ export function CreditUsageBar({
     );
   }
 
-  const isUnlimited = plan === 'enterprise' || total === '∞';
-  const displayTotal = isUnlimited ? '∞' : total;
-  const percentage = isUnlimited ? 0 : (used / Number(total)) * 100;
+  // Enterprise = 500 credits, no unlimited
+  // No unlimited - all plans have numeric credit totals
+  const percentage = (used / Number(total)) * 100;
 
   // Default breakdown if not provided
   const usageBreakdown = breakdown || {
@@ -68,13 +68,13 @@ export function CreditUsageBar({
       {/* Progress Bar */}
       <div className="mb-3">
         <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-          {!isUnlimited && (
+          {(
             <div
               className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-indigo-500 to-purple-500"
               style={{ width: `${Math.min(percentage, 100)}%` }}
             />
           )}
-          {isUnlimited && (
+          {false && (
             <div className="h-full bg-gradient-to-r from-purple-400 via-purple-500 to-purple-600 animate-pulse" />
           )}
         </div>
@@ -84,7 +84,7 @@ export function CreditUsageBar({
       <div className="flex justify-between text-sm mb-4">
         <span className="text-gray-600">{used} used</span>
         <span className="font-medium text-gray-900">
-          {isUnlimited ? 'Unlimited' : `${Number(total) - used} remaining`}
+          {`${Number(total) - used} remaining`}
         </span>
       </div>
 
@@ -108,7 +108,7 @@ export function CreditUsageBar({
       </div>
 
       {/* Warning for low credits */}
-      {!isUnlimited && percentage >= 80 && percentage < 100 && (
+      {percentage >= 80 && percentage < 100 && (
         <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
           <p className="text-sm text-amber-800">
             ⚠️ You've used {Math.round(percentage)}% of your credits. Consider upgrading your plan.
@@ -116,7 +116,7 @@ export function CreditUsageBar({
         </div>
       )}
 
-      {!isUnlimited && percentage >= 100 && (
+      {percentage >= 100 && (
         <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-sm text-red-800">
             ❌ You've reached your monthly limit. Upgrade to continue enhancing photos.

@@ -24,14 +24,13 @@ export async function GET() {
 
     const creditsTotal = userData.credits ?? 5;
     const creditsUsed = userData.used_credits ?? 0;
-  const isEnterpriseUnlimited = userData.subscription_tier === 'enterprise' && creditsTotal === -1;
-  const creditsRemaining = isEnterpriseUnlimited ? -1 : Math.max(0, creditsTotal - creditsUsed);
+  const creditsRemaining = Math.max(0, creditsTotal - creditsUsed);
 
   return NextResponse.json({
     credits: creditsRemaining,
     plan: userData.subscription_tier || 'free',
     used: creditsUsed,
-    total: isEnterpriseUnlimited ? -1 : creditsTotal,
+    total: creditsTotal,
   });
     });
   } catch (error) {
