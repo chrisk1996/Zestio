@@ -307,7 +307,7 @@ export default function BillingPage() {
           </div>
 
       {/* Top Up Credits */}
-      
+
           <div className="mt-4 bg-white/10 rounded-lg p-4">
             <span className="text-sm text-indigo-200 block mb-3">Need more credits?</span>
             <div className="flex gap-2">
@@ -331,7 +331,6 @@ export default function BillingPage() {
               </button>
             </div>
       </div>
-      )}
 
           {/* Subscription Details */}
           {user?.plan !== 'free' && (

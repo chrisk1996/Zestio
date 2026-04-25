@@ -32,7 +32,6 @@ export async function GET() {
     used: creditsUsed,
     total: creditsTotal,
   });
-    });
   } catch (error) {
     console.error('Credits error:', error);
     return NextResponse.json({ credits: 5, plan: 'free', used: 0, total: 5 });
