@@ -18,39 +18,26 @@ interface UserData {
   subscription_canceled_at?: string;
 }
 
-const plans = [
-  {
-    id: 'free',
-    name: 'Free',
-    price: '€0',
-    period: 'forever',
-    credits: 10,
-    features: ['10 enhancements/month', 'Basic image enhancement', 'Standard support'],
-    icon: Zap,
-    color: 'text-gray-600 bg-gray-100',
-  },
-  {
-    id: 'pro',
-    name: 'Pro',
-    price: '€9',
-    period: '/month',
-    credits: 100,
-    features: ['100 enhancements/month', 'All image tools', 'Virtual staging', '3D Floor plans', 'Priority support'],
-    icon: Crown,
-    color: 'text-indigo-600 bg-indigo-100',
-    popular: true,
-  },
-  {
-    id: 'enterprise',
-    name: 'Enterprise',
-    price: '€99',
-    period: '/month',
-    credits: 500,
-    features: ['500 credits/month', 'All Pro features', 'API access', 'Dedicated support', 'Custom integrations'],
-    icon: Building2,
-    color: 'text-amber-600 bg-amber-100',
-  },
-];
+// Use centralized pricing config so billing always matches pricing page
+const planConfig = {
+  free: { icon: Zap, color: 'text-gray-600 bg-gray-100' },
+  pro: { icon: Crown, color: 'text-indigo-600 bg-indigo-100' },
+  enterprise: { icon: Building2, color: 'text-amber-600 bg-amber-100' },
+};
+
+import { PLANS } from '@/lib/pricing';
+
+const plans = Object.values(PLANS).map(p => ({
+  id: p.name.toLowerCase(),
+  name: p.name,
+  price: p.priceLabel,
+  period: p.period === 'forever' ? 'forever' : '/month',
+  credits: p.credits,
+  features: p.features,
+  icon: planConfig[p.name.toLowerCase() as keyof typeof planConfig]?.icon || Zap,
+  color: planConfig[p.name.toLowerCase() as keyof typeof planConfig]?.color || 'text-gray-600 bg-gray-100',
+  popular: 'popular' in p ? p.popular : false,
+}));
 
 export default function BillingPage() {
   const [user, setUser] = useState<UserData | null>(null);

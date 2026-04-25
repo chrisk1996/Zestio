@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Ensure user exists in public.users table (trigger should create it, but verify)
+    // Ensure user exists in zestio_users table (trigger should create it, but verify)
     const { data: existingUser } = await supabase
       .from('zestio_users')
       .select('id')
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!existingUser) {
-      // User doesn't exist in public.users, create it
+      // User doesn't exist in zestio_users, create it
       const { error: createUserError } = await supabase
         .from('zestio_users')
         .insert({
