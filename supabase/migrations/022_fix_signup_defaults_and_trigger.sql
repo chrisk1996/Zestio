@@ -1,15 +1,20 @@
--- Migration 022: Fix signup trigger and ensure column defaults
--- The handle_new_user trigger was failing because credits/used_credits
--- may lack defaults, and the trigger didn't set them explicitly.
--- Best practice: set column defaults (safety net) AND explicit trigger values (clarity).
+-- Migration 022: Fix signup trigger — add missing columns + set defaults
+-- The handle_new_user trigger (since migration 017) tries to insert into
+-- email, full_name, avatar_url columns that were NEVER added to the table.
+-- This is the root cause of "Database error saving new user" on signup.
 
--- Step 1: Ensure column defaults exist (idempotent)
+-- Step 1: Add the missing columns (idempotent)
+ALTER TABLE public.zestio_users
+  ADD COLUMN IF NOT EXISTS email TEXT,
+  ADD COLUMN IF NOT EXISTS full_name TEXT,
+  ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+
+-- Step 2: Ensure column defaults (idempotent)
 ALTER TABLE public.zestio_users
   ALTER COLUMN credits SET DEFAULT 5,
   ALTER COLUMN used_credits SET DEFAULT 0;
 
--- Step 2: Update trigger to explicitly set all fields on new user creation
--- This makes the trigger self-documenting: you can see exactly what a new user gets.
+-- Step 3: Update trigger to explicitly set all fields
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -24,16 +29,10 @@ BEGIN
   )
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
-  EXCEPTION WHEN undefined_column THEN
-    -- Fallback: insert only core fields if extra columns are missing
-    INSERT INTO public.zestio_users (id, email)
-    VALUES (NEW.id, NEW.email)
-    ON CONFLICT (id) DO NOTHING;
-    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Step 3: Ensure the trigger is attached
+-- Step 4: Re-attach trigger
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
