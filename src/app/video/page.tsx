@@ -24,14 +24,13 @@ import {
 
 type Mode = 'url' | 'manual';
 
-function CreditDisplay({ credits, used }: { credits: number; used: number }) {
-  const remaining = credits - used;
-  const percentage = credits > 0 ? (remaining / credits) * 100 : 0;
+function CreditDisplay({ remaining, total }: { remaining: number; total: number }) {
+  const percentage = total > 0 ? (remaining / total) * 100 : 0;
   
   return (
     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-slate-700">{remaining} Credits Available</span>
+        <span className="text-sm font-medium text-slate-700">Credits Available</span>
         <span className="text-lg font-bold text-purple-600">{remaining}</span>
       </div>
       <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -43,7 +42,7 @@ function CreditDisplay({ credits, used }: { credits: number; used: number }) {
             style={{ width: `${percentage}%` }}
           />
         </div>
-      <p className="text-xs text-slate-500 mt-1">{used} of {credits} used</p>
+      <p className="text-xs text-slate-500 mt-1">{remaining} of {total} remaining</p>
     </div>
   );
 }
@@ -88,7 +87,7 @@ export default function VideoPage() {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
-  const [credits, setCredits] = useState({ total: 0, used: 0 });
+  const [credits, setCredits] = useState({ remaining: 0, total: 5 });
   const [isLoadingCredits, setIsLoadingCredits] = useState(true);
   
   const { job: activeJob, refetch: refetchActiveJob } = useVideoJob({ jobId: activeJobId ?? undefined, autoSubscribe: true });
@@ -121,12 +120,9 @@ export default function VideoPage() {
   useEffect(() => {
     async function fetchCredits() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-        const { data: creditsData } = await supabase.from('zestio_users').select('credits, used_credits').eq('id', user.id).single();
-        if (creditsData) {
-          setCredits({ total: creditsData.credits ?? 0, used: creditsData.used_credits ?? 0 });
-        }
+        const res = await fetch('/api/credits');
+        const data = await res.json();
+        setCredits({ remaining: data.credits || 0, total: data.total || 5 });
       } catch (err) {
         console.error('Failed to fetch credits:', err);
       } finally {
@@ -134,7 +130,7 @@ export default function VideoPage() {
       }
     }
     fetchCredits();
-  }, [supabase]);
+  }, []);
   
   useEffect(() => {
     if (listingUrl && mode === 'url') {
@@ -195,7 +191,7 @@ export default function VideoPage() {
       setCreateError('Please upload at least 5 images');
       return;
     }
-    if (credits.total - credits.used < 5) {
+    if (credits.remaining < 5) {
       setCreateError('Not enough credits. Video generation requires 5 credits. Top up or upgrade your plan.');
       return;
     }
@@ -223,7 +219,7 @@ export default function VideoPage() {
       setListingUrl('');
       setUploadedImages([]);
       refetchJobs();
-      setCredits(prev => ({ ...prev, used: prev.used + 5 }));
+      setCredits(prev => ({ ...prev, remaining: Math.max(0, prev.remaining - 5) }));
 
       // Trigger first processing step immediately
       setTimeout(() => {
@@ -236,7 +232,7 @@ export default function VideoPage() {
     } finally {
       setIsCreating(false);
     }
-  }, [mode, listingUrl, uploadedImages, renovationStyle, musicGenre, credits, refetchJobs]);
+  }, [mode, listingUrl, uploadedImages, renovationStyle, musicGenre, credits.remaining, refetchJobs]);
   
   const handleCreateAnother = () => {
     setActiveJobId(null);
@@ -245,9 +241,9 @@ export default function VideoPage() {
     setCreateError(null);
   };
   
-  const remainingCredits = credits.total - credits.used;
-  const hasCredit = credits.total > credits.used;
-  const canSubmit = hasCredit && credits.total - credits.used >= 5 && ((mode === 'url' && listingUrl.length > 0) || (mode === 'manual' && uploadedImages.length >= 5));
+  const remainingCredits = credits.remaining;
+  const hasCredit = credits.remaining > 0;
+  const canSubmit = hasCredit && credits.remaining >= 5 && ((mode === 'url' && listingUrl.length > 0) || (mode === 'manual' && uploadedImages.length >= 5));
   const currentStageInfo = activeJob ? statusToStage(activeJob.status) : null;
   const isJobComplete = activeJob?.status === 'done';
   const isJobFailed = activeJob?.status === 'failed' || activeJob?.status === 'needs_images';
@@ -264,7 +260,7 @@ export default function VideoPage() {
         <div className="grid grid-cols-12 gap-8">
           <aside className="col-span-12 lg:col-span-3 space-y-4">
             <h3 className="font-bold text-slate-900 text-sm">Recent Jobs</h3>
-            {!isLoadingCredits && <CreditDisplay credits={credits.total} used={credits.used} />}
+            {!isLoadingCredits && <CreditDisplay remaining={credits.remaining} total={credits.total} />}
             <div className="space-y-3">
               {isLoadingJobs ? (<><VideoJobCardSkeleton /><VideoJobCardSkeleton /><VideoJobCardSkeleton /></>) 
                : recentJobs.length === 0 ? <VideoJobCardEmpty />
@@ -380,7 +376,7 @@ export default function VideoPage() {
                   <span className="material-symbols-outlined">auto_awesome</span>{isCreating ? 'Creating...' : 'Generate Video'}
                 </button>
                 
-                {!hasCredit || credits.total - credits.used < 5 ? (<p className="text-center text-sm text-red-600">You need at least 5 credits to generate a video. Please purchase more credits.</p>) : null}
+                {!hasCredit || credits.remaining < 5 ? (<p className="text-center text-sm text-red-600">You need at least 5 credits to generate a video. Please purchase more credits.</p>) : null}
               </div>
             )}
           </main>

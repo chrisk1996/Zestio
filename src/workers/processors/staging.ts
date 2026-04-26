@@ -114,16 +114,16 @@ async function deductCredits(
 ): Promise<void> {
   const { data: user } = await supabase
     .from('zestio_users')
-    .select('credits_remaining, credits_used')
+    .select('credits, used_credits')
     .eq('id', userId)
     .single();
 
-  if (user && user.credits_remaining >= amount) {
+  if (user && user.credits >= amount) {
     await supabase
       .from('zestio_users')
       .update({
-        credits_remaining: user.credits_remaining - amount,
-        credits_used: user.credits_used + amount,
+        credits: user.credits - amount,
+        used_credits: user.used_credits + amount,
       })
       .eq('id', userId);
   }

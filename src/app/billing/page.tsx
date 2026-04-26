@@ -8,9 +8,9 @@ import { createClient } from '@/utils/supabase/client';
 interface UserData {
   email: string;
   plan: string;
-  credits_total: number;
-  credits_used: number;
   credits_remaining: number;
+  credits_used: number;
+  credits_total: number;
   stripe_customer_id?: string;
   subscription_status?: string;
   subscription_current_period_end?: string;
@@ -66,34 +66,20 @@ export default function BillingPage() {
         return;
       }
 
-      // Fetch user profile with credits from zestio_users table
-      const { data: profile, error: profileError } = await supabase
-        .from('zestio_users')
-        .select('id, subscription_tier, credits, used_credits, stripe_customer_id, subscription_status, subscription_current_period_end, subscription_cancel_at, subscription_canceled_at')
-        .eq('id', authUser.id)
-        .single();
-
-      if (profileError) {
-        console.error('Profile fetch error:', profileError);
-        setUser({
-          email: authUser.email || '',
-          plan: 'free',
-          credits_total: 10,
-          credits_used: 0,
-          credits_remaining: 10,
-        });
-        return;
-      }
-
-      const creditsTotal = profile?.credits ?? 10;
-      const creditsUsed = profile?.used_credits ?? 0;
+      // Fetch credits via API (Model A: credits = remaining balance)
+      const [creditsRes, profileRes] = await Promise.all([
+        fetch('/api/credits'),
+        supabase.from('zestio_users').select('stripe_customer_id, subscription_status, subscription_current_period_end, subscription_cancel_at, subscription_canceled_at').eq('id', authUser.id).single(),
+      ]);
+      const creditsData = await creditsRes.json();
+      const profile = profileRes.data;
 
       setUser({
         email: authUser.email || '',
-        plan: profile?.subscription_tier || 'free',
-        credits_total: creditsTotal,
-        credits_used: creditsUsed,
-        credits_remaining: Math.max(0, creditsTotal - creditsUsed),
+        plan: creditsData.plan || 'free',
+        credits_remaining: creditsData.credits || 0,
+        credits_used: creditsData.used || 0,
+        credits_total: creditsData.total || 5,
         stripe_customer_id: profile?.stripe_customer_id,
         subscription_status: profile?.subscription_status,
         subscription_current_period_end: profile?.subscription_current_period_end,
@@ -110,8 +96,7 @@ export default function BillingPage() {
 
   const getCreditPercentage = () => {
     if (!user || user.credits_total <= 0) return 0;
-    const total = user.credits_total || 1;
-    return Math.max(0, Math.round((user.credits_remaining / total) * 100));
+    return Math.max(0, Math.round((user.credits_remaining / user.credits_total) * 100));
   };
 
   const formatDate = (dateStr: string | undefined) => {
