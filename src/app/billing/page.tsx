@@ -304,7 +304,6 @@ export default function BillingPage() {
         <span>{`${getCreditPercentage()}% remaining`}</span>
       </div>
             </div>
-          </div>
 
       {/* Top Up Credits */}
 
@@ -464,7 +463,6 @@ export default function BillingPage() {
             <code className="bg-yellow-100 px-1 rounded">4242 4242 4242 4242</code> with any future expiry date and CVC.
           </p>
         </div>
-      </div>
     </AppLayout>
   );
 }
