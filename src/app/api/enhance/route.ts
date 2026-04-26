@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check if user has credits
+    // Check if user has credits (Model A: credits = remaining balance)
     if (userData && userData.credits <= 0) {
       return NextResponse.json(
         { error: 'No credits remaining. Please upgrade your plan.' },
@@ -216,15 +216,13 @@ export async function POST(request: NextRequest) {
         creditsUsed = CREDIT_COSTS.ENHANCE_BASIC;
       }
 
-      // Deduct credits if not unlimited (enterprise)
-      if (userData) {
-        await supabase
-          .from('zestio_users')
-          .update({
-            credits: Math.max(0, userData.credits - creditsUsed),
-            used_credits: userData.used_credits + creditsUsed,
-          })
-          .eq('id', userId);
+      // Deduct credits atomically via RPC (Model A: decrements credits, increments used_credits)
+      const { data: newBalance, error: deductError } = await supabase.rpc('deduct_credits', {
+        p_user_id: userId,
+        p_amount: creditsUsed,
+      });
+      if (deductError) {
+        console.error('[Enhance] Credit deduction failed:', deductError.message);
       }
 
       logApiUsage({

@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { PLANS } from '@/lib/pricing';
 
 export const dynamic = 'force-dynamic';
+
+function getPlanCredits(tier: string): number {
+  return (PLANS as Record<string, { credits: number }>)[tier]?.credits ?? 5;
+}
 
 export async function GET() {
   try {
@@ -22,16 +27,17 @@ export async function GET() {
       return NextResponse.json({ credits: 5, plan: 'free', used: 0, total: 5 });
     }
 
-    const creditsTotal = userData.credits ?? 5;
+    // Model A: credits = remaining balance, used_credits = total ever consumed
+    const creditsRemaining = userData.credits ?? 5;
     const creditsUsed = userData.used_credits ?? 0;
-  const creditsRemaining = Math.max(0, creditsTotal - creditsUsed);
+    const planCredits = getPlanCredits(userData.subscription_tier || 'free');
 
-  return NextResponse.json({
-    credits: creditsRemaining,
-    plan: userData.subscription_tier || 'free',
-    used: creditsUsed,
-    total: creditsTotal,
-  });
+    return NextResponse.json({
+      credits: creditsRemaining,
+      plan: userData.subscription_tier || 'free',
+      used: creditsUsed,
+      total: planCredits,
+    });
   } catch (error) {
     console.error('Credits error:', error);
     return NextResponse.json({ credits: 5, plan: 'free', used: 0, total: 5 });

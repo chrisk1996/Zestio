@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single();
 
-    if (((userData?.credits ?? 0) - (userData?.used_credits ?? 0)) < 1) {
+    if ((userData?.credits ?? 0) < 1) {
       return NextResponse.json({ error: 'Insufficient credits' }, { status: 402 });
     }
 

@@ -184,9 +184,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Image is required' }, { status: 400 });
     }
 
-    // Check credits (enterprise has unlimited)
-    const remaining = (userData.credits ?? 0) - (userData.used_credits ?? 0);
-    if (remaining <= 0) {
+    // Check credits (Model A: credits = remaining balance)
+    if ((userData.credits ?? 0) <= 0) {
       return NextResponse.json({ error: 'No credits remaining' }, { status: 402 });
     }
 
