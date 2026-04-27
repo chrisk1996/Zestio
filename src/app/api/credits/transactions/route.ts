@@ -20,11 +20,24 @@ export async function GET() {
       .limit(100);
 
     if (error) {
-      // Table might not exist yet (migration 018 not applied)
       return NextResponse.json({ transactions: [] });
     }
 
-    return NextResponse.json({ transactions: transactions || [] });
+    // Compute usage breakdown
+    const usageRows = (transactions || []).filter(t => t.type === 'usage');
+    const breakdown: Record<string, number> = {};
+    for (const t of usageRows) {
+      const desc = t.description || 'Other';
+      // Group by feature category
+      const feature = desc.includes('enhancement') ? 'Enhancement'
+        : desc.includes('staging') ? 'Virtual Staging'
+        : desc.includes('Video') ? 'Video'
+        : desc.includes('floorplan') ? 'Floor Plan'
+        : 'Other';
+      breakdown[feature] = (breakdown[feature] || 0) + Math.abs(t.amount);
+    }
+
+    return NextResponse.json({ transactions: transactions || [], breakdown });
   } catch {
     return NextResponse.json({ transactions: [] });
   }

@@ -7,18 +7,27 @@ export async function GET(request: Request) {
   const token_hash = searchParams.get('token_hash')
   const type = searchParams.get('type')
   const next = searchParams.get('next') ?? '/dashboard'
+  const errorParam = searchParams.get('error')
+  const errorDescription = searchParams.get('error_description')
+
+  // Handle OAuth provider errors (e.g. user denied access)
+  if (errorParam) {
+    console.error(`[Auth Callback] OAuth error: ${errorParam} — ${errorDescription}`)
+    return NextResponse.redirect(`${origin}/auth?error=${encodeURIComponent(errorDescription || errorParam)}`)
+  }
 
   const supabase = await createClient()
 
-  // PKCE code flow (standard)
+  // PKCE code flow (standard email + OAuth)
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
       return NextResponse.redirect(`${origin}${next}`)
     }
+    console.error(`[Auth Callback] Code exchange failed: ${error.message}`)
   }
 
-  // Token hash flow (pre-fetch safe)
+  // Token hash flow (pre-fetch safe email confirmation)
   if (token_hash && type) {
     const { error } = await supabase.auth.verifyOtp({
       token_hash,
@@ -27,8 +36,8 @@ export async function GET(request: Request) {
     if (!error) {
       return NextResponse.redirect(`${origin}${next}`)
     }
+    console.error(`[Auth Callback] OTP verification failed: ${error.message}`)
   }
 
-  // Return the user to an error page with instructions
   return NextResponse.redirect(`${origin}/auth?error=Unable to authenticate`)
 }

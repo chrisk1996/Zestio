@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { GlobalErrorTelemetry } from "@/components/GlobalErrorTelemetry";
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { locales, type Locale } from '@/i18n/config';
@@ -44,6 +45,7 @@ export default async function RootLayout({
       </head>
       <body className={`${inter.className} antialiased`}>
         <NextIntlClientProvider locale={locale} messages={messages}>
+          <GlobalErrorTelemetry />
           <ErrorBoundary>
             {children}
           </ErrorBoundary>
