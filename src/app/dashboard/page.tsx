@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AppLayout } from '@/components/layout';
 import { createClient } from '@/utils/supabase/client';
+import { useTranslations } from 'next-intl';
 
 interface DashboardData {
   credits: number;
@@ -60,6 +61,7 @@ const tools = [
 ];
 
 export default function DashboardPage() {
+  const t = useTranslations('dashboard');
   const [data, setData] = useState<DashboardData>({
     credits: 0,
     creditsUsed: 0,
@@ -110,10 +112,10 @@ export default function DashboardPage() {
         {/* Welcome */}
         <section className="mb-10">
           <h1 className="font-serif text-4xl md:text-5xl text-[#1d2832] mb-3 leading-tight">
-            What are we<br />creating today?
+            {t('creatingToday')}
           </h1>
           <p className="text-[#43474c] max-w-xl">
-            Pick a tool below to get started. Everything runs on AI credits — you have {loading ? '...' : <span className="font-medium text-[#006c4d]">{data.credits} credits</span>} remaining.
+            {t('pickTool')} {loading ? '...' : <span className="font-medium text-[#006c4d]">{data.credits} {t('creditsRemaining2')}</span>}
           </p>
         </section>
 
@@ -121,22 +123,22 @@ export default function DashboardPage() {
         {!loading && (
           <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
             <div className="bg-white rounded-xl p-5 border border-[#c4c6cd]/10">
-              <span className="text-xs text-[#43474c] font-manrope uppercase tracking-wider">Plan</span>
+              <span className="text-xs text-[#43474c] font-manrope uppercase tracking-wider">{t('plan')}</span>
               <p className="text-xl font-bold text-[#1d2832] mt-1 capitalize">{data.plan}</p>
             </div>
             <div className="bg-white rounded-xl p-5 border border-[#c4c6cd]/10">
-              <span className="text-xs text-[#43474c] font-manrope uppercase tracking-wider">Credits Left</span>
+              <span className="text-xs text-[#43474c] font-manrope uppercase tracking-wider">{t('creditsLeft')}</span>
               <p className="text-xl font-bold text-[#006c4d] mt-1">{data.credits} <span className="text-sm text-[#43474c] font-normal">/ {data.creditsTotal}</span></p>
               <div className="h-1.5 bg-[#edf4ff] rounded-full mt-2 overflow-hidden">
                 <div className="h-full bg-[#006c4d] rounded-full transition-all" style={{ width: `${creditPercent}%` }} />
               </div>
             </div>
             <div className="bg-white rounded-xl p-5 border border-[#c4c6cd]/10">
-              <span className="text-xs text-[#43474c] font-manrope uppercase tracking-wider">Videos Created</span>
+              <span className="text-xs text-[#43474c] font-manrope uppercase tracking-wider">{t('videosCreated')}</span>
               <p className="text-xl font-bold text-[#1d2832] mt-1">{data.recentVideos}</p>
             </div>
             <div className="bg-white rounded-xl p-5 border border-[#c4c6cd]/10">
-              <span className="text-xs text-[#43474c] font-manrope uppercase tracking-wider">Listings</span>
+              <span className="text-xs text-[#43474c] font-manrope uppercase tracking-wider">{t('listings')}</span>
               <p className="text-xl font-bold text-[#1d2832] mt-1">{data.recentListings}</p>
             </div>
           </section>
@@ -144,7 +146,7 @@ export default function DashboardPage() {
 
         {/* Tool Grid */}
         <section className="mb-16">
-          <h2 className="font-serif text-2xl text-[#1d2832] mb-6">Tools</h2>
+          <h2 className="font-serif text-2xl text-[#1d2832] mb-6">{t('tools')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {tools.map((tool) => (
               <Link
@@ -165,13 +167,13 @@ export default function DashboardPage() {
         {/* Quick Links */}
         <section className="flex flex-wrap gap-3">
           <Link href="/billing" className="px-5 py-2.5 bg-white border border-[#c4c6cd]/20 rounded-lg text-sm text-[#1d2832] hover:bg-[#edf4ff] transition-all">
-            Manage Billing
+            {t('manageBilling')}
           </Link>
           <Link href="/settings" className="px-5 py-2.5 bg-white border border-[#c4c6cd]/20 rounded-lg text-sm text-[#1d2832] hover:bg-[#edf4ff] transition-all">
-            Settings & API Keys
+            {t('settingsApiKeys')}
           </Link>
           <Link href="/help" className="px-5 py-2.5 bg-white border border-[#c4c6cd]/20 rounded-lg text-sm text-[#1d2832] hover:bg-[#edf4ff] transition-all">
-            Help & Support
+            {t('helpSupport')}
           </Link>
         </section>
       </div>

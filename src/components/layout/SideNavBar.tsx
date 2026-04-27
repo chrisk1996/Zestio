@@ -3,20 +3,22 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 
 const navItems = [
-  { href: '/dashboard', icon: 'dashboard', label: 'Dashboard' },
-  { href: '/studio', icon: 'auto_awesome', label: 'Image Studio' },
-  { href: '/social', icon: 'share', label: 'Social Media Kit' },
-  { href: '/listing', icon: 'description', label: 'Listing Builder' },
-  { href: '/video', icon: 'movie_filter', label: 'Video Creator' },
-  { href: '/floorplan', icon: 'polyline', label: '3D Floor Plans' },
-  { href: '/library', icon: 'folder_special', label: 'Library' },
+  { href: '/dashboard', icon: 'dashboard', labelKey: 'dashboard' },
+  { href: '/studio', icon: 'auto_awesome', labelKey: 'enhance' },
+  { href: '/social', icon: 'share', labelKey: 'socialMediaKit' },
+  { href: '/listing', icon: 'description', labelKey: 'listingBuilder' },
+  { href: '/video', icon: 'movie_filter', labelKey: 'video' },
+  { href: '/floorplan', icon: 'polyline', labelKey: 'floorplan' },
+  { href: '/library', icon: 'folder_special', labelKey: 'library' },
 ];
 
 export default function SideNavBar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const t = useTranslations('nav');
 
   const navContent = (
     <>
@@ -48,7 +50,7 @@ export default function SideNavBar() {
               }`}
             >
               <span className="material-symbols-outlined">{item.icon}</span>
-              <span>{item.label}</span>
+              <span>{t(item.labelKey)}</span>
             </Link>
           );
         })}
@@ -64,7 +66,7 @@ export default function SideNavBar() {
           }`}
         >
           <span className="material-symbols-outlined">account_balance_wallet</span>
-          <span>Billing</span>
+          <span>{t('billing')}</span>
         </Link>
         <Link
           href="/usage"
@@ -74,7 +76,7 @@ export default function SideNavBar() {
           }`}
         >
           <span className="material-symbols-outlined">bar_chart</span>
-          <span>Usage</span>
+          <span>{t('usage')}</span>
         </Link>
         <Link
           href="/settings"
@@ -84,7 +86,7 @@ export default function SideNavBar() {
           }`}
         >
           <span className="material-symbols-outlined">settings</span>
-          <span>Settings</span>
+          <span>{t('settings')}</span>
         </Link>
         <Link
           href="/help"
@@ -92,7 +94,7 @@ export default function SideNavBar() {
           className="flex items-center gap-3 px-4 py-2 text-slate-500 hover:text-slate-900 transition-all"
         >
           <span className="material-symbols-outlined">help_outline</span>
-          <span>Support</span>
+          <span>{t('help')}</span>
         </Link>
       </div>
     </>

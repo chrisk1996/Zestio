@@ -5,10 +5,13 @@ import { Header } from '@/components/Header';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
+import { useTranslations } from 'next-intl';
 
 export default function AuthPage() {
   const router = useRouter();
   const supabase = createClient();
+  const t = useTranslations('auth');
+  const tc = useTranslations('common');
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -90,7 +93,7 @@ export default function AuthPage() {
       <main className="max-w-md mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-16">
         <div className="text-center mb-8">
           <h1 className="font-serif text-3xl text-[#1d2832] mb-2">
-            {isLogin ? 'Welcome back' : 'Create your account'}
+            {isLogin ? t('signIn') : t('signUp')}
           </h1>
           <p className="text-[#43474c]">
             {isLogin ? 'Sign in to access your Zestio account' : 'Start transforming your property photos today'}
@@ -121,7 +124,7 @@ export default function AuthPage() {
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
-            <span className="font-medium text-[#1d2832]">Continue with Google</span>
+            <span className="font-medium text-[#1d2832]">{t('signInWithGoogle')}</span>
           </button>
 
           <div className="relative my-6">
@@ -129,14 +132,14 @@ export default function AuthPage() {
               <div className="w-full border-t border-[#c4c6cd]/20"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-[#43474c]">Or continue with email</span>
+              <span className="px-4 bg-white text-[#43474c]">{t('or')}</span>
             </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-[#1d2832] mb-1">
-                Email address
+                {t('email')}
               </label>
               <input
                 id="email"
@@ -150,7 +153,7 @@ export default function AuthPage() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-[#1d2832] mb-1">
-                Password
+                {t('password')}
               </label>
               <input
                 id="password"
@@ -165,7 +168,7 @@ export default function AuthPage() {
             {!isLogin && (
               <div>
                 <label htmlFor="confirmPassword" className="block text-sm font-medium text-[#1d2832] mb-1">
-                  Confirm password
+                  {t('confirmPassword')}
                 </label>
                 <input
                   id="confirmPassword"
@@ -181,7 +184,7 @@ export default function AuthPage() {
             {isLogin && (
               <div className="flex justify-end">
                 <button type="button" className="text-sm text-[#006c4d] hover:underline">
-                  Forgot password?
+                  {t('forgotPassword')}
                 </button>
               </div>
             )}
@@ -194,11 +197,11 @@ export default function AuthPage() {
               {isLoading ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Processing...
+                  {tc('processing')}
                 </>
               ) : (
                 <>
-                  {isLogin ? 'Sign in' : 'Create account'}
+                  {isLogin ? t('signIn') : t('signUp')}
                   <span className="material-symbols-outlined text-base">arrow_forward</span>
                 </>
               )}
@@ -214,22 +217,22 @@ export default function AuthPage() {
           <div className="mt-6 text-center text-sm text-[#43474c]">
             {isLogin ? (
               <>
-                Don&apos;t have an account?{' '}
+                {t('noAccount')}{' '}
                 <button
                   onClick={() => { setIsLogin(false); setError(null); }}
                   className="text-[#006c4d] hover:underline font-medium"
                 >
-                  Sign up
+                  {t('signUp')}
                 </button>
               </>
             ) : (
               <>
-                Already have an account?{' '}
+                {t('haveAccount')}{' '}
                 <button
                   onClick={() => { setIsLogin(true); setError(null); }}
                   className="text-[#006c4d] hover:underline font-medium"
                 >
-                  Sign in
+                  {t('signIn')}
                 </button>
               </>
             )}

@@ -4,8 +4,10 @@ import { useState } from 'react';
 import { Header } from '@/components/Header';
 import Link from 'next/link';
 import { PLANS, CREDIT_BREAKDOWN, TOP_UP_PACKS } from '@/lib/pricing';
+import { useTranslations } from 'next-intl';
 
 export default function PricingPage() {
+  const t = useTranslations('pricing');
   const [loadingPack, setLoadingPack] = useState<number | null>(null);
 
   const handleTopUp = async (credits: number) => {
@@ -38,16 +40,16 @@ export default function PricingPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-16">
         <div className="text-center mb-16">
           <h1 className="font-serif text-4xl md:text-5xl text-[#1d2832] mb-4">
-            Simple Credit-Based Pricing
+            {t('simpleCreditPricing')}
           </h1>
           <p className="text-xl text-[#43474c] max-w-2xl mx-auto">
-            Buy credits, use them across all tools. No hidden fees, no surprises.
+            {t('subtitle2')}
           </p>
         </div>
 
         {/* Credit costs */}
         <div className="max-w-2xl mx-auto mb-16">
-          <h2 className="font-serif text-2xl text-[#1d2832] mb-6 text-center">What Credits Buy</h2>
+          <h2 className="font-serif text-2xl text-[#1d2832] mb-6 text-center">{t('whatCreditsBuy')}</h2>
           <div className="bg-white rounded-xl border border-[#c4c6cd]/20 overflow-hidden">
             {CREDIT_BREAKDOWN.map((item, i) => (
               <div
@@ -79,7 +81,7 @@ export default function PricingPage() {
             >
               {plan.popular && (
                 <div className="bg-[#006c4d] text-white text-center py-2 text-xs font-manrope uppercase tracking-widest">
-                  Most Popular
+                  {t('mostPopular')}
                 </div>
               )}
               <div className="p-8">
@@ -90,7 +92,7 @@ export default function PricingPage() {
                   <span className="text-4xl font-bold text-[#1d2832]">{plan.priceLabel}</span>
                   <span className="text-[#43474c] ml-2">{plan.period}</span>
                   <span className="block text-sm text-[#006c4d] font-medium mt-1">
-                    {plan.credits} credits/month
+                    {plan.credits} {t('creditsPerMonth')}
                   </span>
                 </div>
 
@@ -112,7 +114,7 @@ export default function PricingPage() {
                   }`
                 }
                 >
-                  {plan.name === 'Free' ? 'Get Started Free' : plan.name === 'Enterprise' ? 'Contact Sales' : 'Start Pro Trial'}
+                  {plan.name === 'Free' ? t('getStartedFree') : plan.name === 'Enterprise' ? t('contactSales') : t('startProTrial')}
                 </Link>
               </div>
             </div>
@@ -122,8 +124,8 @@ export default function PricingPage() {
         {/* Top-up Packs */}
         <div className="mt-20 max-w-3xl mx-auto">
           <div className="text-center mb-8">
-            <h2 className="font-serif text-2xl text-[#1d2832] mb-2">Need More Credits?</h2>
-            <p className="text-[#43474c]">Top up anytime — credits never expire within your billing period.</p>
+            <h2 className="font-serif text-2xl text-[#1d2832] mb-2">{t('needMoreCredits')}</h2>
+            <p className="text-[#43474c]">{t('needMoreCreditsDesc')}</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {TOP_UP_PACKS.map((pack) => (
@@ -145,7 +147,7 @@ export default function PricingPage() {
                       : 'bg-[#edf4ff] text-[#1d2832] hover:bg-[#e3efff]'
                   }`}
                 >
-                  {loadingPack === pack.credits ? 'Redirecting...' : 'Buy Now'}
+                  {loadingPack === pack.credits ? t('redirecting') : t('buyNow')}
                 </button>
               </div>
             ))}
@@ -154,7 +156,7 @@ export default function PricingPage() {
 
         {/* FAQ */}
         <div className="mt-20 max-w-2xl mx-auto">
-          <h2 className="font-serif text-2xl text-[#1d2832] mb-8 text-center">Pricing FAQ</h2>
+          <h2 className="font-serif text-2xl text-[#1d2832] mb-8 text-center">{t('pricingFaq')}</h2>
           <div className="space-y-3">
             <details className="bg-white rounded-lg border border-[#c4c6cd]/20 p-6 group">
               <summary className="font-medium text-[#1d2832] cursor-pointer list-none flex justify-between items-center">

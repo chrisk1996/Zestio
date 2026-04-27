@@ -18,6 +18,7 @@ interface ToolDef {
 const tools: ToolDef[] = [
   { id: 'auto-lighting', icon: 'light_mode', label: 'Auto-Lighting', apiType: 'auto', tab: 'enhance' },
   { id: 'denoise', icon: 'grain', label: 'Denoise & Sharp', apiType: 'denoise', tab: 'enhance' },
+  { id: 'upscale-4k', icon: 'hd', label: 'Upscale 4K', apiType: 'upscale', tab: 'enhance' },
   { id: 'sky-blue', icon: 'wb_sunny', label: 'Blue Sky', apiType: 'sky', tab: 'enhance' },
   { id: 'sky-sunset', icon: 'wb_twilight', label: 'Golden Sunset', apiType: 'sky_sunset', tab: 'enhance' },
   { id: 'sky-dramatic', icon: 'cloud', label: 'Dramatic Clouds', apiType: 'sky_dramatic', tab: 'enhance' },
@@ -201,10 +202,15 @@ export function ImageStudio({ className = '' }: { className?: string }) {
     setError(null);
 
     try {
-      const endpoint = tool.tab === 'stage' ? '/api/staging' : '/api/enhance';
+      const endpoint = tool.apiType === 'upscale'
+        ? '/api/upscale'
+        : tool.tab === 'stage' ? '/api/staging' : '/api/enhance';
       const body: Record<string, unknown> = { image: inputImage, model: selectedModel };
 
-      if (tool.tab === 'stage') {
+      if (tool.apiType === 'upscale') {
+        body.scale = 4;
+        delete body.model;
+      } else if (tool.tab === 'stage') {
         body.roomType = tool.apiType;
         body.furnitureStyle = selectedStyle;
       } else if (tool.tab === 'renovate') {
@@ -243,7 +249,9 @@ export function ImageStudio({ className = '' }: { className?: string }) {
       i.status === 'pending' ? { ...i, status: 'processing' as const } : i
     ));
 
-    const endpoint = tool.tab === 'stage' ? '/api/staging' : '/api/enhance';
+    const endpoint = tool.apiType === 'upscale'
+      ? '/api/upscale'
+      : tool.tab === 'stage' ? '/api/staging' : '/api/enhance';
     let failedCount = 0;
 
     // Process sequentially to avoid rate limits
@@ -251,7 +259,10 @@ export function ImageStudio({ className = '' }: { className?: string }) {
       try {
         const body: Record<string, unknown> = { image: item.input, model: selectedModel };
 
-        if (tool.tab === 'stage') {
+        if (tool.apiType === 'upscale') {
+          body.scale = 4;
+          delete body.model;
+        } else if (tool.tab === 'stage') {
           body.roomType = tool.apiType;
           body.furnitureStyle = selectedStyle;
         } else if (tool.tab === 'renovate') {

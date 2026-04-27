@@ -5,6 +5,7 @@ import { AppLayout } from '@/components/layout';
 import { Library, Image, Download, Trash2, Clock, Video, Sofa, Sparkles, Wand2 } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
+import { useTranslations } from 'next-intl';
 
 interface EnhancementJob {
   id: string;
@@ -28,6 +29,8 @@ const filterOptions: { id: FilterType; label: string; icon: React.ReactNode }[] 
 ];
 
 export default function LibraryPage() {
+  const t = useTranslations('library');
+  const tc = useTranslations('common');
   const [jobs, setJobs] = useState<EnhancementJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -173,8 +176,8 @@ export default function LibraryPage() {
               <Library className="w-6 h-6 text-indigo-600" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Image & Video Library</h1>
-              <p className="text-gray-600">View and manage your created content</p>
+              <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+              <p className="text-gray-600">{t('subtitle')}</p>
             </div>
           </div>
         </div>
@@ -224,8 +227,8 @@ export default function LibraryPage() {
         {!loading && jobs.length === 0 && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
             <Image className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No content yet</h3>
-            <p className="text-gray-500 mb-6">Start by creating your first enhancement, staging, or video</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('noItems')}</h3>
+            <p className="text-gray-500 mb-6">{t('noItems')}</p>
             <div className="flex flex-wrap justify-center gap-3">
               <Link
                 href="/enhance"
@@ -333,7 +336,7 @@ export default function LibraryPage() {
                           className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
                         >
                           <Download className="w-4 h-4" />
-                          Download
+                          {t('download')}
                         </button>
                         <button
                           onClick={() => handleDelete(job.id)}
@@ -351,7 +354,7 @@ export default function LibraryPage() {
                     {job.status === 'processing' && (
                       <div className="flex items-center gap-2 text-sm text-blue-600 mt-2">
                         <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                        Processing...
+                        {tc('processing')}
                       </div>
                     )}
                   </div>

@@ -6,6 +6,7 @@ import { GlobalErrorTelemetry } from "@/components/GlobalErrorTelemetry";
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { locales, type Locale } from '@/i18n/config';
+import { createClient } from '@/utils/supabase/server';
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -20,8 +21,22 @@ export const metadata: Metadata = {
 };
 
 async function getLocale(): Promise<Locale> {
-  // Default to German for initial render
-  // Client-side will update based on user preference
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data } = await supabase
+        .from('zestio_users')
+        .select('language')
+        .eq('id', user.id)
+        .single();
+      if (data?.language && locales.includes(data.language as Locale)) {
+        return data.language as Locale;
+      }
+    }
+  } catch {
+    // Not logged in or error — use default
+  }
   return 'de';
 }
 
@@ -29,7 +44,7 @@ export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const locale = await getLocale();
-  const messages = await getMessages();
+  const messages = await getMessages({ locale });
 
   return (
     <html lang={locale}>

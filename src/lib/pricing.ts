@@ -4,6 +4,7 @@
 export const CREDIT_COSTS = {
   ENHANCE_BASIC: 1,     // Auto, HDR, Sharpen, Denoise
   ENHANCE_PREMIUM: 2,   // Sky Replace, Season, Staging, Object Removal
+  UPSCALE: 2,           // AI upscaling to 4K
   VIDEO_GENERATION: 5,  // Full pipeline: sort → stage → animate → stitch
   LISTING_DESCRIPTION: 0, // Free
   SMART_CAPTIONS: 0,    // Free

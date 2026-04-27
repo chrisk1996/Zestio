@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
+import { useTranslations } from 'next-intl';
 
 interface TopNavBarProps {
   title?: string;
@@ -12,6 +13,7 @@ interface TopNavBarProps {
 export default function TopNavBar({ title = 'Editor Workspace', onSave, onExport }: TopNavBarProps) {
   const [userInitial, setUserInitial] = useState('U');
   const supabase = createClient();
+  const t = useTranslations('common');
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -34,7 +36,7 @@ export default function TopNavBar({ title = 'Editor Workspace', onSave, onExport
             onClick={onSave}
             className="px-3 md:px-4 py-2 text-blue-600 font-semibold hover:bg-blue-50 rounded-lg transition-colors text-sm"
           >
-            Save
+            {t('save')}
           </button>
         )}
         {onExport && (

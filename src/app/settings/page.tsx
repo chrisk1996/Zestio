@@ -5,6 +5,7 @@ import { AppLayout } from '@/components/layout';
 import { Loader2, AlertCircle, User, Bell, Globe, Moon, Shield, LogOut, Key, Plus, Trash2, Copy, ExternalLink } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { locales, localeNames, localeFlags, type Locale } from '@/i18n/config';
+import { useTranslations } from 'next-intl';
 
 interface UserData {
   email: string;
@@ -14,6 +15,7 @@ interface UserData {
 }
 
 export default function SettingsPage() {
+  const t = useTranslations('settings');
   const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -195,8 +197,8 @@ export default function SettingsPage() {
       <div className="p-8 max-w-3xl">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-          <p className="text-gray-600">Manage your account preferences</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+          <p className="text-gray-600">{t('subtitle')}</p>
         </div>
 
         {error && (
@@ -217,23 +219,23 @@ export default function SettingsPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
           <div className="flex items-center gap-3 mb-4">
             <User className="w-5 h-5 text-gray-500" />
-            <h2 className="text-lg font-semibold text-gray-900">Profile</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{t('profile')}</h2>
           </div>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('email')}</label>
               <input
                 type="email"
                 value={user?.email || ''}
                 disabled
                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 cursor-not-allowed"
               />
-              <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+              <p className="text-xs text-gray-500 mt-1">{t('emailCannotChange')}</p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('fullName')}</label>
               <input
                 type="text"
                 value={name}
@@ -251,10 +253,10 @@ export default function SettingsPage() {
               {saving ? (
                 <span className="flex items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Saving...
+                  {t('saving')}...
                 </span>
               ) : (
-                'Save Changes'
+                t('saveChanges')
               )}
             </button>
           </div>
@@ -264,15 +266,15 @@ export default function SettingsPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
           <div className="flex items-center gap-3 mb-4">
             <Globe className="w-5 h-5 text-gray-500" />
-            <h2 className="text-lg font-semibold text-gray-900">Preferences</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{t('preferences')}</h2>
           </div>
 
           <div className="space-y-4">
             {/* Language */}
             <div className="flex items-center justify-between py-2">
               <div>
-                <p className="font-medium text-gray-900">Language</p>
-                <p className="text-sm text-gray-500">Choose your preferred language</p>
+                <p className="font-medium text-gray-900">{t('language')}</p>
+                <p className="text-sm text-gray-500">{t('languageDesc')}</p>
               </div>
               <div className="relative">
                 <select
@@ -298,8 +300,8 @@ export default function SettingsPage() {
               <div className="flex items-center gap-3">
                 <Moon className="w-5 h-5 text-gray-400" />
                 <div>
-                  <p className="font-medium text-gray-900">Dark Mode</p>
-                  <p className="text-sm text-gray-500">Switch to dark theme</p>
+                  <p className="font-medium text-gray-900">{t('darkMode')}</p>
+                  <p className="text-sm text-gray-500">{t('darkModeDesc')}</p>
                 </div>
               </div>
               <button className="relative w-12 h-6 bg-gray-200 rounded-full transition-colors">
@@ -312,8 +314,8 @@ export default function SettingsPage() {
               <div className="flex items-center gap-3">
                 <Bell className="w-5 h-5 text-gray-400" />
                 <div>
-                  <p className="font-medium text-gray-900">Email Notifications</p>
-                  <p className="text-sm text-gray-500">Receive updates about your account</p>
+                  <p className="font-medium text-gray-900">{t('emailNotifications')}</p>
+                  <p className="text-sm text-gray-500">{t('emailNotificationsDesc')}</p>
                 </div>
               </div>
               <button className="relative w-12 h-6 bg-indigo-600 rounded-full transition-colors">
@@ -329,8 +331,8 @@ export default function SettingsPage() {
             <div className="flex items-center gap-3">
               <Key className="w-5 h-5 text-gray-500" />
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">API Keys</h2>
-                <p className="text-sm text-gray-500">Manage keys for external access</p>
+                <h2 className="text-lg font-semibold text-gray-900">{t('apiKeys')}</h2>
+                <p className="text-sm text-gray-500">{t('apiKeysDesc')}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -346,7 +348,7 @@ export default function SettingsPage() {
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
               >
                 <Plus className="w-4 h-4" />
-                New Key
+                {t('newKey')}
               </button>
             </div>
           </div>
@@ -368,7 +370,7 @@ export default function SettingsPage() {
                   disabled={creatingKey || !newKeyName.trim()}
                   className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium disabled:opacity-50"
                 >
-                  {creatingKey ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create'}
+                  {creatingKey ? <Loader2 className="w-4 h-4 animate-spin" /> : t('create')}
                 </button>
                 <button
                   onClick={() => { setShowCreateKey(false); setNewKeyName(''); }}
@@ -383,7 +385,7 @@ export default function SettingsPage() {
           {/* Revealed Key Banner */}
           {revealedKey && (
             <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-4">
-              <p className="text-sm font-medium text-emerald-800 mb-2">🔑 Key created! Copy it now — it won't be shown again.</p>
+              <p className="text-sm font-medium text-emerald-800 mb-2">{t('keyCreated')}</p>
               <div className="flex items-center gap-2">
                 <code className="flex-1 bg-white px-3 py-2 rounded border text-sm font-mono text-slate-800 overflow-x-auto">{revealedKey}</code>
                 <button
@@ -392,7 +394,7 @@ export default function SettingsPage() {
                 >
                   <Copy className="w-4 h-4" />
                 </button>
-                {copied && <span className="text-xs text-emerald-600 font-medium">Copied!</span>}
+                {copied && <span className="text-xs text-emerald-600 font-medium">{t('copied')}</span>}
               </div>
             </div>
           )}
@@ -400,12 +402,12 @@ export default function SettingsPage() {
           {/* Keys List */}
           <div className="space-y-2">
             {apiKeys === undefined ? (
-              <div className="text-center py-4 text-gray-400 text-sm">Loading keys...</div>
+              <div className="text-center py-4 text-gray-400 text-sm">{t('loadingKeys')}</div>
             ) : apiKeys.length === 0 ? (
               <div className="text-center py-8">
                 <Key className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm text-gray-500">No API keys yet</p>
-                <p className="text-xs text-gray-400 mt-1">Create one to start using the API</p>
+                <p className="text-sm text-gray-500">{t('noApiKeys')}</p>
+                <p className="text-xs text-gray-400 mt-1">{t('noApiKeysDesc')}</p>
               </div>
             ) : (
               apiKeys.map((key) => (
@@ -439,7 +441,7 @@ export default function SettingsPage() {
             )}
           </div>
 
-          <p className="text-xs text-gray-400 mt-3">Maximum 5 active keys per account.</p>
+          <p className="text-xs text-gray-400 mt-3">{t('maxKeys')}</p>
         </div>
 
         {/* Credits & Billing */}
@@ -447,19 +449,19 @@ export default function SettingsPage() {
           <div className="flex items-center gap-3 mb-4">
             <span className="material-symbols-outlined text-[#006c4d]">account_balance_wallet</span>
             <div>
-              <p className="font-medium text-gray-900">Credits & Billing</p>
-              <p className="text-sm text-gray-500">Manage your subscription and top up credits</p>
+              <p className="font-medium text-gray-900">{t('billing')}</p>
+              <p className="text-sm text-gray-500">{t('billingDesc')}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4 mb-4">
             <a href="/billing" className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-              <span className="text-xs text-gray-500 font-medium uppercase tracking-wider">Manage Subscription</span>
-              <span className="block mt-1 text-sm text-gray-900">Billing portal →</span>
+              <span className="text-xs text-gray-500 font-medium uppercase tracking-wider">{t('manage')}</span>
+              <span className="block mt-1 text-sm text-gray-900">{t('billingPortal')}</span>
             </a>
             <a href="/pricing" className="p-4 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors">
-              <span className="text-xs text-emerald-600 font-medium uppercase tracking-wider">Buy Credits</span>
-              <span className="block mt-1 text-sm text-gray-900">Top up packs →</span>
+              <span className="text-xs text-emerald-600 font-medium uppercase tracking-wider">{t('buyCredits')}</span>
+              <span className="block mt-1 text-sm text-gray-900">{t('topUpPacks')}</span>
             </a>
           </div>
         </div>
@@ -468,16 +470,16 @@ export default function SettingsPage() {
         <div className="bg-white rounded-xl border border-red-200 p-6">
           <div className="flex items-center gap-3 mb-4">
             <LogOut className="w-5 h-5 text-red-500" />
-            <h2 className="text-lg font-semibold text-gray-900">Sign Out</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{t('signOut')}</h2>
           </div>
           <p className="text-sm text-gray-500 mb-4">
-            Sign out of your account on this device.
+            {t('signOutDesc')}
           </p>
           <button
             onClick={handleSignOut}
             className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
           >
-            Sign Out
+            {t('signOut')}
           </button>
         </div>
       </div>

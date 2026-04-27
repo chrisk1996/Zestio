@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { AppLayout } from '@/components/layout';
 import { CreditCard, Loader2, AlertCircle, Check, Zap, Crown, Building2, ArrowUpRight, Calendar, Clock, XCircle } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
+import { useTranslations } from 'next-intl';
 
 interface UserData {
   email: string;
@@ -40,6 +41,7 @@ const plans = Object.values(PLANS).map(p => ({
 }));
 
 export default function BillingPage() {
+  const t = useTranslations('billing');
   const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -211,8 +213,8 @@ export default function BillingPage() {
       <div className="p-8 max-w-5xl">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Billing & Credits</h1>
-          <p className="text-gray-600">Manage your subscription and credit usage</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+          <p className="text-gray-600">{t('subtitle')}</p>
         </div>
 
         {error && (
@@ -227,10 +229,10 @@ export default function BillingPage() {
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
             <div>
-              <p className="text-yellow-800 font-medium">Subscription Ending</p>
+              <p className="text-yellow-800 font-medium">{t('subscriptionEnding')}</p>
               <p className="text-yellow-700 text-sm mt-1">
-                Your subscription will end on <strong>{formatDate(user?.subscription_current_period_end)}</strong>.
-                You'll still have access until then. To reactivate, click Manage Subscription below.
+                {t('subscriptionEndingDesc')} <strong>{formatDate(user?.subscription_current_period_end)}</strong>.
+                {t('subscriptionAccess')} {t('toReactivate')}
               </p>
             </div>
           </div>
@@ -240,10 +242,10 @@ export default function BillingPage() {
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6 flex items-start gap-3">
             <XCircle className="w-5 h-5 text-gray-500 mt-0.5" />
             <div>
-              <p className="text-gray-700 font-medium">Subscription Canceled</p>
+              <p className="text-gray-700 font-medium">{t('subscriptionCanceled')}</p>
               <p className="text-gray-600 text-sm mt-1">
-                Your subscription was canceled on <strong>{formatDate(user?.subscription_canceled_at)}</strong>.
-                You're now on the Free plan.
+                {t('subscriptionCanceledDesc')} <strong>{formatDate(user?.subscription_canceled_at)}</strong>.
+                {t('freePlanDesc')}
               </p>
             </div>
           </div>
@@ -253,7 +255,7 @@ export default function BillingPage() {
         <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-6 mb-8 text-white shadow-lg">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <p className="text-indigo-200 text-sm font-medium">Current Plan</p>
+              <p className="text-indigo-200 text-sm font-medium">{t('currentPlan')}</p>
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-2xl font-bold">{currentPlan.name}</span>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium uppercase ${
@@ -261,7 +263,7 @@ export default function BillingPage() {
                   isCanceled ? 'bg-gray-400/30 text-gray-200' :
                   'bg-white/20'
                 }`}>
-                  {isCancelAtPeriodEnd ? 'Ending' : isCanceled ? 'Canceled' : 'Active'}
+                  {isCancelAtPeriodEnd ? t('ending') : isCanceled ? t('canceled') : t('active')}
                 </span>
               </div>
             </div>
@@ -273,7 +275,7 @@ export default function BillingPage() {
           {/* Credit Progress Bar */}
           <div className="bg-white/10 rounded-lg p-4">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-sm text-indigo-200">Credits Remaining</span>
+              <span className="text-sm text-indigo-200">{t('creditsRemaining')}</span>
               <span className="text-lg font-bold">
                 {`${user?.credits_remaining} / ${user?.credits_total}`}
               </span>
@@ -285,15 +287,15 @@ export default function BillingPage() {
         />
       </div>
       <div className="flex justify-between mt-2 text-xs text-indigo-200">
-        <span>{user?.credits_used} used</span>
-        <span>{`${getCreditPercentage()}% remaining`}</span>
+        <span>{user?.credits_used} {t('used')}</span>
+        <span>{`${getCreditPercentage()}% ${t('remaining')}`}</span>
       </div>
             </div>
 
       {/* Top Up Credits */}
 
           <div className="mt-4 bg-white/10 rounded-lg p-4">
-            <span className="text-sm text-indigo-200 block mb-3">Need more credits?</span>
+            <span className="text-sm text-indigo-200 block mb-3">{t('needMoreCredits')}</span>
             <div className="flex gap-2">
               <button
                 onClick={() => handleTopUp(50)}
@@ -346,7 +348,7 @@ export default function BillingPage() {
               ) : (
                 <>
                   <CreditCard className="w-4 h-4" />
-                  {isCancelAtPeriodEnd ? 'Reactivate Subscription' : 'Manage Subscription'}
+                  {isCancelAtPeriodEnd ? t('reactivateSubscription') : t('manageSubscription')}
                 </>
               )}
             </button>
@@ -355,7 +357,7 @@ export default function BillingPage() {
 
         {/* Plans Comparison */}
         <div className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Available Plans</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('availablePlans')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {plans.map((plan) => {
               const Icon = plan.icon;
@@ -371,14 +373,14 @@ export default function BillingPage() {
                 >
                   {plan.popular && !isCurrent && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-indigo-600 text-white text-xs font-medium rounded-full">
-                      Most Popular
+                      {t('mostPopular')}
                     </div>
                   )}
 
                   {isCurrent && (
                     <div className="absolute -top-3 right-4 px-3 py-1 bg-green-600 text-white text-xs font-medium rounded-full flex items-center gap-1">
                       <Check className="w-3 h-3" />
-                      Current
+                      {t('current')}
                     </div>
                   )}
 
@@ -393,7 +395,7 @@ export default function BillingPage() {
                   </div>
 
                   <p className="text-sm text-gray-600 mt-2">
-                    {plan.credits} credits/month
+                    {plan.credits} {t('credits')}
                   </p>
 
                   <ul className="mt-4 space-y-2">
@@ -420,7 +422,7 @@ export default function BillingPage() {
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         <>
-                          {user?.plan !== 'free' ? 'Switch Plan' : 'Subscribe'}
+                          {user?.plan !== 'free' ? t('switchPlan') : t('subscribe')}
                           <ArrowUpRight className="w-4 h-4" />
                         </>
                       )}
