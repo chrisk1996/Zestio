@@ -34,6 +34,9 @@ export default function LibraryPage() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const supabase = createClient();
 
+  const [compareJob, setCompareJob] = useState<EnhancementJob | null>(null);
+  const [sliderPos, setSliderPos] = useState(50);
+
   useEffect(() => {
     loadJobs();
   }, []);
@@ -265,24 +268,46 @@ export default function LibraryPage() {
                 <div key={job.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                   {/* Image Preview */}
                   <div className="relative aspect-video bg-gray-100">
-                    {job.output_url ? (
-                      job.job_type === 'video' ? (
-                        <video src={job.output_url} className="w-full h-full object-cover" controls muted />
-                      ) : (
-                        <img src={job.output_url} alt="Output" className="w-full h-full object-cover" />
-                      )
+                    {job.output_url && job.input_url && job.job_type !== 'video' ? (
+                      <>
+                        <div className="relative w-full h-full">
+                          <img src={job.output_url} alt="Result" className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 overflow-hidden" style={{ width: `${sliderPos}%` }}>
+                            <img src={job.input_url} alt="Original" className="absolute inset-0 h-full object-cover" style={{ width: `${100 / (sliderPos / 100)}%`, maxWidth: 'none' }} />
+                          </div>
+                          <div className="absolute top-0 bottom-0 w-0.5 bg-white shadow-lg" style={{ left: `${sliderPos}%`, transform: 'translateX(-50%)' }}>
+                            <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-6 h-6 bg-white rounded-full shadow-md flex items-center justify-center">
+                              <span className="text-gray-600 text-xs">⇔</span>
+                            </div>
+                          </div>
+                        </div>
+                        <span className={`absolute top-3 right-3 px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(job.status)}`}>
+                          {job.status}
+                        </span>
+                      </>
+                    ) : job.output_url ? (
+                      <>
+                        {job.job_type === 'video' ? (
+                          <video src={job.output_url} className="w-full h-full object-cover" controls muted />
+                        ) : (
+                          <img src={job.output_url} alt="Output" className="w-full h-full object-cover" />
+                        )}
+                        <span className={`absolute top-3 right-3 px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(job.status)}`}>
+                          {job.status}
+                        </span>
+                      </>
                     ) : job.input_url ? (
-                      <img src={job.input_url} alt="Original" className="w-full h-full object-cover opacity-50" />
+                      <>
+                        <img src={job.input_url} alt="Original" className="w-full h-full object-cover opacity-50" />
+                        <span className={`absolute top-3 right-3 px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(job.status)}`}>
+                          {job.status}
+                        </span>
+                      </>
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <Image className="w-8 h-8 text-gray-300" />
                       </div>
                     )}
-
-                    {/* Status Badge */}
-                    <span className={`absolute top-3 right-3 px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(job.status)}`}>
-                      {job.status}
-                    </span>
                   </div>
 
                   {/* Details */}

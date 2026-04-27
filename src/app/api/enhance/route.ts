@@ -210,6 +210,17 @@ export async function POST(request: NextRequest) {
 
       logCreditTransaction({ userId, type: 'usage', amount: -creditsUsed, description: `Photo enhancement (${model})` }).catch(() => {});
 
+      // Save to library (zestio_jobs)
+      supabase.from('zestio_jobs').insert({
+        user_id: userId,
+        input_url: image,
+        output_url: resultUrl,
+        job_type: enhancementType || 'enhance',
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        metadata: { enhancementType, model, creditsUsed },
+      }).then(({ error }) => { if (error) console.warn('[Enhance] Failed to save job:', error.message); });
+
       return NextResponse.json({
         success: true,
         output: resultUrl,

@@ -293,7 +293,6 @@ export async function POST(request: NextRequest) {
       // Deduct credits atomically
       const remainingCredits = await deductCredits(supabase, userId, creditsUsed);
 
-      // Log usage
       logApiUsage({
         apiKeyId: authResult.apiKeyId,
         userId,
@@ -305,6 +304,17 @@ export async function POST(request: NextRequest) {
       }).catch(() => {});
 
       logCreditTransaction({ userId, type: 'usage', amount: -creditsUsed, description: `Virtual staging (${usedModel})` }).catch(() => {});
+
+      // Save to library (zestio_jobs)
+      supabase.from('zestio_jobs').insert({
+        user_id: userId,
+        input_url: image,
+        output_url: outputUrl,
+        job_type: 'staging',
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        metadata: { roomType, furnitureStyle, model: usedModel, creditsUsed },
+      }).then(({ error }) => { if (error) console.warn('[Staging] Failed to save job:', error.message); });
 
       return NextResponse.json({
         success: true,

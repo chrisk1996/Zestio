@@ -16,7 +16,6 @@ interface ToolDef {
 
 // ── Tool definitions ───────────────────────────────────────────────────────
 const tools: ToolDef[] = [
-  // Enhance
   { id: 'auto-lighting', icon: 'light_mode', label: 'Auto-Lighting', apiType: 'auto', tab: 'enhance' },
   { id: 'denoise', icon: 'grain', label: 'Denoise & Sharp', apiType: 'denoise', tab: 'enhance' },
   { id: 'sky-blue', icon: 'wb_sunny', label: 'Blue Sky', apiType: 'sky', tab: 'enhance' },
@@ -26,7 +25,6 @@ const tools: ToolDef[] = [
   { id: 'season-summer', icon: 'local_florist', label: 'Summer', apiType: 'season_summer', tab: 'enhance' },
   { id: 'season-autumn', icon: 'eco', label: 'Autumn', apiType: 'season_autumn', tab: 'enhance' },
   { id: 'season-winter', icon: 'ac_unit', label: 'Winter', apiType: 'season_winter', tab: 'enhance' },
-  // Stage
   { id: 'stage-living', icon: 'weekend', label: 'Living Room', apiType: 'living', tab: 'stage' },
   { id: 'stage-bedroom', icon: 'bed', label: 'Bedroom', apiType: 'bedroom', tab: 'stage' },
   { id: 'stage-kitchen', icon: 'countertops', label: 'Kitchen', apiType: 'kitchen', tab: 'stage' },
@@ -35,7 +33,6 @@ const tools: ToolDef[] = [
   { id: 'stage-office', icon: 'desk', label: 'Office', apiType: 'office', tab: 'stage' },
   { id: 'stage-basement', icon: 'foundation', label: 'Basement', apiType: 'basement', tab: 'stage' },
   { id: 'stage-patio', icon: 'deck', label: 'Patio', apiType: 'patio', tab: 'stage' },
-  // Renovate
   { id: 'reno-kitchen', icon: 'kitchen', label: 'Kitchen Remodel', apiType: 'kitchen_renovate', tab: 'renovate' },
   { id: 'reno-bathroom', icon: 'shower', label: 'Bathroom Remodel', apiType: 'bathroom_renovate', tab: 'renovate' },
   { id: 'reno-living', icon: 'chair', label: 'Living Room', apiType: 'living_renovate', tab: 'renovate' },
@@ -43,7 +40,6 @@ const tools: ToolDef[] = [
   { id: 'reno-exterior', icon: 'home', label: 'Exterior Facelift', apiType: 'exterior_renovate', tab: 'renovate' },
   { id: 'reno-flooring', icon: 'grid_on', label: 'New Flooring', apiType: 'flooring_renovate', tab: 'renovate' },
   { id: 'reno-paint', icon: 'format_paint', label: 'Repaint Walls', apiType: 'paint_renovate', tab: 'renovate' },
-  // Cleanup
   { id: 'object-removal', icon: 'delete_sweep', label: 'Object Removal', apiType: 'object_removal', tab: 'cleanup' },
   { id: 'declutter', icon: 'cleaning_services', label: 'Declutter', apiType: 'declutter', tab: 'cleanup' },
   { id: 'curb-appeal', icon: 'yard', label: 'Curb Appeal', apiType: 'curb_appeal', tab: 'cleanup' },
@@ -67,6 +63,15 @@ const styleOptions = [
   { value: 'midcentury', label: 'Mid-Century' },
   { value: 'farmhouse', label: 'Farmhouse' },
 ];
+
+// ── Batch item ────────────────────────────────────────────────────────────
+interface BatchItem {
+  id: string;
+  input: string;
+  output: string | null;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  error?: string;
+}
 
 // ── Before/After Slider Component ──────────────────────────────────────────
 function BeforeAfterSlider({ before, after }: { before: string; after: string }) {
@@ -105,23 +110,16 @@ function BeforeAfterSlider({ before, after }: { before: string; after: string })
       onMouseDown={(e) => { e.stopPropagation(); setDragging(true); updatePosition(e.clientX); }}
       onTouchStart={(e) => { e.stopPropagation(); setDragging(true); updatePosition(e.touches[0].clientX); }}
     >
-      {/* After (full) */}
       <img src={after} alt="After" className="absolute inset-0 w-full h-full object-cover" draggable={false} />
-
-      {/* Before (clipped at full size) */}
       <div className="absolute inset-0 overflow-hidden" style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}>
         <img src={before} alt="Before" className="absolute inset-0 w-full h-full object-cover" draggable={false} />
       </div>
-
-      {/* Slider line */}
       <div className="absolute top-0 bottom-0" style={{ left: `${position}%` }}>
         <div className="absolute -translate-x-1/2 top-0 bottom-0 w-0.5 bg-white shadow-lg" />
         <div className="absolute -translate-x-1/2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center">
           <span className="text-slate-600 text-sm font-bold">⟷</span>
         </div>
       </div>
-
-      {/* Labels */}
       <div className="absolute top-3 left-3 bg-black/50 text-white text-xs px-2 py-1 rounded-md font-medium">Before</div>
       <div className="absolute top-3 right-3 bg-black/50 text-white text-xs px-2 py-1 rounded-md font-medium">After</div>
     </div>
@@ -130,8 +128,15 @@ function BeforeAfterSlider({ before, after }: { before: string; after: string })
 
 // ── Main Studio Component ──────────────────────────────────────────────────
 export function ImageStudio({ className = '' }: { className?: string }) {
+  // Single image mode
   const [image, setImage] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
+
+  // Batch mode
+  const [batchItems, setBatchItems] = useState<BatchItem[]>([]);
+  const [batchMode, setBatchMode] = useState(false);
+
+  // Shared state
   const [activeTab, setActiveTab] = useState<StudioTab>('enhance');
   const [selectedTool, setSelectedTool] = useState<string | null>(null);
   const [selectedStyle, setSelectedStyle] = useState('modern');
@@ -140,6 +145,7 @@ export function ImageStudio({ className = '' }: { className?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [selectedBatchItem, setSelectedBatchItem] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [history, setHistory] = useState<Array<{ before: string; after: string; tool: string }>>([]);
 
@@ -147,34 +153,56 @@ export function ImageStudio({ className = '' }: { className?: string }) {
     if (!file.type.startsWith('image/')) return;
     const reader = new FileReader();
     reader.onload = () => {
-      setImage(reader.result as string);
-      setResult(null);
-      setError(null);
+      if (batchMode) {
+        setBatchItems(prev => [...prev, {
+          id: Math.random().toString(36).slice(2),
+          input: reader.result as string,
+          output: null,
+          status: 'pending',
+        }]);
+      } else {
+        setImage(reader.result as string);
+        setResult(null);
+        setError(null);
+      }
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleMultipleFiles = (files: FileList) => {
+    Array.from(files).forEach(f => {
+      if (f.type.startsWith('image/')) handleFile(f);
+    });
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
+    if (batchMode && e.dataTransfer.files.length > 0) {
+      handleMultipleFiles(e.dataTransfer.files);
+    } else if (e.dataTransfer.files[0]) {
+      handleFile(e.dataTransfer.files[0]);
+    }
   };
 
   const handleGenerate = async () => {
-    if (!image || !selectedTool) return;
     const tool = tools.find(t => t.id === selectedTool);
     if (!tool) return;
 
+    if (batchMode) {
+      await handleBatchGenerate(tool);
+    } else if (image) {
+      await handleSingleGenerate(image, tool);
+    }
+  };
+
+  const handleSingleGenerate = async (inputImage: string, tool: ToolDef) => {
     setIsProcessing(true);
     setError(null);
 
     try {
       const endpoint = tool.tab === 'stage' ? '/api/staging' : '/api/enhance';
-      const body: Record<string, unknown> = {
-        image,
-        model: selectedModel,
-      };
+      const body: Record<string, unknown> = { image: inputImage, model: selectedModel };
 
       if (tool.tab === 'stage') {
         body.roomType = tool.apiType;
@@ -195,12 +223,85 @@ export function ImageStudio({ className = '' }: { className?: string }) {
       if (!res.ok) throw new Error(data.error || 'Processing failed');
 
       setResult(data.output);
-      setHistory(prev => [{ before: image, after: data.output, tool: tool.label }, ...prev].slice(0, 10));
+      setHistory(prev => [{ before: inputImage, after: data.output, tool: tool.label }, ...prev].slice(0, 10));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to process image');
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleBatchGenerate = async (tool: ToolDef) => {
+    const pending = batchItems.filter(i => i.status === 'pending');
+    if (pending.length === 0) return;
+
+    setIsProcessing(true);
+    setError(null);
+
+    // Mark all pending as processing
+    setBatchItems(prev => prev.map(i =>
+      i.status === 'pending' ? { ...i, status: 'processing' as const } : i
+    ));
+
+    const endpoint = tool.tab === 'stage' ? '/api/staging' : '/api/enhance';
+    let failedCount = 0;
+
+    // Process sequentially to avoid rate limits
+    for (const item of pending) {
+      try {
+        const body: Record<string, unknown> = { image: item.input, model: selectedModel };
+
+        if (tool.tab === 'stage') {
+          body.roomType = tool.apiType;
+          body.furnitureStyle = selectedStyle;
+        } else if (tool.tab === 'renovate') {
+          body.enhancementType = 'renovate';
+          body.customPrompt = getRenovatePrompt(tool.apiType, selectedStyle);
+        } else {
+          body.enhancementType = tool.apiType;
+        }
+
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          // If out of credits, stop the batch
+          if (res.status === 402) {
+            setBatchItems(prev => prev.map(i =>
+              i.id === item.id ? { ...i, status: 'failed' as const, error: 'Insufficient credits' } : i
+            ));
+            // Mark remaining as failed
+            const remainingIds = pending.filter(p => p.id !== item.id && batchItems.find(b => b.id === p.id)?.status === 'processing').map(p => p.id);
+            if (remainingIds.length > 0) {
+              setBatchItems(prev => prev.map(i =>
+                remainingIds.includes(i.id) ? { ...i, status: 'pending' as const } : i
+              ));
+            }
+            setError(`Out of credits. ${failedCount} images failed. Remaining images not processed.`);
+            break;
+          }
+          throw new Error(data.error || 'Processing failed');
+        }
+
+        setBatchItems(prev => prev.map(i =>
+          i.id === item.id ? { ...i, output: data.output, status: 'completed' as const } : i
+        ));
+      } catch (err) {
+        failedCount++;
+        setBatchItems(prev => prev.map(i =>
+          i.id === item.id ? { ...i, status: 'failed' as const, error: err instanceof Error ? err.message : 'Failed' } : i
+        ));
+      }
+    }
+
+    if (failedCount > 0 && !error) {
+      setError(`${failedCount} of ${pending.length} images failed.`);
+    }
+    setIsProcessing(false);
   };
 
   const downloadResult = () => {
@@ -211,68 +312,208 @@ export function ImageStudio({ className = '' }: { className?: string }) {
     a.click();
   };
 
+  const downloadBatchResults = async () => {
+    const completed = batchItems.filter(i => i.status === 'completed' && i.output);
+    for (const item of completed) {
+      try {
+        const response = await fetch(item.output!);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `zestio_batch_${item.id}.png`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      } catch {
+        window.open(item.output!, '_blank');
+      }
+    }
+  };
+
   const resetAll = () => {
-    setImage(null);
-    setResult(null);
+    if (batchMode) {
+      setBatchItems([]);
+    } else {
+      setImage(null);
+      setResult(null);
+    }
     setSelectedTool(null);
     setError(null);
+    setSelectedBatchItem(null);
+  };
+
+  const toggleBatchMode = () => {
+    setBatchMode(!batchMode);
+    setBatchItems([]);
+    setImage(null);
+    setResult(null);
+    setError(null);
+    setSelectedBatchItem(null);
   };
 
   const filteredTools = tools.filter(t => t.tab === activeTab);
   const showStylePicker = activeTab === 'stage' || activeTab === 'renovate';
 
+  // Batch stats
+  const batchCompleted = batchItems.filter(i => i.status === 'completed').length;
+  const batchFailed = batchItems.filter(i => i.status === 'failed').length;
+  const batchTotal = batchItems.length;
+  const batchPending = batchTotal - batchCompleted - batchFailed;
+  const allBatchDone = batchTotal > 0 && batchPending === 0;
+
+  // Selected batch item for preview
+  const activeBatchItem = selectedBatchItem
+    ? batchItems.find(i => i.id === selectedBatchItem)
+    : batchItems[0];
+
   return (
     <div className={`flex h-full ${className}`}>
       {/* ── Left: Image Area ── */}
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Mode toggle */}
+        <div className="flex items-center gap-2 pb-3">
+          <button
+            onClick={() => !batchMode || toggleBatchMode()}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              !batchMode ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            Single Image
+          </button>
+          <button
+            onClick={() => batchMode || toggleBatchMode()}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              batchMode ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            Batch ({batchTotal})
+          </button>
+          {!batchMode && history.length > 0 && (
+            <button onClick={() => setShowHistory(!showHistory)} className="ml-auto px-3 py-1.5 text-xs text-slate-600 hover:text-slate-800 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">
+              History ({history.length})
+            </button>
+          )}
+        </div>
+
         {/* Image Preview */}
         <div
           className={`flex-1 relative rounded-xl overflow-hidden ${
             dragOver ? 'ring-2 ring-indigo-500' : ''
-          } ${!image ? 'bg-slate-100' : ''}`}
+          } ${!batchMode && !image ? 'bg-slate-100' : batchMode && batchItems.length === 0 ? 'bg-slate-100' : ''}`}
           onDragOver={e => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
         >
-          {result && image ? (
-            <BeforeAfterSlider before={image} after={result} />
-          ) : image ? (
-            <img src={image} alt="Uploaded" className="w-full h-full object-contain" />
+          {batchMode ? (
+            // Batch mode preview
+            batchItems.length === 0 ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                <span className="material-symbols-outlined text-5xl text-slate-300">collections</span>
+                <p className="text-slate-400 text-sm">Drop multiple images for batch processing</p>
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700"
+                >
+                  Browse Files
+                </button>
+              </div>
+            ) : activeBatchItem?.output && activeBatchItem.input ? (
+              <BeforeAfterSlider before={activeBatchItem.input} after={activeBatchItem.output} />
+            ) : activeBatchItem?.input ? (
+              <div className="relative w-full h-full">
+                <img src={activeBatchItem.input} alt="Preview" className="w-full h-full object-contain" />
+                {activeBatchItem.status === 'processing' && (
+                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                    <div className="w-8 h-8 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                  </div>
+                )}
+                {activeBatchItem.status === 'failed' && (
+                  <div className="absolute inset-0 bg-red-500/20 flex items-center justify-center">
+                    <span className="bg-red-600 text-white px-3 py-1 rounded-lg text-sm font-medium">Failed</span>
+                  </div>
+                )}
+              </div>
+            ) : null
           ) : (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-              <span className="material-symbols-outlined text-5xl text-slate-300">add_photo_alternate</span>
-              <p className="text-slate-400 text-sm">Drop an image or click to upload</p>
-              <button
-                onClick={() => fileRef.current?.click()}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700"
-              >
-                Browse Files
-              </button>
-            </div>
+            // Single image mode preview (unchanged)
+            result && image ? (
+              <BeforeAfterSlider before={image} after={result} />
+            ) : image ? (
+              <img src={image} alt="Uploaded" className="w-full h-full object-contain" />
+            ) : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                <span className="material-symbols-outlined text-5xl text-slate-300">add_photo_alternate</span>
+                <p className="text-slate-400 text-sm">Drop an image or click to upload</p>
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700"
+                >
+                  Browse Files
+                </button>
+              </div>
+            )
           )}
-          {!image && (
+          {(!batchMode && !image) && (
             <input
               ref={fileRef}
               type="file"
               accept="image/*"
-              onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])}
+              multiple={batchMode}
+              onChange={e => e.target.files && (batchMode ? handleMultipleFiles(e.target.files) : e.target.files[0] && handleFile(e.target.files[0]))}
               className="absolute inset-0 opacity-0 cursor-pointer"
             />
           )}
         </div>
 
+        {/* Batch thumbnails strip */}
+        {batchMode && batchItems.length > 0 && (
+          <div className="flex gap-2 py-3 overflow-x-auto">
+            {batchItems.map(item => (
+              <button
+                key={item.id}
+                onClick={() => setSelectedBatchItem(item.id)}
+                className={`relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                  selectedBatchItem === item.id ? 'border-indigo-500 shadow-md' : 'border-transparent hover:border-slate-300'
+                }`}
+              >
+                <img src={item.output || item.input} alt="" className="w-full h-full object-cover" />
+                {item.status === 'processing' && (
+                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                    <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  </div>
+                )}
+                {item.status === 'completed' && (
+                  <div className="absolute top-0.5 right-0.5 w-3 h-3 bg-green-500 rounded-full border border-white" />
+                )}
+                {item.status === 'failed' && (
+                  <div className="absolute top-0.5 right-0.5 w-3 h-3 bg-red-500 rounded-full border border-white" />
+                )}
+              </button>
+            ))}
+            <button
+              onClick={() => fileRef.current?.click()}
+              className="flex-shrink-0 w-16 h-16 rounded-lg border-2 border-dashed border-slate-300 flex items-center justify-center hover:border-indigo-400 hover:bg-slate-50 transition-colors"
+            >
+              <span className="material-symbols-outlined text-slate-400 text-xl">add</span>
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={e => e.target.files && handleMultipleFiles(e.target.files)}
+              className="hidden"
+            />
+          </div>
+        )}
+
         {/* Bottom bar */}
-        {(image || result) && (
+        {!batchMode && (image || result) && (
           <div className="flex items-center justify-between py-3 gap-3">
             <div className="flex items-center gap-2">
               {image && (
                 <button onClick={() => fileRef.current?.click()} className="px-3 py-1.5 text-sm text-slate-600 hover:text-slate-800 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">
                   New Image
-                </button>
-              )}
-              {history.length > 0 && (
-                <button onClick={() => setShowHistory(!showHistory)} className="px-3 py-1.5 text-sm text-slate-600 hover:text-slate-800 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">
-                  History ({history.length})
                 </button>
               )}
             </div>
@@ -296,8 +537,33 @@ export function ImageStudio({ className = '' }: { className?: string }) {
           </div>
         )}
 
-        {/* History panel */}
-        {showHistory && history.length > 0 && (
+        {/* Batch progress bar */}
+        {batchMode && batchTotal > 0 && (
+          <div className="flex items-center gap-3 py-2">
+            <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-emerald-500 rounded-full transition-all"
+                style={{ width: `${(batchCompleted / batchTotal) * 100}%` }}
+              />
+            </div>
+            <span className="text-xs text-slate-500 font-medium whitespace-nowrap">
+              {batchCompleted}/{batchTotal} done
+              {batchFailed > 0 && ` (${batchFailed} failed)`}
+            </span>
+            {allBatchDone && batchCompleted > 0 && (
+              <button
+                onClick={downloadBatchResults}
+                className="px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-1"
+              >
+                <span className="material-symbols-outlined text-xs">download</span>
+                Download All
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* History panel (single mode) */}
+        {!batchMode && showHistory && history.length > 0 && (
           <div className="bg-white border border-slate-200 rounded-xl p-3 mt-2">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-semibold text-slate-500">Recent Edits</span>
@@ -395,18 +661,23 @@ export function ImageStudio({ className = '' }: { className?: string }) {
           )}
           <button
             onClick={handleGenerate}
-            disabled={!image || !selectedTool || isProcessing}
+            disabled={
+              (!batchMode && (!image || !selectedTool)) ||
+              (batchMode && (batchItems.length === 0 || !selectedTool)) ||
+              isProcessing ||
+              (!batchMode ? false : batchItems.filter(i => i.status === 'pending').length === 0)
+            }
             className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {isProcessing ? (
               <>
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Processing...
+                {batchMode ? `Processing ${batchCompleted + 1}/${batchTotal}...` : 'Processing...'}
               </>
             ) : (
               <>
                 <span className="material-symbols-outlined text-base">auto_awesome</span>
-                Generate
+                {batchMode ? `Process ${batchItems.filter(i => i.status === 'pending').length} Images` : 'Generate'}
               </>
             )}
           </button>
