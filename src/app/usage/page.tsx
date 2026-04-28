@@ -16,12 +16,12 @@ interface UsageBreakdown {
   [feature: string]: number;
 }
 
-const featureColors: Record<string, string> = {
-  Enhancement: 'bg-indigo-500',
-  'Virtual Staging': 'bg-teal-500',
-  Video: 'bg-purple-500',
-  'Floor Plan': 'bg-amber-500',
-  Other: 'bg-gray-400',
+const featureInfo: Record<string, { labelKey: string; color: string }> = {
+  Enhancement: { labelKey: 'featureEnhancement', color: 'bg-indigo-500' },
+  'Virtual Staging': { labelKey: 'featureVirtualStaging', color: 'bg-teal-500' },
+  Video: { labelKey: 'featureVideo', color: 'bg-purple-500' },
+  'Floor Plan': { labelKey: 'featureFloorPlan', color: 'bg-amber-500' },
+  Other: { labelKey: 'featureOther', color: 'bg-gray-400' },
 };
 
 export default function UsagePage() {
@@ -95,14 +95,14 @@ export default function UsagePage() {
                     <div key={feature}>
                       <div className="flex items-center justify-between text-sm mb-1">
                         <div className="flex items-center gap-2">
-                          <div className={`w-2.5 h-2.5 rounded-full ${featureColors[feature] || 'bg-gray-400'}`} />
-                          <span className="text-gray-700">{feature}</span>
+                          <div className={`w-2.5 h-2.5 rounded-full ${(featureInfo[feature] || featureInfo.Other).color}`} />
+                          <span className="text-gray-700">{t((featureInfo[feature] || featureInfo.Other).labelKey)}</span>
                         </div>
                         <span className="font-medium text-gray-900">{credits} {t('creditsUnit')} ({Math.round(pct)}%)</span>
                       </div>
                       <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                         <div
-                          className={`h-full rounded-full ${featureColors[feature] || 'bg-gray-400'}`}
+                          className={`h-full rounded-full ${(featureInfo[feature] || featureInfo.Other).color}`}
                           style={{ width: `${pct}%` }}
                         />
                       </div>

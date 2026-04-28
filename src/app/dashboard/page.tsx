@@ -16,12 +16,12 @@ interface DashboardData {
 }
 
 const toolDefs = [
-  { titleKey: 'tools.imageStudio' as const, descKey: 'tools.imageStudioDesc' as const, icon: 'auto_awesome', href: '/studio', color: 'bg-emerald-50 text-emerald-600' },
-  { titleKey: 'tools.videoCreator' as const, descKey: 'tools.videoCreatorDesc' as const, icon: 'movie', href: '/video', color: 'bg-blue-50 text-blue-600' },
-  { titleKey: 'tools.listingBuilder' as const, descKey: 'tools.listingBuilderDesc' as const, icon: 'description', href: '/listing/new', color: 'bg-purple-50 text-purple-600' },
-  { titleKey: 'tools.smartCaptions' as const, descKey: 'tools.smartCaptionsDesc' as const, icon: 'share', href: '/social', color: 'bg-orange-50 text-orange-600' },
-  { titleKey: 'tools.floorPlans' as const, descKey: 'tools.floorPlansDesc' as const, icon: 'architecture', href: '/floorplan', color: 'bg-teal-50 text-teal-600' },
-  { titleKey: 'tools.apiDocs' as const, descKey: 'tools.apiDocsDesc' as const, icon: 'code', href: '/docs', color: 'bg-slate-100 text-slate-600' },
+  { titleKey: 'toolsImageStudio' as const, descKey: 'toolsImageStudioDesc' as const, icon: 'auto_awesome', href: '/studio', color: 'bg-emerald-50 text-emerald-600' },
+  { titleKey: 'toolsVideoCreator' as const, descKey: 'toolsVideoCreatorDesc' as const, icon: 'movie', href: '/video', color: 'bg-blue-50 text-blue-600' },
+  { titleKey: 'toolsListingBuilder' as const, descKey: 'toolsListingBuilderDesc' as const, icon: 'description', href: '/listing/new', color: 'bg-purple-50 text-purple-600' },
+  { titleKey: 'toolsSmartCaptions' as const, descKey: 'toolsSmartCaptionsDesc' as const, icon: 'share', href: '/social', color: 'bg-orange-50 text-orange-600' },
+  { titleKey: 'toolsFloorPlans' as const, descKey: 'toolsFloorPlansDesc' as const, icon: 'architecture', href: '/floorplan', color: 'bg-teal-50 text-teal-600' },
+  { titleKey: 'toolsApiDocs' as const, descKey: 'toolsApiDocsDesc' as const, icon: 'code', href: '/docs', color: 'bg-slate-100 text-slate-600' },
 ];
 
 export default function DashboardPage() {
