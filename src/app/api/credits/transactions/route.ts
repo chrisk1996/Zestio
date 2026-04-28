@@ -20,7 +20,8 @@ export async function GET() {
       .limit(100);
 
     if (error) {
-      return NextResponse.json({ transactions: [] });
+      console.error('[Transactions] Query error:', error.message);
+      return NextResponse.json({ transactions: [], error: error.message });
     }
 
     // Compute usage breakdown
