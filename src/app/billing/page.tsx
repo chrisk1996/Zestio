@@ -28,17 +28,8 @@ const planConfig = {
 
 import { PLANS } from '@/lib/pricing';
 
-const plans = Object.values(PLANS).map(p => ({
-  id: p.name.toLowerCase(),
-  name: p.name,
-  price: p.priceLabel,
-  period: p.period === 'forever' ? 'forever' : '/month',
-  credits: p.credits,
-  features: p.features,
-  icon: planConfig[p.name.toLowerCase() as keyof typeof planConfig]?.icon || Zap,
-  color: planConfig[p.name.toLowerCase() as keyof typeof planConfig]?.color || 'text-gray-600 bg-gray-100',
-  popular: 'popular' in p ? p.popular : false,
-}));
+const planEntries = Object.values(PLANS);
+const planIds = ['free', 'pro', 'enterprise'] as const;
 
 export default function BillingPage() {
   const t = useTranslations('billing');
@@ -359,9 +350,10 @@ export default function BillingPage() {
         <div className="mb-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('availablePlans')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {plans.map((plan) => {
+            {planEntries.map((plan, idx) => {
               const Icon = plan.icon;
-              const isCurrent = user?.plan === plan.id;
+              const planId = planIds[idx];
+      const isCurrent = user?.plan === planId;
               return (
                 <div
                   key={plan.id}
@@ -369,9 +361,9 @@ export default function BillingPage() {
                     isCurrent
                       ? 'border-indigo-500 ring-2 ring-indigo-500/20'
                       : 'border-gray-200'
-                  } ${plan.popular && !isCurrent ? 'border-indigo-300' : ''}`}
+                  } ${'popular' in plan && plan.popular && !isCurrent ? 'border-indigo-300' : ''}`}
                 >
-                  {plan.popular && !isCurrent && (
+                  {'popular' in plan && plan.popular && !isCurrent && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-indigo-600 text-white text-xs font-medium rounded-full">
                       {t('mostPopular')}
                     </div>
@@ -388,14 +380,14 @@ export default function BillingPage() {
                     <Icon className="w-6 h-6" />
                   </div>
 
-                  <h3 className="font-bold text-gray-900">{plan.name}</h3>
+                  <h3 className="font-bold text-gray-900">{t(plan.nameKey)}</h3>
                   <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-2xl font-bold text-gray-900">{plan.price}</span>
-                    <span className="text-sm text-gray-500">{plan.period}</span>
+                    <span className="text-sm text-gray-500">{t(plan.periodKey)}</span>
                   </div>
 
                   <p className="text-sm text-gray-600 mt-2">
-                    {plan.credits} {t('credits')}
+                    {plan.credits} {t('creditsPerMonth')}
                   </p>
 
                   <ul className="mt-4 space-y-2">
@@ -408,17 +400,17 @@ export default function BillingPage() {
                   </ul>
 
                   {/* Subscribe Button */}
-                  {plan.id !== 'free' && !isCurrent && (
+                  {planId !== 'free' && !isCurrent && (
                     <button
-                      onClick={() => handleSubscribe(plan.id)}
-                      disabled={checkoutLoading === plan.id}
+                      onClick={() => handleSubscribe(planId)}
+                      disabled={checkoutLoading === planId}
                       className={`mt-4 w-full py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors ${
                         plan.popular
                           ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
                           : 'bg-gray-100 hover:bg-gray-200 text-gray-900'
                       } disabled:opacity-50`}
                     >
-                      {checkoutLoading === plan.id ? (
+                      {checkoutLoading === planId ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         <>

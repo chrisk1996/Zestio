@@ -1,5 +1,6 @@
 // Centralized pricing configuration
 // Single source of truth for all credit costs and plan details
+// Display strings are translation keys — resolved via i18n
 
 export const CREDIT_COSTS = {
   ENHANCE_BASIC: 1,     // Auto, HDR, Sharpen, Denoise
@@ -11,71 +12,72 @@ export const CREDIT_COSTS = {
   SOCIAL_KIT: 0,        // Free
 } as const;
 
+// Plan data — features are i18n keys (resolved in components via t())
 export const PLANS = {
   free: {
-    name: 'Free',
+    nameKey: 'pricing.free',
     price: 0,
     priceLabel: '€0',
-    period: 'forever',
+    periodKey: 'pricing.forever',
     credits: 5,
-    description: 'Try Zestio with a few credits',
+    descriptionKey: 'pricing.freeDesc',
     features: [
-      '5 credits on signup',
-      'Image Studio (enhance, sky, seasons)',
-      'Virtual staging',
-      'Listing Builder',
-      'Smart Captions & Social Kit',
+      'pricing.freeFeature1',
+      'pricing.freeFeature2',
+      'pricing.freeFeature3',
+      'pricing.freeFeature4',
+      'pricing.freeFeature5',
     ],
   },
   pro: {
-    name: 'Pro',
+    nameKey: 'pricing.pro',
     price: 29,
     priceLabel: '€29',
-    period: 'per month',
+    periodKey: 'pricing.perMonth',
     credits: 100,
-    description: 'For real estate professionals',
+    descriptionKey: 'pricing.proDesc',
     features: [
-      '100 credits per month',
-      'All Image Studio tools (13 types)',
-      'Video Creator',
-      'Virtual staging (all models)',
-      'Listing Builder (EN/DE)',
-      'Smart Captions & Social Kit',
-      'No watermarks',
-      'Email support',
+      'pricing.proFeature1',
+      'pricing.proFeature2',
+      'pricing.proFeature3',
+      'pricing.proFeature4',
+      'pricing.proFeature5',
+      'pricing.proFeature6',
+      'pricing.proFeature7',
+      'pricing.proFeature8',
     ],
     popular: true,
   },
   enterprise: {
-    name: 'Enterprise',
+    nameKey: 'pricing.enterprise',
     price: 99,
     priceLabel: '€99',
-    period: 'per month',
+    periodKey: 'pricing.perMonth',
     credits: 500,
-    description: 'For teams and agencies',
+    descriptionKey: 'pricing.enterpriseDesc',
     features: [
-      '500 credits per month',
-      'All Pro features',
-      'API access',
-      'Priority processing',
-      'Priority support',
+      'pricing.enterpriseFeature1',
+      'pricing.enterpriseFeature2',
+      'pricing.enterpriseFeature3',
+      'pricing.enterpriseFeature4',
+      'pricing.enterpriseFeature5',
     ],
   },
 } as const;
 
 // Credit top-up packs
 export const TOP_UP_PACKS = [
-  { credits: 50, price: 9, label: '50 credits', priceLabel: '€9', perCredit: '€0.18' },
-  { credits: 200, price: 29, label: '200 credits', priceLabel: '€29', perCredit: '€0.145', popular: true },
-  { credits: 500, price: 59, label: '500 credits', priceLabel: '€59', perCredit: '€0.118' },
+  { credits: 50, price: 9, labelKey: 'pricing.topUp50', priceLabel: '€9', perCredit: '€0.18' },
+  { credits: 200, price: 29, labelKey: 'pricing.topUp200', priceLabel: '€29', perCredit: '€0.145', popular: true },
+  { credits: 500, price: 59, labelKey: 'pricing.topUp500', priceLabel: '€59', perCredit: '€0.118' },
 ] as const;
 
-// What each credit buys (for display)
+// What each credit buys (for display) — i18n keys
 export const CREDIT_BREAKDOWN = [
-  { action: 'Basic Enhancement', cost: 1, note: 'Auto, HDR, Sharpen, Denoise' },
-  { action: 'Premium Enhancement', cost: 2, note: 'Sky Replace, Season Change, Object Removal' },
-  { action: 'Virtual Staging', cost: 2, note: '8 room types × 8 styles' },
-  { action: 'Video Generation', cost: 5, note: 'Full AI pipeline: sort → stage → animate' },
-  { action: 'Listing Description', cost: 0, note: 'Free — EN & DE' },
-  { action: 'Smart Captions', cost: 0, note: 'Free — all platforms' },
+  { actionKey: 'pricing.breakdownBasic', cost: 1, noteKey: 'pricing.breakdownBasicNote' },
+  { actionKey: 'pricing.breakdownPremium', cost: 2, noteKey: 'pricing.breakdownPremiumNote' },
+  { actionKey: 'pricing.breakdownStaging', cost: 2, noteKey: 'pricing.breakdownStagingNote' },
+  { actionKey: 'pricing.breakdownVideo', cost: 5, noteKey: 'pricing.breakdownVideoNote' },
+  { actionKey: 'pricing.breakdownListing', cost: 0, noteKey: 'pricing.breakdownListingNote' },
+  { actionKey: 'pricing.breakdownCaptions', cost: 0, noteKey: 'pricing.breakdownCaptionsNote' },
 ] as const;

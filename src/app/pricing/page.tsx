@@ -57,8 +57,8 @@ export default function PricingPage() {
                 className={`flex items-center justify-between px-6 py-4 ${i < CREDIT_BREAKDOWN.length - 1 ? 'border-b border-[#c4c6cd]/10' : ''}`}
               >
                 <div>
-                  <span className="font-medium text-[#1d2832]">{item.action}</span>
-                  <span className="block text-xs text-[#43474c]">{item.note}</span>
+                  <span className="font-medium text-[#1d2832]">{t(item.actionKey)}</span>
+                  <span className="block text-xs text-[#43474c]">{t(item.noteKey)}</span>
                 </div>
                 <span className={`font-manrope text-sm font-bold ${item.cost === 0 ? 'text-[#006c4d]' : 'text-[#1d2832]'}`}>
                   {item.cost === 0 ? t('freeCredit') : `${item.cost} ${item.cost > 1 ? t('creditPlural') : t('creditSingular')}`}
@@ -85,12 +85,12 @@ export default function PricingPage() {
                 </div>
               )}
               <div className="p-8">
-                <h2 className="font-serif text-2xl text-[#1d2832] mb-1">{plan.name}</h2>
-                <p className="text-sm text-[#43474c] mb-6">{plan.description}</p>
+                <h2 className="font-serif text-2xl text-[#1d2832] mb-1">{t(plan.nameKey)}</h2>
+                <p className="text-sm text-[#43474c] mb-6">{t(plan.descriptionKey)}</p>
 
                 <div className="mb-6">
                   <span className="text-4xl font-bold text-[#1d2832]">{plan.priceLabel}</span>
-                  <span className="text-[#43474c] ml-2">{plan.period}</span>
+                  <span className="text-[#43474c] ml-2">{t(plan.periodKey)}</span>
                   <span className="block text-sm text-[#006c4d] font-medium mt-1">
                     {plan.credits} {t('creditsPerMonth')}
                   </span>
@@ -100,13 +100,13 @@ export default function PricingPage() {
                   {plan.features.map((feature, i) => (
                     <li key={i} className="flex items-start gap-3">
                       <span className="material-symbols-outlined text-sm text-[#006c4d] mt-0.5">check</span>
-                      <span className="text-sm text-[#43474c]">{feature}</span>
+                      <span className="text-sm text-[#43474c]">{t(feature)}</span>
                     </li>
                   ))}
                 </ul>
 
                 <Link
-                  href={plan.name === 'Enterprise' ? 'mailto:sales@zestio.pro?subject=Enterprise Plan Inquiry' : '/auth'}
+                  href={plan.nameKey === 'pricing.enterprise' ? 'mailto:sales@zestio.pro?subject=Enterprise Plan Inquiry' : '/auth'}
                   className={`block w-full text-center py-3 rounded-lg font-medium transition-all ${
                     plan.popular
                       ? 'bg-[#006c4d] text-white hover:opacity-90'
@@ -114,7 +114,7 @@ export default function PricingPage() {
                   }`
                 }
                 >
-                  {plan.name === 'Free' ? t('getStartedFree') : plan.name === 'Enterprise' ? t('contactSales') : t('startProTrial')}
+                  {plan.nameKey === 'pricing.free' ? t('getStartedFree') : plan.nameKey === 'pricing.enterprise' ? t('contactSales') : t('startProTrial')}
                 </Link>
               </div>
             </div>
@@ -135,7 +135,7 @@ export default function PricingPage() {
                   pack.popular ? 'border-[#006c4d] ring-1 ring-[#006c4d]/20' : 'border-[#c4c6cd]/20'
                 }`}
               >
-                <h3 className="font-medium text-[#1d2832] mb-1">{pack.label}</h3>
+                <h3 className="font-medium text-[#1d2832] mb-1">{t(pack.labelKey)}</h3>
                 <span className="text-2xl font-bold text-[#1d2832]">{pack.priceLabel}</span>
                 <span className="block text-xs text-[#43474c] mt-1">{pack.perCredit}/{t('creditSingular')}</span>
                 <button
@@ -163,35 +163,35 @@ export default function PricingPage() {
                 How many videos can I make with 100 credits?
                 <span className="material-symbols-outlined text-[#43474c] text-sm group-open:rotate-180 transition-transform">expand_more</span>
               </summary>
-              <p className="text-sm text-[#43474c] mt-3">Each video costs 5 credits. With Pro (100 credits) you can make 20 videos per month. Enterprise (500 credits) gives you 100 videos.</p>
+              <p className="text-sm text-[#43474c] mt-3">{t('faq1A')}</p>
             </details>
             <details className="bg-white rounded-lg border border-[#c4c6cd]/20 p-6 group">
               <summary className="font-medium text-[#1d2832] cursor-pointer list-none flex justify-between items-center">
                 Do credits roll over?
                 <span className="material-symbols-outlined text-[#43474c] text-sm group-open:rotate-180 transition-transform">expand_more</span>
               </summary>
-              <p className="text-sm text-[#43474c] mt-3">Credits reset each billing cycle. Unused credits don&apos;t roll over to the next month.</p>
+              <p className="text-sm text-[#43474c] mt-3">{t('faq2A')}</p>
             </details>
             <details className="bg-white rounded-lg border border-[#c4c6cd]/20 p-6 group">
               <summary className="font-medium text-[#1d2832] cursor-pointer list-none flex justify-between items-center">
                 Can I cancel anytime?
                 <span className="material-symbols-outlined text-[#43474c] text-sm group-open:rotate-180 transition-transform">expand_more</span>
               </summary>
-              <p className="text-sm text-[#43474c] mt-3">Yes. Cancel anytime and you&apos;ll keep access until the end of your billing period. No cancellation fees.</p>
+              <p className="text-sm text-[#43474c] mt-3">{t('faq3A')}</p>
             </details>
             <details className="bg-white rounded-lg border border-[#c4c6cd]/20 p-6 group">
               <summary className="font-medium text-[#1d2832] cursor-pointer list-none flex justify-between items-center">
                 What if I run out of credits?
                 <span className="material-symbols-outlined text-[#43474c] text-sm group-open:rotate-180 transition-transform">expand_more</span>
               </summary>
-              <p className="text-sm text-[#43474c] mt-3">You can buy top-up packs anytime — 50, 200, or 500 credits. No need to upgrade your plan.</p>
+              <p className="text-sm text-[#43474c] mt-3">{t('faq4A')}</p>
             </details>
             <details className="bg-white rounded-lg border border-[#c4c6cd]/20 p-6 group">
               <summary className="font-medium text-[#1d2832] cursor-pointer list-none flex justify-between items-center">
                 What&apos;s free?
                 <span className="material-symbols-outlined text-[#43474c] text-sm group-open:rotate-180 transition-transform">expand_more</span>
               </summary>
-              <p className="text-sm text-[#43474c] mt-3">AI listing descriptions, smart captions, and the social media kit are completely free — no credits needed. The free plan also gives you 5 credits to try paid features.</p>
+              <p className="text-sm text-[#43474c] mt-3">{t('faq5A')}</p>
             </details>
           </div>
         </div>
