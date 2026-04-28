@@ -26,12 +26,13 @@ import {
 type Mode = 'url' | 'manual';
 
 function CreditDisplay({ remaining, total }: { remaining: number; total: number }) {
+  const t = useTranslations('video');
   const percentage = total > 0 ? (remaining / total) * 100 : 0;
   
   return (
     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-slate-700">Credits Available</span>
+        <span className="text-sm font-medium text-slate-700">{t('creditsAvailable')}</span>
         <span className="text-lg font-bold text-purple-600">{remaining}</span>
       </div>
       <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
