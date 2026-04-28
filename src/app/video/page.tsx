@@ -255,14 +255,14 @@ export default function VideoPage() {
     <AppLayout title={t("title")}>
       <div className="max-w-[1600px] mx-auto p-8">
         <header className="mb-8">
-          <span className="text-purple-600 font-bold tracking-widest uppercase text-xs mb-2 block">AI Video Production</span>
-          <h1 className="font-['Plus_Jakarta_Sans'] text-4xl text-slate-900 font-bold tracking-tighter mb-3">Video Creator</h1>
-          <p className="max-w-xl text-slate-600 leading-relaxed">Generate cinematic property tour videos from listing URLs or uploaded images. AI-powered virtual renovation included.</p>
+          <span className="text-purple-600 font-bold tracking-widest uppercase text-xs mb-2 block">{t('aiVideoProduction')}</span>
+          <h1 className="font-['Plus_Jakarta_Sans'] text-4xl text-slate-900 font-bold tracking-tighter mb-3">{t('title')}</h1>
+          <p className="max-w-xl text-slate-600 leading-relaxed">{t('subtitle')}</p>
         </header>
         
         <div className="grid grid-cols-12 gap-8">
           <aside className="col-span-12 lg:col-span-3 space-y-4">
-            <h3 className="font-bold text-slate-900 text-sm">Recent Jobs</h3>
+            <h3 className="font-bold text-slate-900 text-sm">{t('recentJobs')}</h3>
             {!isLoadingCredits && <CreditDisplay remaining={credits.remaining} total={credits.total} />}
             <div className="space-y-3">
               {isLoadingJobs ? (<><VideoJobCardSkeleton /><VideoJobCardSkeleton /><VideoJobCardSkeleton /></>) 
@@ -298,88 +298,88 @@ export default function VideoPage() {
                   {isJobComplete ? (
                     <div className="flex gap-4">
                       <a href={activeJob.output_video_url} download className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-700 transition-colors">
-                        <span className="material-symbols-outlined">download</span> Download Video
+                        <span className="material-symbols-outlined">download</span> {t('downloadVideo')}
                       </a>
                       <button type="button" className="flex items-center justify-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-semibold hover:bg-slate-50 transition-colors">
-                        <span className="material-symbols-outlined">share</span> Share
+                        <span className="material-symbols-outlined">share</span> {t('share')}
                       </button>
                       <button type="button" onClick={handleCreateAnother} className="flex items-center justify-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-semibold hover:bg-slate-50 transition-colors">
-                        <span className="material-symbols-outlined">add</span> Create Another
+                        <span className="material-symbols-outlined">add</span> {t('createAnother')}
                       </button>
                     </div>
                   ) : isJobFailed ? (
                     <button type="button" onClick={handleCreateAnother} className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-colors">
-                      <span className="material-symbols-outlined">refresh</span> Try Again
+                      <span className="material-symbols-outlined">refresh</span> {t('tryAgain')}
                     </button>
                   ) : (
-                    <p className="text-center text-sm text-slate-500">You can close this page. We&apos;ll notify you when your video is ready.</p>
+                    <p className="text-center text-sm text-slate-500">{t('closePage')}</p>
                   )}
                 </div>
               </div>
             ) : (
               <div className="space-y-6">
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                  <h3 className="font-bold text-slate-900 mb-4">Input Method</h3>
+                  <h3 className="font-bold text-slate-900 mb-4">{t('inputMethod')}</h3>
                   <VideoModeToggle mode={mode} onChange={setMode} />
                 </div>
                 
                 {mode === 'url' && (
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                    <h3 className="font-bold text-slate-900 mb-4">Listing URL</h3>
+                    <h3 className="font-bold text-slate-900 mb-4">{t('listingUrl')}</h3>
                     <div className="space-y-4">
                       <div className="relative">
                         <input type="url" value={listingUrl} onChange={(e) => setListingUrl(e.target.value)} placeholder={t('pasteUrl') } className="w-full px-4 py-3 pr-12 rounded-xl border border-slate-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all" />
                         <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">link</span>
                       </div>
-                      {detectedPlatform && (<div className="flex items-center gap-2"><span className="text-sm text-slate-600">Detected:</span><PlatformBadge platform={detectedPlatform} /></div>)}
-                      {!listingUrl && (<div className="flex flex-wrap gap-2"><span className="text-xs text-slate-500">Supported:</span>{(['zillow', 'immobilienscout24', 'redfin', 'rightmove'] as VideoPlatform[]).map(p => (<span key={p} className={cn('text-xs px-2 py-0.5 rounded', PLATFORM_CONFIG[p].bgColor, PLATFORM_CONFIG[p].color)}>{PLATFORM_CONFIG[p].label}</span>))}</div>)}
+                      {detectedPlatform && (<div className="flex items-center gap-2"><span className="text-sm text-slate-600">{t('detected')}</span><PlatformBadge platform={detectedPlatform} /></div>)}
+                      {!listingUrl && (<div className="flex flex-wrap gap-2"><span className="text-xs text-slate-500">{t('supported')}</span>{(['zillow', 'immobilienscout24', 'redfin', 'rightmove'] as VideoPlatform[]).map(p => (<span key={p} className={cn('text-xs px-2 py-0.5 rounded', PLATFORM_CONFIG[p].bgColor, PLATFORM_CONFIG[p].color)}>{PLATFORM_CONFIG[p].label}</span>))}</div>)}
                     </div>
                   </div>
                 )}
                 
                 {mode === 'manual' && (
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                    <h3 className="font-bold text-slate-900 mb-4">Upload Images</h3>
+                    <h3 className="font-bold text-slate-900 mb-4">{t('uploadImages')}</h3>
                     <div onClick={() => !isUploading && fileInputRef.current?.click()} className={cn("w-full aspect-video bg-slate-50 rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-purple-500 hover:bg-purple-50/50 transition-all mb-4", isUploading && "opacity-60 pointer-events-none")}>
                       {isUploading ? (
                         <>
                           <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
-                          <p className="font-semibold text-slate-700">Uploading...</p>
+                          <p className="font-semibold text-slate-700">{t('uploading')}</p>
                         </>
                       ) : (
                         <>
                           <span className="material-symbols-outlined text-5xl text-slate-400">add_photo_alternate</span>
-                          <div className="text-center"><p className="font-semibold text-slate-700">Drop your property images here</p><p className="text-sm text-slate-500">or click to browse (min 5 images)</p></div>
+                          <div className="text-center"><p className="font-semibold text-slate-700">{t('dropImages')}</p><p className="text-sm text-slate-500">{t('orClickBrowse')}</p></div>
                         </>
                       )}
                     </div>
                     {uploadedImages.length > 0 && (<div className="grid grid-cols-5 gap-2 mb-4">{uploadedImages.map((img, idx) => (<div key={idx} className="relative aspect-square rounded-lg overflow-hidden group"><img src={img} alt={`Upload ${idx + 1}`} className="w-full h-full object-cover" /><button type="button" onClick={() => removeImage(idx)} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><span className="material-symbols-outlined text-sm">close</span></button></div>))}</div>)}
                     <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleUpload} className="hidden" />
-                    <p className="text-sm text-slate-500">{uploadedImages.length}/5 minimum images uploaded</p>
+                    <p className="text-sm text-slate-500">{uploadedImages.length}{t('minImagesUploaded')}</p>
                   </div>
                 )}
                 
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                  <h3 className="font-bold text-slate-900 mb-4">Renovation Style</h3>
+                  <h3 className="font-bold text-slate-900 mb-4">{t('renovationStyle')}</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {RENOVATION_STYLES.map(style => (<button key={style} type="button" onClick={() => setRenovationStyle(style)} className={cn('px-4 py-3 rounded-xl font-semibold text-sm capitalize transition-all', renovationStyle === style ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200')}>{style}</button>))}
                   </div>
                 </div>
                 
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                  <h3 className="font-bold text-slate-900 mb-4">Background Music</h3>
+                  <h3 className="font-bold text-slate-900 mb-4">{t('backgroundMusic')}</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {MUSIC_GENRES.map(genre => (<button key={genre} type="button" onClick={() => setMusicGenre(genre)} className={cn('px-4 py-3 rounded-xl font-semibold text-sm capitalize transition-all', musicGenre === genre ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200')}>{genre}</button>))}
                   </div>
                 </div>
                 
-                {createError && (<div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3"><span className="material-symbols-outlined text-red-600">error</span><div><p className="font-semibold text-red-900">Failed to create video</p><p className="text-sm text-red-700 mt-1">{createError}</p></div></div>)}
+                {createError && (<div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3"><span className="material-symbols-outlined text-red-600">error</span><div><p className="font-semibold text-red-900">{t('failedToCreate')}</p><p className="text-sm text-red-700 mt-1">{createError}</p></div></div>)}
                 
                 <button type="button" onClick={handleCreateJob} disabled={!canSubmit || isCreating} className="w-full py-4 bg-purple-600 text-white rounded-xl font-bold text-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg shadow-purple-600/20">
                   <span className="material-symbols-outlined">auto_awesome</span>{isCreating ? t('creating') : t('generateVideo')}
                 </button>
                 
-                {!hasCredit || credits.remaining < 5 ? (<p className="text-center text-sm text-red-600">You need at least 5 credits to generate a video. Please purchase more credits.</p>) : null}
+                {!hasCredit || credits.remaining < 5 ? (<p className="text-center text-sm text-red-600">{t('needCredits')}</p>) : null}
               </div>
             )}
           </main>
