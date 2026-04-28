@@ -514,27 +514,27 @@ async function handleStitching(supabase: Awaited<ReturnType<typeof createClient>
     if (clipPaths.length === 1) {
       // Only one clip downloaded — use it directly
       const buffer = await fs.readFile(clipPaths[0]);
-      const outputUrl = await uploadVideo(supabase, job, buffer);
-      await cleanup(tmpDir, clipPaths);
+      const outputUrl = await uploadVideo(job, buffer);
+      await cleanup(tmpDir);
       await supabase.from('video_jobs').update({ status: 'done', output_video_url: outputUrl, metadata: { ...metadata, allClipUrls: clips } }).eq('id', job.id);
       return NextResponse.json({ status: 'done', message: 'Video complete (1 clip).', outputUrl, hasVideo: true });
     }
 
-    // Create FFmpeg concat file list
+    // Create concat file list (for native FFmpeg)
     const concatListPath = path.join(tmpDir, 'concat.txt');
     const concatContent = clipPaths.map(p => `file '${p}'`).join('\n');
     await fs.writeFile(concatListPath, concatContent);
 
-    // Stitch with FFmpeg concat demuxer (re-encodes to ensure clean output)
+    // Stitch
     const outputPath = path.join(tmpDir, 'output.mp4');
-    await stitchWithFFmpeg(ffmpeg.default, concatListPath, outputPath);
+    await stitchWithFFmpeg(concatListPath, outputPath, clipPaths, tmpDir);
 
     const outputBuffer = await fs.readFile(outputPath);
-    console.log(`[Stitch] FFmpeg output: ${(outputBuffer.length / 1024 / 1024).toFixed(1)}MB`);
+    console.log(`[Stitch] Output: ${(outputBuffer.length / 1024 / 1024).toFixed(1)}MB`);
 
-    const outputUrl = await uploadVideo(supabase, job, outputBuffer);
+    const outputUrl = await uploadVideo(job, outputBuffer);
 
-    await cleanup(tmpDir, [...clipPaths, concatListPath, outputPath]);
+    await cleanup(tmpDir);
 
     await supabase.from('video_jobs').update({
       status: 'done',
@@ -565,31 +565,81 @@ async function handleStitching(supabase: Awaited<ReturnType<typeof createClient>
   }
 }
 
-// Stitch clips using FFmpeg concat demuxer
-function stitchWithFFmpeg(ffmpeg: typeof import('fluent-ffmpeg'), concatListPath: string, outputPath: string): Promise<void> {
+// Stitch clips using FFmpeg (WASM on Vercel, native elsewhere)
+async function stitchWithFFmpeg(concatListPath: string, outputPath: string, clipPaths: string[], tmpDir: string): Promise<void> {
+  // Try native ffmpeg first
+  const nativeFfmpeg = await findNativeFFmpeg();
+  if (nativeFfmpeg) {
+    console.log('[Stitch] Using native FFmpeg:', nativeFfmpeg);
+    return stitchNative(concatListPath, outputPath, nativeFfmpeg);
+  }
+
+  // Fall back to WASM FFmpeg
+  console.log('[Stitch] Native FFmpeg not found, using WASM');
+  return stitchWASM(clipPaths, outputPath, tmpDir);
+}
+
+async function findNativeFFmpeg(): Promise<string | null> {
+  const { existsSync } = await import('fs');
+  for (const p of ['/usr/bin/ffmpeg', '/bin/ffmpeg', '/opt/bin/ffmpeg', '/opt/homebrew/bin/ffmpeg']) {
+    if (existsSync(p)) return p;
+  }
+  return null;
+}
+
+function stitchNative(concatListPath: string, outputPath: string, ffmpegPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const cmd = ffmpeg(concatListPath)
-      .inputOptions(['-f concat', '-safe 0'])
-      .outputOptions(['-c:v libx264', '-preset fast', '-crf 23', '-movflags +faststart', '-pix_fmt yuv420p'])
-      .output(outputPath)
-      .on('start', (cmd: string) => console.log(`[Stitch] FFmpeg: ${cmd}`))
-      .on('end', () => resolve())
-      .on('error', (err: Error) => reject(err));
-    // Set ffmpeg path for Vercel (typically at /usr/bin/ffmpeg or bundled)
-    try {
-      const ffmpegPath = require('fluent-ffmpeg').setFfmpegPath;
-      // On Vercel, ffmpeg might be at various locations
-      const { existsSync } = require('fs');
-      for (const p of ['/usr/bin/ffmpeg', '/bin/ffmpeg', '/opt/bin/ffmpeg']) {
-        if (existsSync(p)) { cmd.setFfmpegPath(p); break; }
-      }
-    } catch {}
-    cmd.run();
+    import('fluent-ffmpeg').then(ffmpeg => {
+      ffmpeg.default(concatListPath)
+        .setFfmpegPath(ffmpegPath)
+        .inputOptions(['-f concat', '-safe 0'])
+        .outputOptions(['-c:v libx264', '-preset fast', '-crf 23', '-movflags +faststart', '-pix_fmt yuv420p'])
+        .output(outputPath)
+        .on('start', (cmd: string) => console.log(`[Stitch] FFmpeg: ${cmd}`))
+        .on('end', () => resolve())
+        .on('error', (err: Error) => reject(err))
+        .run();
+    });
   });
 }
 
+async function stitchWASM(clipPaths: string[], outputPath: string, tmpDir: string): Promise<void> {
+  const { FFmpeg } = await import('@ffmpeg/ffmpeg');
+  const { fetchFile } = await import('@ffmpeg/util');
+  const fs = await import('fs/promises');
+
+  const ffmpeg = new FFmpeg();
+  await ffmpeg.load({
+    coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
+    wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm',
+  });
+
+  // Write clips to virtual FS
+  const inputNames: string[] = [];
+  for (let i = 0; i < clipPaths.length; i++) {
+    const data = await fs.readFile(clipPaths[i]);
+    const name = `clip${i}.mp4`;
+    await ffmpeg.writeFile(name, new Uint8Array(data));
+    inputNames.push(name);
+  }
+
+  // Create concat list in virtual FS
+  const concatContent = inputNames.map(n => `file '${n}'`).join('\n');
+  await ffmpeg.writeFile('concat.txt', concatContent);
+
+  // Run concat
+  await ffmpeg.exec(['-f', 'concat', '-safe', '0', '-i', 'concat.txt', '-c:v', 'libx264', '-preset', 'fast', '-crf', '23', '-movflags', '+faststart', '-pix_fmt', 'yuv420p', 'output.mp4']);
+
+  // Read output
+  const data = await ffmpeg.readFile('output.mp4');
+  const outputBuffer = Buffer.from(data);
+  await fs.writeFile(outputPath, outputBuffer);
+  console.log(`[Stitch] WASM output: ${(outputBuffer.length / 1024).toFixed(0)}KB`);
+}
+}
+
 // Upload video buffer to Supabase Storage
-async function uploadVideo(supabase: Awaited<ReturnType<typeof createClient>>, job: Record<string, unknown>, buffer: Buffer): Promise<string> {
+async function uploadVideo(job: Record<string, unknown>, buffer: Buffer): Promise<string> {
   try {
     const { createServiceClient } = await import('@/utils/supabase/server');
     const serviceClient = createServiceClient();
@@ -607,12 +657,12 @@ async function uploadVideo(supabase: Awaited<ReturnType<typeof createClient>>, j
   }
 }
 
-// Clean up temp files
-async function cleanup(tmpDir: string, files: string[]) {
-  for (const f of files) {
-    try { await import('fs/promises').then(fs => fs.unlink(f)); } catch {}
-  }
-  try { await import('fs/promises').then(fs => fs.rmdir(tmpDir)); } catch {}
+// Clean up temp directory
+async function cleanup(tmpDir: string) {
+  const fs = await import('fs/promises');
+  try {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  } catch {}
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
