@@ -33,6 +33,7 @@ const planIds = ['free', 'pro', 'enterprise'] as const;
 
 export default function BillingPage() {
   const t = useTranslations('billing');
+  const tp = useTranslations('pricing');
   const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -260,7 +261,7 @@ export default function BillingPage() {
             <div>
               <p className="text-indigo-200 text-sm font-medium">{t('currentPlan')}</p>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-2xl font-bold">{t(currentPlan.nameKey)}</span>
+                <span className="text-2xl font-bold">{tp(currentPlan.nameKey)}</span>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium uppercase ${
                   isCancelAtPeriodEnd ? 'bg-yellow-400/30 text-yellow-100' :
                   isCanceled ? 'bg-gray-400/30 text-gray-200' :
@@ -391,10 +392,10 @@ export default function BillingPage() {
                     <Icon className="w-6 h-6" />
                   </div>
 
-                  <h3 className="font-bold text-gray-900">{t(plan.nameKey)}</h3>
+                  <h3 className="font-bold text-gray-900">{tp(plan.nameKey)}</h3>
                   <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-2xl font-bold text-gray-900">{plan.price}</span>
-                    <span className="text-sm text-gray-500">{t(plan.periodKey)}</span>
+                    <span className="text-sm text-gray-500">{tp(plan.periodKey)}</span>
                   </div>
 
                   <p className="text-sm text-gray-600 mt-2">
@@ -405,7 +406,7 @@ export default function BillingPage() {
                     {plan.features.map((feature, i) => (
                       <li key={i} className="flex items-center gap-2 text-sm text-gray-600">
                         <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        {feature}
+                        {tp(feature)}
                       </li>
                     ))}
                   </ul>
