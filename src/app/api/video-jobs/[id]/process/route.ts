@@ -596,8 +596,7 @@ async function stitchWithFFmpeg(concatListPath: string, outputPath: string): Pro
         .run();
     });
   });
-
-// Upload video buffer to Supabase Storage
+}
 async function uploadVideo(job: Record<string, unknown>, buffer: Buffer): Promise<string> {
   try {
     const { createServiceClient } = await import('@/utils/supabase/server');
