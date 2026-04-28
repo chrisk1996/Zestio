@@ -362,10 +362,9 @@ export default function BillingPage() {
         <div className="mb-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('availablePlans')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {planEntries.map((plan, idx) => {
+            {plans.map((plan) => {
               const Icon = plan.icon;
-              const planId = planIds[idx];
-      const isCurrent = user?.plan === planId;
+              const isCurrent = user?.plan === plan.id;
               return (
                 <div
                   key={plan.id}
@@ -412,17 +411,17 @@ export default function BillingPage() {
                   </ul>
 
                   {/* Subscribe Button */}
-                  {planId !== 'free' && !isCurrent && (
+                  {plan.id !== 'free' && !isCurrent && (
                     <button
-                      onClick={() => handleSubscribe(planId)}
-                      disabled={checkoutLoading === planId}
+                      onClick={() => handleSubscribe(plan.id)}
+                      disabled={checkoutLoading === plan.id}
                       className={`mt-4 w-full py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors ${
                         plan.popular
                           ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
                           : 'bg-gray-100 hover:bg-gray-200 text-gray-900'
                       } disabled:opacity-50`}
                     >
-                      {checkoutLoading === planId ? (
+                      {checkoutLoading === plan.id ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         <>
