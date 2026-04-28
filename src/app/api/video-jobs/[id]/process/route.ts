@@ -189,10 +189,13 @@ async function handleSorting(supabase: Awaited<ReturnType<typeof createClient>>,
     // Start new prediction
     try {
       const prediction = await createPredictionWithRetry({
-        version: "72ccb656353c348c1385df54b237eeb7bfa874bf11486cf0b9473e691b662d31",
+        model: "yorickvp/llava-13b",
         input: {
           image: inputImages[sortIndex],
-          prompt: 'You are a real estate photo classification expert. Look at this image carefully.\n\nFirst, determine if the photo shows an EXTERIOR or INTERIOR scene:\n- EXTERIOR: Shows the OUTSIDE of a building, street view, garden view from outside, building facade, aerial/drone shot of property\n- INTERIOR: Shows the INSIDE of a room with walls, ceiling, floor, furniture, windows visible from inside\n\nIf INTERIOR, identify the room type. Choose EXACTLY one label:\nexterior | living_room | kitchen | bedroom | bathroom | dining_room | office | hallway | balcony | garden | other\n\nReply with ONLY the label, nothing else. Examples: "exterior" for a house facade, "living_room" for a living room, "kitchen" for a kitchen.',
+          prompt: 'Classify this real estate photo. Choose EXACTLY one: exterior, living_room, kitchen, bedroom, bathroom, dining_room, office, hallway, balcony, garden, other. Reply with ONLY the label, nothing else.',
+          temperature: 0.2,
+          max_tokens: 1024,
+          top_p: 1,
         },
       });
 
