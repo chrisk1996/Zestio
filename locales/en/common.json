@@ -373,7 +373,8 @@
     "breakdownCaptions": "Smart Captions",
     "breakdownCaptionsNote": "Free — all platforms",
     "goToDashboard": "Go to Dashboard",
-    "switchPlan": "Switch Plan"
+    "switchPlan": "Switch Plan",
+    "currentPlanLabel": "Current Plan"
   },
   "auth": {
     "signIn": "Sign In",

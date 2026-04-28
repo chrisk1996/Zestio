@@ -373,7 +373,8 @@
     "breakdownCaptions": "Smart Captions",
     "breakdownCaptionsNote": "Kostenlos — alle Plattformen",
     "goToDashboard": "Zum Dashboard",
-    "switchPlan": "Tarif wechseln"
+    "switchPlan": "Tarif wechseln",
+    "currentPlanLabel": "Aktueller Tarif"
   },
   "auth": {
     "signIn": "Anmelden",

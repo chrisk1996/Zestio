@@ -11,10 +11,16 @@ export default function PricingPage() {
   const t = useTranslations('pricing');
   const [loadingPack, setLoadingPack] = useState<number | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentPlan, setCurrentPlan] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => setIsLoggedIn(!!data.user));
+    supabase.auth.getUser().then(({ data }) => {
+      setIsLoggedIn(!!data.user);
+      if (data.user) {
+        fetch('/api/credits').then(r => r.json()).then(d => setCurrentPlan(d.plan || 'free')).catch(() => {});
+      }
+    });
   }, []);
 
   const handleTopUp = async (credits: number) => {
@@ -112,17 +118,22 @@ export default function PricingPage() {
                   ))}
                 </ul>
 
-                <Link
-                  href={isLoggedIn ? '/billing' : '/auth'}
-                  className={`block w-full text-center py-3 rounded-lg font-medium transition-all ${
-                    plan.popular
-                      ? 'bg-[#006c4d] text-white hover:opacity-90'
-                      : 'bg-[#edf4ff] text-[#1d2832] hover:bg-[#e3efff]'
-                  }`
-                }
-                >
-                  {plan.nameKey === 'free' ? (isLoggedIn ? t('goToDashboard') : t('getStartedFree')) : (isLoggedIn ? t('switchPlan') : t('startProTrial'))}
-                </Link>
+                {currentPlan === plan.nameKey ? (
+                  <div className="block w-full text-center py-3 rounded-lg font-medium bg-[#f0fdf4] text-[#006c4d] border border-[#006c4d]/20">
+                    {t('currentPlanLabel')}
+                  </div>
+                ) : (
+                  <Link
+                    href={isLoggedIn ? '/billing' : '/auth'}
+                    className={`block w-full text-center py-3 rounded-lg font-medium transition-all ${
+                      plan.popular
+                        ? 'bg-[#006c4d] text-white hover:opacity-90'
+                        : 'bg-[#edf4ff] text-[#1d2832] hover:bg-[#e3efff]'
+                    }`}
+                  >
+                    {plan.nameKey === 'free' ? (isLoggedIn ? t('goToDashboard') : t('getStartedFree')) : (isLoggedIn ? t('switchPlan') : t('startProTrial'))}
+                  </Link>
+                )}
               </div>
             </div>
           ))}
