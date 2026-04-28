@@ -195,6 +195,18 @@ export default function BillingPage() {
     );
   }
 
+  const plans = planEntries.map((p, idx) => ({
+    id: planIds[idx],
+    nameKey: p.nameKey,
+    price: p.priceLabel,
+    periodKey: p.periodKey,
+    credits: p.credits,
+    features: p.features,
+    icon: planConfig[planIds[idx]]?.icon || Zap,
+    color: planConfig[planIds[idx]]?.color || 'text-gray-600 bg-gray-100',
+    popular: 'popular' in p ? p.popular : false,
+  }));
+
   const currentPlan = plans.find(p => p.id === user?.plan) || plans[0];
   const isCancelAtPeriodEnd = user?.subscription_status === 'cancel_at_period_end';
   const isCanceled = user?.subscription_status === 'canceled';
@@ -248,7 +260,7 @@ export default function BillingPage() {
             <div>
               <p className="text-indigo-200 text-sm font-medium">{t('currentPlan')}</p>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-2xl font-bold">{currentPlan.name}</span>
+                <span className="text-2xl font-bold">{t(currentPlan.nameKey)}</span>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium uppercase ${
                   isCancelAtPeriodEnd ? 'bg-yellow-400/30 text-yellow-100' :
                   isCanceled ? 'bg-gray-400/30 text-gray-200' :

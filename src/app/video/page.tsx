@@ -58,7 +58,7 @@ function PlatformBadge({ platform }: { platform: VideoPlatform }) {
   );
 }
 
-function getFailedMessage(job: Record<string, unknown>): string {
+function getFailedMessage(job: Record<string, unknown>, t: (key: string) => string): string {
   const metadata = job.metadata as Record<string, unknown> | null;
   const metaError = metadata?.error as string | undefined;
   const stageLabels: Record<string, string> = {
@@ -288,7 +288,7 @@ export default function VideoPage() {
                         <span className={cn('material-symbols-outlined text-lg', !isJobFailed && 'animate-spin')}>{(VIDEO_STATUS_CONFIG[activeJob.status] || VIDEO_STATUS_CONFIG.queued)?.icon}</span>
                         {(VIDEO_STATUS_CONFIG[activeJob.status] || VIDEO_STATUS_CONFIG.queued)?.label}
                       </span>
-                      <p className="text-slate-400 text-sm mt-2">{activeJob?.status === 'needs_images' ? t('couldNotExtract') : (activeJob?.status === 'failed' ? getFailedMessage(activeJob) : t('processing'))}</p>
+                      <p className="text-slate-400 text-sm mt-2">{activeJob?.status === 'needs_images' ? t('couldNotExtract') : (activeJob?.status === 'failed' ? getFailedMessage(activeJob, t) : t('processing'))}</p>
                     </div>
                   </div>
                 )}
