@@ -479,12 +479,18 @@ async function handleStitching(supabase: Awaited<ReturnType<typeof createClient>
     return NextResponse.json({ status: 'done', message: 'Video complete!', outputUrl, hasVideo: true });
   }
 
-  // Multiple clips — stitch together using binary concat (works for same-codec MP4s)
+  // Multiple clips — stitch with FFmpeg
   try {
     console.log(`[Stitch] Downloading ${clips.length} clips...`);
-    
-    // Download all clips with timeout
-    const clipBuffers: Buffer[] = [];
+    const os = await import('os');
+    const path = await import('path');
+    const fs = await import('fs/promises');
+    const ffmpeg = await import('fluent-ffmpeg');
+
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'stitch-'));
+
+    // Download all clips to temp files
+    const clipPaths: string[] = [];
     for (let i = 0; i < clips.length; i++) {
       console.log(`[Stitch] Downloading clip ${i + 1}/${clips.length}: ${clips[i].substring(0, 80)}...`);
       const controller = new AbortController();
@@ -495,39 +501,40 @@ async function handleStitching(supabase: Awaited<ReturnType<typeof createClient>
         if (!response.ok) throw new Error(`Failed to download clip ${i}: ${response.status}`);
         const arrayBuffer = await response.arrayBuffer();
         console.log(`[Stitch] Clip ${i + 1} downloaded: ${(arrayBuffer.byteLength / 1024).toFixed(0)}KB`);
-        clipBuffers.push(Buffer.from(arrayBuffer));
+        const clipPath = path.join(tmpDir, `clip${i}.mp4`);
+        await fs.writeFile(clipPath, Buffer.from(arrayBuffer));
+        clipPaths.push(clipPath);
       } catch (fetchErr) {
         clearTimeout(timeout);
         console.warn(`[Stitch] Failed to download clip ${i + 1}:`, fetchErr);
-        // Skip failed clips, continue with the rest
       }
     }
 
-    // Concatenate MP4 clips (binary concat works for SVD clips — same codec/resolution)
-    const combined = Buffer.concat(clipBuffers);
-    console.log(`[Stitch] Combined ${clipBuffers.length} clips, ${(combined.length / 1024 / 1024).toFixed(1)}MB`);
-
-    // Upload to Supabase Storage using service role (bypasses RLS)
-    let outputUrl: string;
-    try {
-      const { createServiceClient } = await import('@/utils/supabase/server');
-      const serviceClient = createServiceClient();
-      const userId = job.user_id as string;
-      const filePath = `${userId}/video-output/${job.id}-${Date.now()}.mp4`;
-      const { error: uploadError } = await serviceClient.storage
-        .from('user-uploads')
-        .upload(filePath, combined, {
-          contentType: 'video/mp4',
-          upsert: true,
-        });
-      if (uploadError) throw uploadError;
-      const { data: urlData } = serviceClient.storage.from('user-uploads').getPublicUrl(filePath);
-      outputUrl = urlData.publicUrl;
-    } catch (uploadErr) {
-      console.warn('[Stitch] Service upload failed, trying Replicate hosted:', uploadErr);
-      // Fallback: store clips individually, use last one as primary
-      outputUrl = clips[clips.length - 1];
+    if (clipPaths.length === 0) throw new Error('No clips downloaded successfully');
+    if (clipPaths.length === 1) {
+      // Only one clip downloaded — use it directly
+      const buffer = await fs.readFile(clipPaths[0]);
+      const outputUrl = await uploadVideo(supabase, job, buffer);
+      await cleanup(tmpDir, clipPaths);
+      await supabase.from('video_jobs').update({ status: 'done', output_video_url: outputUrl, metadata: { ...metadata, allClipUrls: clips } }).eq('id', job.id);
+      return NextResponse.json({ status: 'done', message: 'Video complete (1 clip).', outputUrl, hasVideo: true });
     }
+
+    // Create FFmpeg concat file list
+    const concatListPath = path.join(tmpDir, 'concat.txt');
+    const concatContent = clipPaths.map(p => `file '${p}'`).join('\n');
+    await fs.writeFile(concatListPath, concatContent);
+
+    // Stitch with FFmpeg concat demuxer (re-encodes to ensure clean output)
+    const outputPath = path.join(tmpDir, 'output.mp4');
+    await stitchWithFFmpeg(ffmpeg.default, concatListPath, outputPath);
+
+    const outputBuffer = await fs.readFile(outputPath);
+    console.log(`[Stitch] FFmpeg output: ${(outputBuffer.length / 1024 / 1024).toFixed(1)}MB`);
+
+    const outputUrl = await uploadVideo(supabase, job, outputBuffer);
+
+    await cleanup(tmpDir, [...clipPaths, concatListPath, outputPath]);
 
     await supabase.from('video_jobs').update({
       status: 'done',
@@ -537,14 +544,12 @@ async function handleStitching(supabase: Awaited<ReturnType<typeof createClient>
 
     return NextResponse.json({
       status: 'done',
-      message: `Video complete! ${clips.length} clips stitched.`,
+      message: `Video complete! ${clipPaths.length} clips stitched.`,
       outputUrl,
       hasVideo: true,
     });
   } catch (err) {
     console.error('[Stitch] Stitching failed:', err);
-    // Fallback: link clips sequentially — use last clip as output
-    // (Individual clips are still accessible via Replicate URLs)
     const outputUrl = clips[clips.length - 1];
     await supabase.from('video_jobs').update({
       status: 'done',
@@ -553,11 +558,61 @@ async function handleStitching(supabase: Awaited<ReturnType<typeof createClient>
     }).eq('id', job.id);
     return NextResponse.json({
       status: 'done',
-      message: `Video complete (${clips.length} clips — stitching upload failed, showing last clip).`,
+      message: `Video complete (${clips.length} clips — stitching failed, showing last clip).`,
       outputUrl,
       hasVideo: true,
     });
   }
+}
+
+// Stitch clips using FFmpeg concat demuxer
+function stitchWithFFmpeg(ffmpeg: typeof import('fluent-ffmpeg'), concatListPath: string, outputPath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const cmd = ffmpeg(concatListPath)
+      .inputOptions(['-f concat', '-safe 0'])
+      .outputOptions(['-c:v libx264', '-preset fast', '-crf 23', '-movflags +faststart', '-pix_fmt yuv420p'])
+      .output(outputPath)
+      .on('start', (cmd: string) => console.log(`[Stitch] FFmpeg: ${cmd}`))
+      .on('end', () => resolve())
+      .on('error', (err: Error) => reject(err));
+    // Set ffmpeg path for Vercel (typically at /usr/bin/ffmpeg or bundled)
+    try {
+      const ffmpegPath = require('fluent-ffmpeg').setFfmpegPath;
+      // On Vercel, ffmpeg might be at various locations
+      const { existsSync } = require('fs');
+      for (const p of ['/usr/bin/ffmpeg', '/bin/ffmpeg', '/opt/bin/ffmpeg']) {
+        if (existsSync(p)) { cmd.setFfmpegPath(p); break; }
+      }
+    } catch {}
+    cmd.run();
+  });
+}
+
+// Upload video buffer to Supabase Storage
+async function uploadVideo(supabase: Awaited<ReturnType<typeof createClient>>, job: Record<string, unknown>, buffer: Buffer): Promise<string> {
+  try {
+    const { createServiceClient } = await import('@/utils/supabase/server');
+    const serviceClient = createServiceClient();
+    const userId = job.user_id as string;
+    const filePath = `${userId}/video-output/${job.id}-${Date.now()}.mp4`;
+    const { error: uploadError } = await serviceClient.storage
+      .from('user-uploads')
+      .upload(filePath, buffer, { contentType: 'video/mp4', upsert: true });
+    if (uploadError) throw uploadError;
+    const { data: urlData } = serviceClient.storage.from('user-uploads').getPublicUrl(filePath);
+    return urlData.publicUrl;
+  } catch (err) {
+    console.warn('[Upload] Service upload failed:', err);
+    throw err;
+  }
+}
+
+// Clean up temp files
+async function cleanup(tmpDir: string, files: string[]) {
+  for (const f of files) {
+    try { await import('fs/promises').then(fs => fs.unlink(f)); } catch {}
+  }
+  try { await import('fs/promises').then(fs => fs.rmdir(tmpDir)); } catch {}
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
