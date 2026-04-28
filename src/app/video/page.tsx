@@ -243,6 +243,21 @@ export default function VideoPage() {
     setUploadedImages([]);
     setCreateError(null);
   };
+
+  const handleRetry = useCallback(async () => {
+    if (!activeJobId) return;
+    try {
+      const res = await fetch(`/api/video-jobs/${activeJobId}`, { method: 'PATCH' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Retry failed');
+      // Refetch the job to get updated status
+      refetchActiveJob();
+      refetchJobs();
+    } catch (err) {
+      console.error('Retry failed:', err);
+      setCreateError(err instanceof Error ? err.message : 'Retry failed');
+    }
+  }, [activeJobId, refetchActiveJob, refetchJobs]);
   
   const remainingCredits = credits.remaining;
   const hasCredit = credits.remaining > 0;
@@ -308,9 +323,14 @@ export default function VideoPage() {
                       </button>
                     </div>
                   ) : isJobFailed ? (
-                    <button type="button" onClick={handleCreateAnother} className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-colors">
-                      <span className="material-symbols-outlined">refresh</span> {t('tryAgain')}
-                    </button>
+                    <div className="flex gap-4">
+                      <button type="button" onClick={handleRetry} className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-700 transition-colors">
+                        <span className="material-symbols-outlined">refresh</span> {t('tryAgain')}
+                      </button>
+                      <button type="button" onClick={handleCreateAnother} className="flex items-center justify-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-semibold hover:bg-slate-50 transition-colors">
+                        <span className="material-symbols-outlined">add</span> {t('createAnother')}
+                      </button>
+                    </div>
                   ) : (
                     <p className="text-center text-sm text-slate-500">{t('closePage')}</p>
                   )}

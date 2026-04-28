@@ -109,6 +109,93 @@ export async function GET(
 }
 
 // DELETE - Cancel/delete a video job
+// PATCH - Retry a failed video job
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = await params;
+    if (!id) {
+      return NextResponse.json({ error: 'Job ID is required' }, { status: 400 });
+    }
+
+    // Fetch the failed job
+    const { data: job, error: fetchError } = await supabase
+      .from('video_jobs')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (fetchError || !job) {
+      return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+    }
+
+    if (job.status !== 'failed') {
+      return NextResponse.json({ error: 'Only failed jobs can be retried' }, { status: 400 });
+    }
+
+    // Determine which stage failed from metadata and retry from there
+    const metadata = (job.metadata as Record<string, unknown>) || {};
+    const metaError = metadata.error as string | undefined;
+    let retryStatus = 'renovating'; // default retry from renovating
+
+    if (metaError) {
+      const failedStage = metaError.split(':')[0].trim();
+      if (failedStage === 'animating') {
+        // Keep existing clips, retry remaining animations
+        retryStatus = 'animating';
+      } else if (failedStage === 'stitching') {
+        retryStatus = 'stitching';
+      } else if (failedStage === 'renovating') {
+        retryStatus = 'renovating';
+      }
+    }
+
+    // Reset status but keep progress (clips, renovated images)
+    const cleanMetadata = { ...metadata };
+    delete cleanMetadata.error;
+    // For animating retry, preserve clips but reset animate prediction
+    if (retryStatus === 'animating') {
+      delete cleanMetadata.animatePredictionId;
+    }
+    if (retryStatus === 'renovating') {
+      delete cleanMetadata.renovatePredictionId;
+      delete cleanMetadata.renovatedImages;
+      delete cleanMetadata.renovateIndex;
+      // Also clear animation progress since we're re-doing renovation
+      delete cleanMetadata.clips;
+      delete cleanMetadata.animateIndex;
+      delete cleanMetadata.animatePredictionId;
+    }
+
+    await supabase
+      .from('video_jobs')
+      .update({
+        status: retryStatus,
+        metadata: cleanMetadata,
+      })
+      .eq('id', id);
+
+    return NextResponse.json({
+      success: true,
+      message: `Retrying from ${retryStatus} stage`,
+      status: retryStatus,
+    });
+  } catch (error) {
+    console.error('Video job retry error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to retry video job';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
+  }
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

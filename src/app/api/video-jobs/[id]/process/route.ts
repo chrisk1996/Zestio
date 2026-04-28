@@ -170,8 +170,8 @@ async function handleSorting(supabase: Awaited<ReturnType<typeof createClient>>,
         let label = '';
         if (typeof prediction.output === 'string') label = prediction.output.trim().toLowerCase();
         else if (Array.isArray(prediction.output)) label = prediction.output.join('').trim().toLowerCase();
-        const match = label.match(/\b(living_room|dining_room|exterior|facade|building|house|outside|balcony|patio|terrace|garden|yard|living|lounge|dining|kitchen|office|study|hallway|corridor|entrance|bedroom|bathroom|other)\b/);
-        const cleanLabel = match ? match[1] : 'other';
+        const match = label.match(/\b(living_room|living room|dining_room|dining room|exterior|facade|building|house|outside|balcony|patio|terrace|garden|yard|living|lounge|dining|kitchen|office|study|hallway|corridor|entrance|bedroom|bathroom|other)\b/);
+        const cleanLabel = match ? match[1].replace(/ /g, '_') : 'other';
         labels.push({ index: sortIndex, label: cleanLabel, sortKey: sortOrder[cleanLabel] ?? 9 });
         console.log(`[Sort] Image ${sortIndex}: ${cleanLabel}`);
       } else if (prediction.status === 'failed') {
@@ -192,7 +192,7 @@ async function handleSorting(supabase: Awaited<ReturnType<typeof createClient>>,
         version: "72ccb656353c348c1385df54b237eeb7bfa874bf11486cf0b9473e691b662d31",
         input: {
           image: inputImages[sortIndex],
-          prompt: 'Classify this real estate photo. Choose EXACTLY one: exterior, living_room, kitchen, bedroom, bathroom, dining_room, office, hallway, balcony, garden, other. Reply with ONLY the label, nothing else.',
+          prompt: 'You are a real estate photo classification expert. Look at this image carefully.\n\nFirst, determine if the photo shows an EXTERIOR or INTERIOR scene:\n- EXTERIOR: Shows the OUTSIDE of a building, street view, garden view from outside, building facade, aerial/drone shot of property\n- INTERIOR: Shows the INSIDE of a room with walls, ceiling, floor, furniture, windows visible from inside\n\nIf INTERIOR, identify the room type. Choose EXACTLY one label:\nexterior | living_room | kitchen | bedroom | bathroom | dining_room | office | hallway | balcony | garden | other\n\nReply with ONLY the label, nothing else. Examples: "exterior" for a house facade, "living_room" for a living room, "kitchen" for a kitchen.',
         },
       });
 
