@@ -8,6 +8,7 @@ export type VideoJobStatus =
   | 'queued'
   | 'scraping'
   | 'sorting'
+  | 'twilighting'
   | 'renovating'
   | 'animating'
   | 'stitching'
@@ -128,6 +129,12 @@ export const VIDEO_STATUS_CONFIG: Record<VideoJobStatus, {
     bgColor: 'bg-blue-100',
     icon: 'sort',
   },
+  twilighting: {
+    label: 'Twilight',
+    color: 'text-indigo-700',
+    bgColor: 'bg-indigo-100',
+    icon: 'dark_mode',
+  },
   renovating: {
     label: 'Enhancing',
     color: 'text-purple-700',
@@ -217,6 +224,8 @@ export function statusToStage(status: VideoJobStatus): {
       return { stage: 'scrape', stageStatus: 'active' };
     case 'sorting':
       return { stage: 'sort', stageStatus: 'active' };
+    case 'twilighting':
+      return { stage: 'enhance', stageStatus: 'active' };
     case 'renovating':
       return { stage: 'enhance', stageStatus: 'active' };
     case 'animating':

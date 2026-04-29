@@ -100,7 +100,7 @@ export default function VideoPage() {
   // Polling: trigger processing and refetch for active jobs
   useEffect(() => {
     if (!activeJob?.id) return;
-    const activeStatuses = ['scraping', 'sorting', 'renovating', 'animating', 'stitching'];
+    const activeStatuses = ['scraping', 'sorting', 'twilighting', 'renovating', 'animating', 'stitching'];
     if (!activeStatuses.includes(activeJob.status)) return;
 
     const poll = async () => {

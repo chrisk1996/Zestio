@@ -88,6 +88,8 @@ export async function POST(
         return await handleScraping(supabase, job);
       case 'sorting':
         return await handleSorting(supabase, job);
+      case 'twilighting':
+        return await handleTwilighting(supabase, job);
       case 'renovating':
         return await handleRenovating(supabase, job);
       case 'animating':
@@ -161,8 +163,8 @@ async function handleSorting(supabase: Awaited<ReturnType<typeof createClient>>,
   const inputImages = (job.input_images as string[]) || [];
   if (inputImages.length <= 1) {
     // Nothing to sort
-    await supabase.from('video_jobs').update({ status: 'renovating' }).eq('id', job.id);
-    return NextResponse.json({ status: 'renovating', message: 'Only one image, skipping sort.' });
+    await supabase.from('video_jobs').update({ status: 'twilighting' }).eq('id', job.id);
+    return NextResponse.json({ status: 'twilighting', message: 'Only one image, skipping sort.' });
   }
 
   console.log(`[VideoProcess] Sorting ${inputImages.length} images by room type`);
@@ -177,9 +179,9 @@ async function handleSorting(supabase: Awaited<ReturnType<typeof createClient>>,
     labels.sort((a, b) => a.sortKey - b.sortKey);
     const sortedImages = labels.map(item => inputImages[item.index]);
     await supabase.from('video_jobs')
-      .update({ status: 'renovating', input_images: sortedImages, metadata: { sortLabels: labels } })
+      .update({ status: 'twilighting', input_images: sortedImages, metadata: { sortLabels: labels } })
       .eq('id', job.id);
-    return NextResponse.json({ status: 'renovating', message: `Sorted: ${labels.map(l => l.label).join(' → ')}` });
+    return NextResponse.json({ status: 'twilighting', message: `Sorted: ${labels.map(l => l.label).join(' → ')}` });
   }
 
   // Classify one image
@@ -248,9 +250,9 @@ async function handleSorting(supabase: Awaited<ReturnType<typeof createClient>>,
       if (nextFailures >= 2) {
         console.log('[Sort] Too many failures, skipping sort');
         await supabase.from('video_jobs')
-          .update({ status: 'renovating', metadata: { sortLabels: [] } })
+          .update({ status: 'twilighting', metadata: { sortLabels: [] } })
           .eq('id', job.id);
-        return NextResponse.json({ status: 'renovating', message: 'Skipping auto-sort (model unavailable).' });
+        return NextResponse.json({ status: 'twilighting', message: 'Skipping auto-sort (model unavailable).' });
       }
     }
   }
@@ -263,9 +265,9 @@ async function handleSorting(supabase: Awaited<ReturnType<typeof createClient>>,
     labels.sort((a, b) => a.sortKey - b.sortKey);
     const sortedImages = labels.map(item => inputImages[item.index]);
     await supabase.from('video_jobs')
-      .update({ status: 'renovating', input_images: sortedImages, metadata: { sortLabels: labels } })
+      .update({ status: 'twilighting', input_images: sortedImages, metadata: { sortLabels: labels } })
       .eq('id', job.id);
-    return NextResponse.json({ status: 'renovating', message: `Sorted: ${labels.map(l => l.label).join(', ')}` });
+    return NextResponse.json({ status: 'twilighting', message: `Sorted: ${labels.map(l => l.label).join(', ')}` });
   }
 
   // Save progress, stay in sorting
@@ -273,6 +275,104 @@ async function handleSorting(supabase: Awaited<ReturnType<typeof createClient>>,
     .update({ metadata: { sortIndex: nextIndex, sortLabels: labels, sortPredictionId: null, sortFailures } })
     .eq('id', job.id);
   return NextResponse.json({ status: 'sorting', message: `Classifying image ${nextIndex}/${inputImages.length}...` });
+}
+
+// ── Stage 1.7: Twilight exterior images ──────────────────────────────────
+async function handleTwilighting(supabase: Awaited<ReturnType<typeof createClient>>, job: Record<string, unknown>) {
+  const metadata = (job.metadata as Record<string, unknown>) || {};
+  const inputImages = (job.input_images as string[]) || [];
+  const sortLabels = (metadata.sortLabels as Array<{ index: number; label: string; sortKey: number }>) || [];
+
+  // Find exterior image indices
+  const exteriorLabels = ['exterior', 'facade', 'building', 'house', 'outside'];
+  const exteriorIndices = sortLabels
+    .filter(l => exteriorLabels.includes(l.label))
+    .map(l => l.index);
+
+  if (exteriorIndices.length === 0) {
+    // No exterior images — skip to renovating
+    console.log('[Twilight] No exterior images found, skipping');
+    await supabase.from('video_jobs').update({ status: 'renovating' }).eq('id', job.id);
+    return NextResponse.json({ status: 'renovating', message: 'No exterior images to twilight.' });
+  }
+
+  // Process one exterior image per poll
+  const twilightIndex = (metadata.twilightIndex as number) || 0;
+  const twilightedImages = (metadata.twilightedImages as Record<number, string>) || {};
+
+  if (twilightIndex >= exteriorIndices.length) {
+    // All done — apply twilight images to input_images and move to renovating
+    const updatedImages = [...inputImages];
+    for (const [idx, url] of Object.entries(twilightedImages)) {
+      updatedImages[parseInt(idx)] = url as string;
+    }
+    console.log(`[Twilight] Done. Enhanced ${Object.keys(twilightedImages).length} exterior images.`);
+    await supabase.from('video_jobs')
+      .update({ status: 'renovating', input_images: updatedImages, metadata: { ...metadata, twilightedImages: undefined, twilightIndex: undefined } })
+      .eq('id', job.id);
+    return NextResponse.json({ status: 'renovating', message: `Twilight enhanced ${Object.keys(twilightedImages).length} exterior shots.` });
+  }
+
+  const imageIdx = exteriorIndices[twilightIndex];
+  const imageUrl = inputImages[imageIdx];
+  console.log(`[Twilight] Processing exterior image ${twilightIndex + 1}/${exteriorIndices.length} (index ${imageIdx})`);
+
+  // Check active prediction
+  const activePredictionId = metadata.twilightPredictionId as string | undefined;
+  if (activePredictionId) {
+    try {
+      const prediction = await replicate.predictions.get(activePredictionId);
+      if (prediction.status === 'succeeded') {
+        const url = extractUrl(prediction.output);
+        if (url) {
+          twilightedImages[imageIdx] = url;
+          console.log(`[Twilight] Image ${imageIdx} done`);
+        }
+      } else if (prediction.status === 'failed') {
+        console.warn(`[Twilight] Prediction failed for image ${imageIdx}: ${prediction.error}`);
+        // Keep original image
+      } else {
+        return NextResponse.json({ status: 'twilighting', message: `Twilighting exterior ${twilightIndex + 1}/${exteriorIndices.length}...` });
+      }
+    } catch (err) {
+      console.warn('[Twilight] Error checking prediction:', err);
+    }
+
+    // Move to next
+    const nextIndex = twilightIndex + 1;
+    await supabase.from('video_jobs')
+      .update({ metadata: { ...metadata, twilightIndex: nextIndex, twilightedImages, twilightPredictionId: null } })
+      .eq('id', job.id);
+    return NextResponse.json({ status: 'twilighting', message: `Twilighting exterior ${nextIndex}/${exteriorIndices.length}...` });
+  }
+
+  // Start new twilight prediction
+  try {
+    const prediction = await createPredictionWithRetry({
+      version: "76604baddc85b1b4616e1c6475eca080da339c8875bd4996705440484a6eac38",
+      input: {
+        image: imageUrl,
+        prompt: 'virtual twilight, dusk exterior, warm interior lights glowing through windows, blue hour sky with stars, professional real estate photography, cinematic, high quality',
+        negative_prompt: 'blurry, low quality, distorted, overexposed, daytime, sunlight, watermark, text',
+        num_inference_steps: 30,
+        guidance_scale: 12,
+        prompt_strength: 0.65,
+      },
+    });
+
+    await supabase.from('video_jobs')
+      .update({ metadata: { ...metadata, twilightPredictionId: prediction.id } })
+      .eq('id', job.id);
+    return NextResponse.json({ status: 'twilighting', message: `Twilighting exterior ${twilightIndex + 1}/${exteriorIndices.length}...` });
+  } catch (err) {
+    console.warn(`[Twilight] Failed for image ${imageIdx}:`, err);
+    // Skip, keep original
+    const nextIndex = twilightIndex + 1;
+    await supabase.from('video_jobs')
+      .update({ metadata: { ...metadata, twilightIndex: nextIndex, twilightedImages } })
+      .eq('id', job.id);
+    return NextResponse.json({ status: 'twilighting', message: `Twilighting exterior ${nextIndex}/${exteriorIndices.length}...` });
+  }
 }
 
 // ── Stage 2: Renovate ────────────────────────────────────────────────────
