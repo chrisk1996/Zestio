@@ -8,6 +8,14 @@ import { CREDIT_COSTS } from '@/lib/pricing';
 // Force dynamic rendering - uses cookies/auth
 export const dynamic = 'force-dynamic';
 
+// Dev helper: check if user is allowed to use debug endpoints
+async function isDevUser(supabase: Awaited<ReturnType<typeof createClient>>): Promise<boolean> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+  // Only allow in non-production or for specific user IDs
+  return process.env.NODE_ENV !== 'production' || process.env.ENABLE_VIDEO_DEBUG === 'true';
+}
+
 // GET - Get single video job with assets
 export async function GET(
   request: NextRequest,
@@ -106,6 +114,63 @@ export async function GET(
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch video job';
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
+]
+
+// PUT - Debug: jump to any stage (dev only)
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const supabase = await createClient();
+  if (!(await isDevUser(supabase))) {
+    return NextResponse.json({ error: 'Debug endpoints disabled in production' }, { status: 403 });
+  }
+
+  const { id } = await params;
+  const body = await request.json();
+  const { status: targetStatus, metadata: overrideMetadata, input_images: overrideImages } = body;
+
+  if (!targetStatus) {
+    return NextResponse.json({ error: 'Provide { status: "stage_name" }' }, { status: 400 });
+  }
+
+  const validStatuses = ['scraping', 'sorting', 'twilighting', 'renovating', 'animating', 'stitching'];
+  if (!validStatuses.includes(targetStatus)) {
+    return NextResponse.json({ error: `Invalid status. Valid: ${validStatuses.join(', ')}` }, { status: 400 });
+  }
+
+  // Fetch job
+  const { data: job, error } = await supabase
+    .from('video_jobs')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error || !job) {
+    return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+  }
+
+  // Build update
+  const update: Record<string, unknown> = { status: targetStatus };
+  if (overrideMetadata) {
+    update.metadata = { ...(job.metadata as Record<string, unknown> || {}), ...overrideMetadata };
+  } else {
+    // Reset metadata for clean stage entry
+    update.metadata = {};
+  }
+  if (overrideImages) {
+    update.input_images = overrideImages;
+  }
+
+  await supabase.from('video_jobs').update(update).eq('id', id);
+
+  return NextResponse.json({
+    success: true,
+    message: `Job jumped to ${targetStatus}`,
+    jobId: id,
+    status: targetStatus,
+    metadata: update.metadata,
+  });
 }
 
 // DELETE - Cancel/delete a video job
