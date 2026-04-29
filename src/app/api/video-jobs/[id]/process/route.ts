@@ -21,6 +21,38 @@ const STYLE_PROMPTS: Record<string, string> = {
   midcentury: 'midcentury modern interior design, retro furniture, warm wood tones, geometric patterns, professional real estate photography, high quality',
 };
 
+// Motion prompts per room type for Kling v2.1
+const ROOM_MOTION_PROMPTS: Record<string, string> = {
+  exterior: 'Slow cinematic drone shot approaching the building exterior, golden hour lighting, professional real estate video, smooth camera motion',
+  facade: 'Slow cinematic drone shot approaching the building exterior, golden hour lighting, professional real estate video, smooth camera motion',
+  building: 'Slow cinematic reveal of the building exterior, wide angle, professional real estate video, smooth camera motion',
+  living_room: 'Smooth slow camera pan across the living room, cinematic interior shot, warm natural lighting, professional real estate video',
+  living: 'Smooth slow camera pan across the living room, cinematic interior shot, warm natural lighting, professional real estate video',
+  lounge: 'Smooth slow camera pan across the lounge, cinematic interior shot, warm natural lighting, professional real estate video',
+  kitchen: 'Slow dolly shot through the kitchen, showing countertops and appliances, warm lighting, professional real estate video',
+  dining_room: 'Slow elegant camera pan across the dining room, showing table setting, warm ambient lighting, professional real estate video',
+  dining: 'Slow elegant camera pan across the dining area, showing table and chairs, warm ambient lighting, professional real estate video',
+  bedroom: 'Gentle slow zoom into the bedroom, soft morning light, cozy atmosphere, professional real estate video',
+  bathroom: 'Slow reveal pan of the bathroom, clean modern fixtures, bright natural lighting, professional real estate video',
+  office: 'Smooth pan across the home office, natural light from window, professional real estate video',
+  study: 'Smooth pan across the study, warm lighting, bookshelves, professional real estate video',
+  hallway: 'Smooth dolly shot through the hallway, bright and welcoming, professional real estate video',
+  balcony: 'Slow cinematic pan of the balcony view, gentle breeze, golden hour, professional real estate video',
+  garden: 'Slow cinematic drone shot of the garden, lush greenery, golden hour, professional real estate video',
+  default: 'Slow cinematic camera pan, professional real estate video, smooth motion, warm lighting',
+};
+
+// Music tracks — royalty-free audio URLs per genre
+const MUSIC_TRACKS: Record<string, string> = {
+  cinematic: 'https://cdn.zestio.de/music/cinematic.mp3',
+  uplifting: 'https://cdn.zestio.de/music/uplifting.mp3',
+  ambient: 'https://cdn.zestio.de/music/ambient.mp3',
+  acoustic: 'https://cdn.zestio.de/music/acoustic.mp3',
+  electronic: 'https://cdn.zestio.de/music/electronic.mp3',
+  jazz: 'https://cdn.zestio.de/music/jazz.mp3',
+  classical: 'https://cdn.zestio.de/music/classical.mp3',
+};
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -141,7 +173,7 @@ async function handleSorting(supabase: Awaited<ReturnType<typeof createClient>>,
     labels.sort((a, b) => a.sortKey - b.sortKey);
     const sortedImages = labels.map(item => inputImages[item.index]);
     await supabase.from('video_jobs')
-      .update({ status: 'renovating', input_images: sortedImages, metadata: {} })
+      .update({ status: 'renovating', input_images: sortedImages, metadata: { sortLabels: labels } })
       .eq('id', job.id);
     return NextResponse.json({ status: 'renovating', message: `Sorted: ${labels.map(l => l.label).join(' → ')}` });
   }
@@ -212,7 +244,7 @@ async function handleSorting(supabase: Awaited<ReturnType<typeof createClient>>,
       if (nextFailures >= 2) {
         console.log('[Sort] Too many failures, skipping sort');
         await supabase.from('video_jobs')
-          .update({ status: 'renovating', metadata: {} })
+          .update({ status: 'renovating', metadata: { sortLabels: [] } })
           .eq('id', job.id);
         return NextResponse.json({ status: 'renovating', message: 'Skipping auto-sort (model unavailable).' });
       }
@@ -227,9 +259,9 @@ async function handleSorting(supabase: Awaited<ReturnType<typeof createClient>>,
     labels.sort((a, b) => a.sortKey - b.sortKey);
     const sortedImages = labels.map(item => inputImages[item.index]);
     await supabase.from('video_jobs')
-      .update({ status: 'renovating', input_images: sortedImages, metadata: {} })
+      .update({ status: 'renovating', input_images: sortedImages, metadata: { sortLabels: labels } })
       .eq('id', job.id);
-    return NextResponse.json({ status: 'renovating', message: `Sorted: ${labels.map(l => l.label).join(' → ')}` });
+    return NextResponse.json({ status: 'renovating', message: `Sorted: ${labels.map(l => l.label).join(', ')}` });
   }
 
   // Save progress, stay in sorting
@@ -409,17 +441,25 @@ async function handleAnimating(supabase: Awaited<ReturnType<typeof createClient>
       }
     }
 
-    // Start new prediction
+    // Start new prediction with Kling v2.1
     console.log(`[Animate] Starting image ${currentIndex + 1}/${images.length}`, `URL: ${images[currentIndex]?.substring(0, 100)}...`);
+
+    // Get room-specific motion prompt from sort labels
+    const sortLabels = (metadata.sortLabels as Array<{ index: number; label: string; sortKey: number }>) || [];
+    const roomLabel = sortLabels[currentIndex]?.label || 'default';
+    const motionPrompt = ROOM_MOTION_PROMPTS[roomLabel] || ROOM_MOTION_PROMPTS.default;
+    console.log(`[Animate] Room: ${roomLabel}, Motion: ${motionPrompt.substring(0, 60)}...`);
+
     try {
       const prediction = await createPredictionWithRetry({
-        version: "3f0457e4619daac51203dedb472816fd4af51f3149fa7a9e0b5ffcf1b8172438",
+        model: "kwaivgi/kling-v2.1",
         input: {
-          input_image: images[currentIndex],
-          motion_bucket_id: 127,
-          cond_aug: 0.02,
-          decoding_t: 7,
-          fps: 6,
+          image: images[currentIndex],
+          prompt: motionPrompt,
+          negative_prompt: 'blurry, distorted, low quality, watermark, text, fast motion, shaky',
+          duration: 5,
+          aspect_ratio: '16:9',
+          mode: 'std',
         },
       });
 
@@ -479,13 +519,12 @@ async function handleStitching(supabase: Awaited<ReturnType<typeof createClient>
     return NextResponse.json({ status: 'done', message: 'Video complete!', outputUrl, hasVideo: true });
   }
 
-  // Multiple clips — stitch with FFmpeg
+  // Multiple clips — stitch with FFmpeg (crossfade + music)
   try {
     console.log(`[Stitch] Downloading ${clips.length} clips...`);
     const os = await import('os');
     const path = await import('path');
     const fs = await import('fs/promises');
-    const ffmpeg = await import('fluent-ffmpeg');
 
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'stitch-'));
 
@@ -512,7 +551,6 @@ async function handleStitching(supabase: Awaited<ReturnType<typeof createClient>
 
     if (clipPaths.length === 0) throw new Error('No clips downloaded successfully');
     if (clipPaths.length === 1) {
-      // Only one clip downloaded — use it directly
       const buffer = await fs.readFile(clipPaths[0]);
       const outputUrl = await uploadVideo(job, buffer);
       await cleanup(tmpDir);
@@ -520,34 +558,46 @@ async function handleStitching(supabase: Awaited<ReturnType<typeof createClient>
       return NextResponse.json({ status: 'done', message: 'Video complete (1 clip).', outputUrl, hasVideo: true });
     }
 
-    // Create concat file list (for native FFmpeg)
-    const concatListPath = path.join(tmpDir, 'concat.txt');
-    const concatContent = clipPaths.map(p => `file '${p}'`).join('\n');
-    await fs.writeFile(concatListPath, concatContent);
-
-    // Stitch
     const outputPath = path.join(tmpDir, 'output.mp4');
-    await stitchWithFFmpeg(concatListPath, outputPath);
 
+    // Try crossfade stitch first, fall back to simple concat
+    try {
+      await stitchWithCrossfade(clipPaths, outputPath, tmpDir);
+    } catch (xfadeErr) {
+      console.warn('[Stitch] Crossfade failed, trying simple concat:', xfadeErr);
+      const concatListPath = path.join(tmpDir, 'concat.txt');
+      const concatContent = clipPaths.map(p => `file '${p}'`).join('\n');
+      await fs.writeFile(concatListPath, concatContent);
+      await stitchWithFFmpeg(concatListPath, outputPath);
+    }
+
+    // Add music overlay
+    const musicGenre = (job.music_genre as string) || 'cinematic';
+    const musicUrl = MUSIC_TRACKS[musicGenre];
+    const finalOutputPath = path.join(tmpDir, 'final.mp4');
+
+    if (musicUrl) {
+      try {
+        await addMusicOverlay(outputPath, musicUrl, finalOutputPath);
+        // Use the version with music
+        const finalBuffer = await fs.readFile(finalOutputPath);
+        console.log(`[Stitch] Final output with music: ${(finalBuffer.length / 1024 / 1024).toFixed(1)}MB`);
+        const outputUrl = await uploadVideo(job, finalBuffer);
+        await cleanup(tmpDir);
+        await supabase.from('video_jobs').update({ status: 'done', output_video_url: outputUrl, metadata: { ...metadata, allClipUrls: clips } }).eq('id', job.id);
+        return NextResponse.json({ status: 'done', message: `Video complete! ${clipPaths.length} clips with music.`, outputUrl, hasVideo: true });
+      } catch (musicErr) {
+        console.warn('[Stitch] Music overlay failed, using video without music:', musicErr);
+      }
+    }
+
+    // No music or music failed — use stitched output directly
     const outputBuffer = await fs.readFile(outputPath);
     console.log(`[Stitch] Output: ${(outputBuffer.length / 1024 / 1024).toFixed(1)}MB`);
-
     const outputUrl = await uploadVideo(job, outputBuffer);
-
     await cleanup(tmpDir);
-
-    await supabase.from('video_jobs').update({
-      status: 'done',
-      output_video_url: outputUrl,
-      metadata: { ...metadata, allClipUrls: clips },
-    }).eq('id', job.id);
-
-    return NextResponse.json({
-      status: 'done',
-      message: `Video complete! ${clipPaths.length} clips stitched.`,
-      outputUrl,
-      hasVideo: true,
-    });
+    await supabase.from('video_jobs').update({ status: 'done', output_video_url: outputUrl, metadata: { ...metadata, allClipUrls: clips } }).eq('id', job.id);
+    return NextResponse.json({ status: 'done', message: `Video complete! ${clipPaths.length} clips stitched.`, outputUrl, hasVideo: true });
   } catch (err) {
     console.error('[Stitch] Stitching failed:', err);
     const outputUrl = clips[clips.length - 1];
@@ -565,22 +615,161 @@ async function handleStitching(supabase: Awaited<ReturnType<typeof createClient>
   }
 }
 
-// Stitch clips using FFmpeg
-async function stitchWithFFmpeg(concatListPath: string, outputPath: string): Promise<void> {
-  // Get ffmpeg path: try static binary first, then system
-  let ffmpegPath: string | null = null;
-  try {
-    ffmpegPath = require('ffmpeg-static') as string;
-    if (ffmpegPath) console.log('[Stitch] Using ffmpeg-static:', ffmpegPath.substring(0, 60));
-  } catch {}
+// Stitch clips using crossfade transitions via xfade filter
+async function stitchWithCrossfade(clipPaths: string[], outputPath: string, tmpDir: string): Promise<void> {
+  const ffmpegPath = getFFmpegPath();
+  if (!ffmpegPath) throw new Error('No ffmpeg binary found');
 
-  if (!ffmpegPath) {
-    const { existsSync } = await import('fs');
-    for (const p of ['/usr/bin/ffmpeg', '/bin/ffmpeg', '/opt/bin/ffmpeg']) {
-      if (existsSync(p)) { ffmpegPath = p; break; }
-    }
+  const fs = await import('fs/promises');
+  const path = await import('path');
+  const fadeDuration = 0.8; // seconds of crossfade
+  const clipDuration = 5; // Kling produces 5s clips
+  const offset = clipDuration - fadeDuration; // offset for each xfade
+
+  if (clipPaths.length === 2) {
+    return crossfadeTwo(ffmpegPath, clipPaths[0], clipPaths[1], outputPath, fadeDuration, offset);
   }
 
+  // Normalize all clips to same resolution/codec/fps first
+  const normalizedPaths: string[] = [];
+  for (let i = 0; i < clipPaths.length; i++) {
+    const normPath = path.join(tmpDir, `norm${i}.mp4`);
+    await normalizeClip(ffmpegPath, clipPaths[i], normPath);
+    normalizedPaths.push(normPath);
+  }
+
+  // Build a single complex filter with chained xfade for all clips
+  // This is more efficient than processing pair by pair
+  return new Promise((resolve, reject) => {
+    import('fluent-ffmpeg').then(ffmpeg => {
+      const cmd = ffmpeg.default().setFfmpegPath(ffmpegPath);
+
+      // Add all inputs
+      for (const p of normalizedPaths) {
+        cmd.input(p);
+      }
+
+      // Build xfade filter chain
+      const filters: string[] = [];
+      let currentOffset = offset;
+
+      for (let i = 0; i < normalizedPaths.length - 1; i++) {
+        const inTag = i === 0 ? '[0:v]' : `[v${i - 1}]`;
+        const outTag = i === normalizedPaths.length - 2 ? '[vout]' : `[v${i}]`;
+        filters.push(`${inTag}[${i + 1}:v]xfade=transition=fade:duration=${fadeDuration}:offset=${currentOffset.toFixed(1)}${outTag}`);
+        currentOffset += offset;
+      }
+
+      cmd
+        .complexFilter(filters)
+        .outputOptions([
+          '-map [vout]',
+          '-c:v libx264',
+          '-preset fast',
+          '-crf 23',
+          '-movflags +faststart',
+          '-pix_fmt yuv420p',
+        ])
+        .output(outputPath)
+        .on('start', (cmd: string) => console.log(`[Stitch] Multi-xfade: ${cmd}`))
+        .on('end', () => resolve())
+        .on('error', (err: Error) => reject(err))
+        .run();
+    });
+  });
+}
+
+function crossfadeTwo(ffmpegPath: string, input1: string, input2: string, outputPath: string, fadeSec: number, offset: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    import('fluent-ffmpeg').then(ffmpeg => {
+      ffmpeg.default()
+        .setFfmpegPath(ffmpegPath)
+        .input(input1)
+        .input(input2)
+        .complexFilter([
+          `[0:v][1:v]xfade=transition=fade:duration=${fadeSec}:offset=${offset.toFixed(1)}[v]`,
+        ])
+        .outputOptions([
+          '-map [v]',
+          '-c:v libx264',
+          '-preset fast',
+          '-crf 23',
+          '-movflags +faststart',
+          '-pix_fmt yuv420p',
+        ])
+        .output(outputPath)
+        .on('start', (cmd: string) => console.log(`[Stitch] xfade: ${cmd}`))
+        .on('end', () => resolve())
+        .on('error', (err: Error) => reject(err))
+        .run();
+    });
+  });
+}
+
+function normalizeClip(ffmpegPath: string, inputPath: string, outputPath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    import('fluent-ffmpeg').then(ffmpeg => {
+      ffmpeg.default(inputPath)
+        .setFfmpegPath(ffmpegPath)
+        .outputOptions([
+          '-c:v libx264',
+          '-preset fast',
+          '-crf 23',
+          '-vf scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2',
+          '-r 30',
+          '-pix_fmt yuv420p',
+          '-an', // strip audio from individual clips
+        ])
+        .output(outputPath)
+        .on('end', () => resolve())
+        .on('error', (err: Error) => reject(err))
+        .run();
+    });
+  });
+}
+
+// Add background music to video
+function addMusicOverlay(videoPath: string, musicUrl: string, outputPath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const ffmpegPath = getFFmpegPath();
+    if (!ffmpegPath) { reject(new Error('No ffmpeg')); return; }
+
+    import('fluent-ffmpeg').then(ffmpeg => {
+      ffmpeg.default()
+        .setFfmpegPath(ffmpegPath)
+        .input(videoPath)
+        .input(musicUrl)
+        .outputOptions([
+          '-c:v copy',           // keep video as-is
+          '-c:a aac',            // encode audio to AAC
+          '-b:a 128k',           // audio bitrate
+          '-shortest',           // stop when shortest stream ends (the video)
+          '-movflags +faststart',
+        ])
+        .output(outputPath)
+        .on('start', (cmd: string) => console.log(`[Stitch] Music: ${cmd}`))
+        .on('end', () => resolve())
+        .on('error', (err: Error) => reject(err))
+        .run();
+    });
+  });
+}
+
+function getFFmpegPath(): string | null {
+  try {
+    const p = require('ffmpeg-static') as string;
+    if (p) return p;
+  } catch {}
+  const { existsSync } = require('fs');
+  for (const p of ['/usr/bin/ffmpeg', '/bin/ffmpeg', '/opt/bin/ffmpeg']) {
+    if (existsSync(p)) return p;
+  }
+  return null;
+}
+
+// Stitch clips using FFmpeg simple concat (fallback)
+async function stitchWithFFmpeg(concatListPath: string, outputPath: string): Promise<void> {
+  const ffmpegPath = getFFmpegPath();
   if (!ffmpegPath) throw new Error('No ffmpeg binary found');
 
   return new Promise((resolve, reject) => {
