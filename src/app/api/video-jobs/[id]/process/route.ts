@@ -558,13 +558,13 @@ async function handleAnimating(supabase: Awaited<ReturnType<typeof createClient>
       const prediction = await createPredictionWithRetry({
         model: "kwaivgi/kling-v2.1",
         input: {
-          image: images[currentIndex],
+          start_image: images[currentIndex],
           prompt: motionPrompt,
           negative_prompt: 'blurry, distorted, low quality, watermark, text, fast motion, shaky',
           duration: 5,
           aspect_ratio: '16:9',
           resolution: '720p',
-          mode: 'std',
+          mode: 'standard',
         },
       });
 
