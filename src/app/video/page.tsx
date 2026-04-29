@@ -82,6 +82,7 @@ export default function VideoPage() {
   const [mode, setMode] = useState<Mode>('url');
   const [listingUrl, setListingUrl] = useState('');
   const [detectedPlatform, setDetectedPlatform] = useState<VideoPlatform | null>(null);
+  const [debugJumpTo, setDebugJumpTo] = useState<string>('renovating');
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -258,7 +259,24 @@ export default function VideoPage() {
       setCreateError(err instanceof Error ? err.message : 'Retry failed');
     }
   }, [activeJobId, refetchActiveJob, refetchJobs]);
-  
+
+  const handleDebugJump = useCallback(async () => {
+    if (!activeJobId || !debugJumpTo) return;
+    try {
+      const res = await fetch(`/api/video-jobs/${activeJobId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: debugJumpTo }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Jump failed');
+      refetchActiveJob();
+      refetchJobs();
+    } catch (err) {
+      console.error('Debug jump failed:', err);
+      setCreateError(err instanceof Error ? err.message : 'Jump failed');
+    }
+  }, [activeJobId, debugJumpTo, refetchActiveJob, refetchJobs]);
   const remainingCredits = credits.remaining;
   const hasCredit = credits.remaining > 0;
   const canSubmit = hasCredit && credits.remaining >= 5 && ((mode === 'url' && listingUrl.length > 0) || (mode === 'manual' && uploadedImages.length >= 5));
@@ -332,7 +350,33 @@ export default function VideoPage() {
                       </button>
                     </div>
                   ) : (
-                    <p className="text-center text-sm text-slate-500">{t('closePage')}</p>
+                    <div className="flex flex-col gap-3">
+                      <p className="text-center text-sm text-slate-500">{t('closePage')}</p>
+                      {/* Debug: Jump to stage */}
+                      <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
+                        <span className="material-symbols-outlined text-slate-400 text-sm">bug_report</span>
+                        <span className="text-xs text-slate-400 font-medium">Debug:</span>
+                        <select
+                          value={debugJumpTo}
+                          onChange={(e) => setDebugJumpTo(e.target.value)}
+                          className="flex-1 text-xs px-2 py-1 rounded border border-slate-200 bg-white text-slate-700"
+                        >
+                          <option value="scraping">Scraping</option>
+                          <option value="sorting">Sorting</option>
+                          <option value="twilighting">Twilight</option>
+                          <option value="renovating">Renovating</option>
+                          <option value="animating">Animating</option>
+                          <option value="stitching">Stitching</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={handleDebugJump}
+                          className="text-xs px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded font-medium transition-colors"
+                        >
+                          Jump
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
