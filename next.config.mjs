@@ -15,6 +15,12 @@ const nextConfig = {
   },
   // Enable Turbopack for Next.js 16
   turbopack: {},
+  // Bundle ffmpeg binary with the stitch route for Vercel Fluid compute
+  outputFileTracingIncludes: {
+    '/api/video-jobs/[id]/process': [
+      './node_modules/ffmpeg-static/ffmpeg',
+    ],
+  },
 };
 
 export default withNextIntl(nextConfig);

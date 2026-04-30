@@ -7,6 +7,7 @@ import { createClient } from '@/utils/supabase/server';
 import { CREDIT_COSTS } from '@/lib/pricing';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300; // 5 min — FFmpeg stitching needs time (Vercel Fluid compute)
 
 const replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN! });
 
@@ -393,6 +394,17 @@ async function handleTwilighting(supabase: Awaited<ReturnType<typeof createClien
 
   const imageIdx = exteriorIndices[twilightIndex];
   const imageUrl = inputImages[imageIdx];
+
+  // Guard: skip if image URL is missing/undefined
+  if (!imageUrl || typeof imageUrl !== 'string' || !imageUrl.startsWith('http')) {
+    console.warn(`[Twilight] Image at index ${imageIdx} is missing or invalid ("${imageUrl}"), skipping`);
+    const nextIndex = twilightIndex + 1;
+    await supabase.from('video_jobs')
+      .update({ metadata: { ...metadata, twilightIndex: nextIndex } })
+      .eq('id', job.id);
+    return NextResponse.json({ status: 'twilighting', message: `Skipped invalid image at index ${imageIdx}, moving to ${nextIndex}/${exteriorIndices.length}...` });
+  }
+
   console.log(`[Twilight] Processing exterior image ${twilightIndex + 1}/${exteriorIndices.length} (index ${imageIdx})`);
 
   // Check active prediction
@@ -778,7 +790,7 @@ async function handleAnimating(supabase: Awaited<ReturnType<typeof createClient>
 // ── Stage 4: Stitch ──────────────────────────────────────────────────────
 async function handleStitching(supabase: Awaited<ReturnType<typeof createClient>>, job: Record<string, unknown>) {
   const metadata = (job.metadata as Record<string, unknown>) || {};
-  const clips = (metadata.clips as string[]) || [];
+  const clips = (metadata.allClipUrls as string[]) || (metadata.clips as string[]) || [];  // On retry: use allClipUrls (saved on stitch failure). Otherwise: clips (from animation).
 
   // If no clips were generated, fail
   if (clips.length === 0) {
@@ -834,7 +846,7 @@ async function handleStitching(supabase: Awaited<ReturnType<typeof createClient>
       const buffer = await fs.readFile(clipPaths[0]);
       const outputUrl = await uploadVideo(job, buffer);
       await cleanup(tmpDir);
-      await supabase.from('video_jobs').update({ status: 'done', output_video_url: outputUrl, metadata: { ...metadata, allClipUrls: clips } }).eq('id', job.id);
+      await supabase.from('video_jobs').update({ status: 'done', output_video_url: outputUrl, metadata: { ...metadata, allClipUrls: clips, needsStitchRetry: undefined, stitchError: undefined } }).eq('id', job.id);
       return NextResponse.json({ status: 'done', message: 'Video complete (1 clip).', outputUrl, hasVideo: true });
     }
 
@@ -875,21 +887,22 @@ async function handleStitching(supabase: Awaited<ReturnType<typeof createClient>
 
     const outputUrl = await uploadVideo(job, finalBuffer);
     await cleanup(tmpDir);
-    await supabase.from('video_jobs').update({ status: 'done', output_video_url: outputUrl, metadata: { ...metadata, allClipUrls: clips } }).eq('id', job.id);
+    await supabase.from('video_jobs').update({ status: 'done', output_video_url: outputUrl, metadata: { ...metadata, allClipUrls: clips, needsStitchRetry: undefined, stitchError: undefined } }).eq('id', job.id);
     return NextResponse.json({ status: 'done', message: `Video complete! ${clipPaths.length} clips.`, outputUrl, hasVideo: true });
   } catch (err) {
     console.error('[Stitch] Stitching failed:', err);
-    const outputUrl = clips[clips.length - 1];
+    // Don't mark as done — keep at 'stitching' so user can retry
+    // Store clip URLs so retry doesn't need to regenerate clips
+    const errMsg = err instanceof Error ? err.message : 'Stitching failed';
     await supabase.from('video_jobs').update({
-      status: 'done',
-      output_video_url: outputUrl,
-      metadata: { ...metadata, allClipUrls: clips },
+      status: 'stitching',
+      metadata: { ...metadata, allClipUrls: clips, stitchError: errMsg, needsStitchRetry: true },
     }).eq('id', job.id);
     return NextResponse.json({
-      status: 'done',
-      message: `Video complete (${clips.length} clips — stitching failed, showing last clip).`,
-      outputUrl,
-      hasVideo: true,
+      status: 'stitching',
+      message: `Stitching failed: ${errMsg}. Clips are saved — retry from stitch stage.`,
+      error: errMsg,
+      clipsReady: clips.length,
     });
   }
 }
@@ -1113,12 +1126,15 @@ function addWatermarkAndMusic(videoPath: string, outputPath: string, watermarkPa
 }
 
 function getFFmpegPath(): string | null {
+  // ffmpeg-static returns the resolved path to the binary
+  // On Vercel Fluid compute, it's bundled via outputFileTracingIncludes
   try {
     const p = require('ffmpeg-static') as string;
     if (p) return p;
   } catch {}
+  // System fallback (local dev)
   const { existsSync } = require('fs');
-  for (const p of ['/usr/bin/ffmpeg', '/bin/ffmpeg', '/opt/bin/ffmpeg']) {
+  for (const p of ['/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/bin/ffmpeg', '/opt/bin/ffmpeg']) {
     if (existsSync(p)) return p;
   }
   return null;
