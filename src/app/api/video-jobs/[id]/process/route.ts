@@ -157,36 +157,91 @@ export async function POST(
 }
 
 // ── Stage 1: Scrape ──────────────────────────────────────────────────────
+// ── Apify actor registry ─────────────────────────────────────────────────
+const APIFY_ACTORS: Record<string, { actorId: string; imageField: string }> = {
+  'immobilienscout24.de': { actorId: 'misceres/immobilienscout24-scraper', imageField: 'images' },
+  'immowelt.de': { actorId: 'misceres/immowelt-scraper', imageField: 'images' },
+  'zillow.com': { actorId: 'maxcopell/zillow-detail', imageField: 'photos' },
+  'rightmove.co.uk': { actorId: 'dhrumil/rightmove-scraper', imageField: 'images' },
+  'idealista.com': { actorId: 'tri_angle/idealista-scraper', imageField: 'images' },
+};
+
+function getApifyActor(url: string) {
+  for (const [domain, config] of Object.entries(APIFY_ACTORS)) {
+    if (url.includes(domain)) return config;
+  }
+  return null; // fallback to basic scraper
+}
+
 async function handleScraping(supabase: Awaited<ReturnType<typeof createClient>>, job: Record<string, unknown>) {
   let images: string[] = [];
+  const metadata = (job.metadata as Record<string, unknown>) || {};
 
   // Manual mode — use uploaded images
   const inputImages = job.input_images as string[] | null;
   if (Array.isArray(inputImages) && inputImages.length >= 1) {
     images = inputImages;
   } else {
-    // Try to scrape from URL
     const url = job.listing_url as string;
-    if (url && url !== 'manual-mode') {
+    if (!url || url === 'manual-mode') {
+      await supabase.from('video_jobs').update({ status: 'needs_images' }).eq('id', job.id);
+      await refundCredit(supabase, job.user_id as string);
+      return NextResponse.json({ status: 'needs_images', message: 'No images found. Switch to manual upload.' });
+    }
+
+    // Check if Apify run is in progress
+    const apifyRunId = metadata.apifyRunId as string | undefined;
+    if (apifyRunId) {
+      // Poll Apify run status
+      images = await pollApifyRun(apifyRunId, getApifyActor(url)?.imageField || 'images');
+      if (images.length === 0) {
+        // Still running or failed — check if run is still going
+        const status = await getApifyRunStatus(apifyRunId);
+        if (status === 'RUNNING' || status === 'READY') {
+          return NextResponse.json({ status: 'scraping', message: 'Extracting images from listing...' });
+        }
+        // Run finished with no images — try basic scraper as fallback
+        console.log('[Scrape] Apify returned no images, trying basic scraper');
+        images = await scrapeListingImages(url);
+      }
+    } else {
+      // Try Apify first (if matching actor exists)
+      const actor = getApifyActor(url);
+      if (actor && process.env.APIFY_API_TOKEN) {
+        try {
+          const runId = await startApifyRun(actor.actorId, url);
+          await supabase.from('video_jobs').update({
+            metadata: { ...metadata, apifyRunId: runId },
+          }).eq('id', job.id);
+          return NextResponse.json({ status: 'scraping', message: 'Extracting images via Apify...' });
+        } catch (err) {
+          console.warn('[Scrape] Apify failed, trying basic scraper:', err);
+        }
+      }
+      // Fallback: basic scraper
       images = await scrapeListingImages(url);
     }
   }
 
   if (images.length === 0) {
-    // Can't get images — refund and stop
     await supabase.from('video_jobs').update({ status: 'needs_images' }).eq('id', job.id);
     await refundCredit(supabase, job.user_id as string);
     return NextResponse.json({ status: 'needs_images', message: 'No images found. Switch to manual upload.' });
   }
 
   // Store images and move to sorting
-  await supabase
-    .from('video_jobs')
-    .update({ status: 'sorting' })
-    .eq('id', job.id);
+  await supabase.from('video_jobs').update({
+    status: 'sorting',
+    input_images: images.slice(0, 30),
+    metadata: { ...metadata, apifyRunId: undefined },
+  }).eq('id', job.id);
 
   return NextResponse.json({
     status: 'sorting',
+    message: `Found ${images.length} images. Auto-sorting...`,
+    imageCount: images.length,
+  });
+}
     message: `Found ${images.length} images. Auto-sorting for optimal order...`,
     imageCount: images.length,
   });
@@ -1196,6 +1251,65 @@ async function refundCredit(supabase: Awaited<ReturnType<typeof createClient>>, 
         .eq('id', userId);
     }
   }
+}
+
+// ── Apify helpers ────────────────────────────────────────────────────────
+async function startApifyRun(actorId: string, url: string): Promise<string> {
+  const token = process.env.APIFY_API_TOKEN!;
+  const res = await fetch(`https://api.apify.com/v2/acts/${actorId}/runs?token=${token}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      startUrls: [{ url }],
+      maxItems: 1,
+    }),
+    signal: AbortSignal.timeout(30000),
+  });
+  if (!res.ok) throw new Error(`Apify start failed: ${res.status}`);
+  const data = await res.json();
+  return data?.data?.id as string;
+}
+
+async function getApifyRunStatus(runId: string): Promise<string> {
+  const token = process.env.APIFY_API_TOKEN!;
+  const res = await fetch(`https://api.apify.com/v2/actor-runs/${runId}?token=${token}`, {
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) return 'FAILED';
+  const data = await res.json();
+  return data?.data?.status as string || 'UNKNOWN';
+}
+
+async function pollApifyRun(runId: string, imageField: string): Promise<string[]> {
+  const token = process.env.APIFY_API_TOKEN!;
+  const status = await getApifyRunStatus(runId);
+  if (status !== 'SUCCEEDED') return [];
+
+  // Get the dataset
+  const res = await fetch(`https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${token}&clean=true&limit=1`, {
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) return [];
+  const items = await res.json();
+  if (!Array.isArray(items) || items.length === 0) return [];
+
+  const item = items[0];
+  const images: string[] = [];
+
+  // Try multiple possible image field names
+  const fields = [imageField, 'images', 'photos', 'imageUrls', 'gallery', 'media', 'imageList'];
+  for (const field of fields) {
+    const val = item[field];
+    if (Array.isArray(val)) {
+      for (const v of val) {
+        if (typeof v === 'string' && v.startsWith('http')) images.push(v);
+        else if (typeof v === 'object' && v.url) images.push(v.url);
+        else if (typeof v === 'object' && v.src) images.push(v.src);
+      }
+    }
+  }
+
+  return [...new Set(images)].slice(0, 30);
 }
 
 async function scrapeListingImages(url: string): Promise<string[]> {
