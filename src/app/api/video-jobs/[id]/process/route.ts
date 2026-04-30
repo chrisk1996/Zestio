@@ -160,10 +160,10 @@ export async function POST(
 // ── Apify actor registry ─────────────────────────────────────────────────
 // Format: username~actor-name (Apify API uses tilde, not slash)
 const APIFY_ACTORS: Record<string, { actorId: string; imageField: string; inputKey: string; inputFormat: 'urlObjects' | 'plainString' }> = {
-  'immobilienscout24.de': { actorId: 'rigelbytes~immobilienscout24-scraper', imageField: 'images', inputKey: 'startUrls', inputFormat: 'urlObjects' },
-  'immowelt.de': { actorId: 'rigelbytes~immowelt-scraper', imageField: 'images', inputKey: 'startUrls', inputFormat: 'urlObjects' },
-  'zillow.com': { actorId: 'maxcopell~zillow-detail-scraper', imageField: 'photos', inputKey: 'link', inputFormat: 'plainString' },
-  'rightmove.co.uk': { actorId: 'dhrumil~rightmove-scraper', imageField: 'images', inputKey: 'startUrls', inputFormat: 'urlObjects' },
+  'immobilienscout24.de': { actorId: 'rigelbytes~immobilienscout24-scraper', imageField: 'images', inputKey: 'link', inputFormat: 'plainString' },
+  'immowelt.de': { actorId: 'rigelbytes~immowelt-scraper', imageField: 'images', inputKey: 'link', inputFormat: 'plainString' },
+  'zillow.com': { actorId: 'maxcopell~zillow-detail-scraper', imageField: 'photos', inputKey: 'startUrls', inputFormat: 'urlObjects' },
+  'rightmove.co.uk': { actorId: 'dhrungin~rightmove-scraper', imageField: 'images', inputKey: 'startUrls', inputFormat: 'urlObjects' },
   'idealista.com': { actorId: 'tri_angle~idealista-scraper', imageField: 'images', inputKey: 'startUrls', inputFormat: 'urlObjects' },
 };
 
