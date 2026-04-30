@@ -82,25 +82,23 @@ export function VideoPipelineProgress({
   return (
     <div className={cn('w-full', className)}>
       {/* Desktop: horizontal layout */}
-      <div className="hidden md:flex items-center justify-between">
+      <div className="hidden md:flex items-start justify-between">
         {PIPELINE_STAGES.map((stage, index) => {
           const isComplete = index < currentIndex;
           const isActive = index === currentIndex;
-          const isPending = index > currentIndex;
           
-          // Determine status for this stage
           let status: StageStatus = 'pending';
           if (isComplete) status = 'complete';
           else if (isActive) status = stageStatus;
           
           return (
-            <div key={stage.id} className="flex-1 flex items-center">
+            <div key={stage.id} className="flex-1 flex items-start">
               {/* Stage indicator */}
               <div className="flex flex-col items-center flex-1">
-                {/* Icon circle */}
+                {/* Icon circle — fixed height */}
                 <div
                   className={cn(
-                    'w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all',
+                    'w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all flex-shrink-0',
                     status === 'pending' && 'bg-slate-100 border-slate-300',
                     status === 'active' && 'bg-purple-100 border-purple-500 animate-pulse',
                     status === 'complete' && 'bg-green-100 border-green-500',
@@ -109,7 +107,7 @@ export function VideoPipelineProgress({
                 >
                   <span
                     className={cn(
-                      'material-symbols-outlined text-2xl',
+                      'material-symbols-outlined text-xl',
                       status === 'pending' && 'text-slate-400',
                       status === 'active' && 'text-purple-600',
                       status === 'complete' && 'text-green-600',
@@ -123,7 +121,7 @@ export function VideoPipelineProgress({
                 {/* Label */}
                 <span
                   className={cn(
-                    'mt-2 font-semibold text-sm',
+                    'mt-1 font-semibold text-xs whitespace-nowrap',
                     status === 'pending' && 'text-slate-500',
                     status === 'active' && 'text-purple-700',
                     status === 'complete' && 'text-green-700',
@@ -133,17 +131,17 @@ export function VideoPipelineProgress({
                   {stage.label}
                 </span>
                 
-                {/* Description */}
-                <span className="text-xs text-slate-500 text-center mt-0.5 max-w-[80px]">
+                {/* Description — fixed height */}
+                <span className="text-[10px] text-slate-400 text-center mt-0.5 max-w-[72px] leading-tight h-6">
                   {getStageDescription(stage.id, job, isComplete)}
                 </span>
               </div>
               
-              {/* Connector line */}
+              {/* Connector line — aligned to circle center */}
               {index < PIPELINE_STAGES.length - 1 && (
                 <div
                   className={cn(
-                    'flex-1 h-1 mx-2 rounded transition-all',
+                    'flex-1 h-0.5 mx-1 rounded mt-5 transition-all',
                     index < currentIndex
                       ? 'bg-green-500'
                       : index === currentIndex
@@ -173,7 +171,7 @@ export function VideoPipelineProgress({
               {/* Icon */}
               <div
                 className={cn(
-                  'w-10 h-10 rounded-full flex items-center justify-center border-2 flex-shrink-0',
+                  'w-8 h-8 rounded-full flex items-center justify-center border-2 flex-shrink-0',
                   status === 'pending' && 'bg-slate-100 border-slate-300',
                   status === 'active' && 'bg-purple-100 border-purple-500 animate-pulse',
                   status === 'complete' && 'bg-green-100 border-green-500',
@@ -182,7 +180,7 @@ export function VideoPipelineProgress({
               >
                 <span
                   className={cn(
-                    'material-symbols-outlined text-xl',
+                    'material-symbols-outlined text-lg',
                     status === 'pending' && 'text-slate-400',
                     status === 'active' && 'text-purple-600',
                     status === 'complete' && 'text-green-600',
