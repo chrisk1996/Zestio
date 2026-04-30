@@ -21,25 +21,54 @@ const STYLE_PROMPTS: Record<string, string> = {
   midcentury: 'midcentury modern interior design, retro furniture, warm wood tones, geometric patterns, professional real estate photography, high quality',
 };
 
-// Motion prompts per room type for Kling v2.1
-const ROOM_MOTION_PROMPTS: Record<string, string> = {
-  exterior: 'Slow cinematic drone shot approaching the building exterior, golden hour lighting, professional real estate video, smooth camera motion',
-  facade: 'Slow cinematic drone shot approaching the building exterior, golden hour lighting, professional real estate video, smooth camera motion',
-  building: 'Slow cinematic reveal of the building exterior, wide angle, professional real estate video, smooth camera motion',
-  living_room: 'Smooth slow camera pan across the living room, cinematic interior shot, warm natural lighting, professional real estate video',
-  living: 'Smooth slow camera pan across the living room, cinematic interior shot, warm natural lighting, professional real estate video',
-  lounge: 'Smooth slow camera pan across the lounge, cinematic interior shot, warm natural lighting, professional real estate video',
-  kitchen: 'Slow dolly shot through the kitchen, showing countertops and appliances, warm lighting, professional real estate video',
-  dining_room: 'Slow elegant camera pan across the dining room, showing table setting, warm ambient lighting, professional real estate video',
-  dining: 'Slow elegant camera pan across the dining area, showing table and chairs, warm ambient lighting, professional real estate video',
-  bedroom: 'Gentle slow zoom into the bedroom, soft morning light, cozy atmosphere, professional real estate video',
-  bathroom: 'Slow reveal pan of the bathroom, clean modern fixtures, bright natural lighting, professional real estate video',
-  office: 'Smooth pan across the home office, natural light from window, professional real estate video',
-  study: 'Smooth pan across the study, warm lighting, bookshelves, professional real estate video',
-  hallway: 'Smooth dolly shot through the hallway, bright and welcoming, professional real estate video',
-  balcony: 'Slow cinematic pan of the balcony view, gentle breeze, golden hour, professional real estate video',
-  garden: 'Slow cinematic drone shot of the garden, lush greenery, golden hour, professional real estate video',
-  default: 'Slow cinematic camera pan, professional real estate video, smooth motion, warm lighting',
+// ── Sort categories (spec-aligned) ────────────────────────────────────────
+const SORT_CATEGORIES = [
+  'exterior_front', 'exterior_garden',
+  'living_room', 'kitchen', 'dining',
+  'bedroom', 'bathroom', 'detail',
+] as const;
+
+const SORT_ORDER: Record<string, number> = {
+  exterior_front: 0, exterior_garden: 1,
+  living_room: 2, kitchen: 3, dining: 4,
+  bedroom: 5, bathroom: 6, detail: 7,
+  other: 8,
+};
+
+const MAX_PER_CATEGORY: Record<string, number> = {
+  exterior_front: 2, exterior_garden: 1,
+  living_room: 2, kitchen: 2, dining: 1,
+  bedroom: 2, bathroom: 1, detail: 1,
+  other: 1,
+};
+
+const MAX_SORTED_IMAGES = 12;
+
+// Map freeform/legacy labels → spec categories
+const LABEL_MAP: Record<string, string> = {
+  exterior: 'exterior_front', facade: 'exterior_front', building: 'exterior_front',
+  house: 'exterior_front', outside: 'exterior_front',
+  garden: 'exterior_garden', yard: 'exterior_garden', patio: 'exterior_garden',
+  balcony: 'exterior_garden', terrace: 'exterior_garden',
+  living: 'living_room', lounge: 'living_room', living_room: 'living_room',
+  kitchen: 'kitchen',
+  dining: 'dining', dining_room: 'dining',
+  bedroom: 'bedroom',
+  bathroom: 'bathroom',
+  office: 'detail', study: 'detail', hallway: 'detail',
+  corridor: 'detail', entrance: 'detail',
+};
+
+// Motion prompts per category (spec-aligned)
+const MOTION_PROMPTS: Record<string, string> = {
+  exterior_front: 'smooth slow dolly zoom in, luxury real estate, golden hour, cinematic',
+  exterior_garden: 'gentle aerial drift across garden, wide establishing shot, cinematic',
+  living_room: 'slow pan left to right, warm interior lighting, cinematic property tour',
+  kitchen: 'slow tilt up revealing kitchen, modern interior, crisp lighting',
+  dining: 'gentle push forward toward dining table, warm ambient light',
+  bedroom: 'slow push in toward window, soft morning light, luxury bedroom',
+  bathroom: 'gentle pan across bathroom, spa-like atmosphere, clean whites',
+  detail: 'macro slow zoom in, architectural detail, shallow depth of field',
 };
 
 // Music tracks — Supabase Storage paths + CDN fallbacks
@@ -91,6 +120,8 @@ export async function POST(
         return await handleSorting(supabase, job);
       case 'twilighting':
         return await handleTwilighting(supabase, job);
+      case 'enhancing':
+        return await handleEnhancing(supabase, job);
       case 'renovating':
         return await handleRenovating(supabase, job);
       case 'animating':
@@ -159,70 +190,55 @@ async function handleScraping(supabase: Awaited<ReturnType<typeof createClient>>
   });
 }
 
-// ── Stage 1.5: Auto-sort images ──────────────────────────────────────────
+// ── Stage 2: Sort — LLaVA classification + walkthrough ordering + dedup ─
 async function handleSorting(supabase: Awaited<ReturnType<typeof createClient>>, job: Record<string, unknown>) {
   const inputImages = (job.input_images as string[]) || [];
   if (inputImages.length <= 1) {
-    // Nothing to sort
-    await supabase.from('video_jobs').update({ status: 'twilighting' }).eq('id', job.id);
+    const singleLabel = inputImages.length === 1 ? [{ index: 0, label: 'other', sortKey: 8 }] : [];
+    await supabase.from('video_jobs').update({ status: 'twilighting', metadata: { sortLabels: singleLabel } }).eq('id', job.id);
     return NextResponse.json({ status: 'twilighting', message: 'Only one image, skipping sort.' });
   }
 
-  console.log(`[VideoProcess] Sorting ${inputImages.length} images by room type`);
+  console.log(`[Sort] Classifying ${inputImages.length} images with LLaVA`);
 
-  // Sort one image per call (same pattern as renovation/animation)
   const metadata = (job.metadata as Record<string, unknown>) || {};
   const sortIndex = (metadata.sortIndex as number) || 0;
   const labels = (metadata.sortLabels as Array<{ index: number; label: string; sortKey: number }>) || [];
 
-  // Already sorted?
+  // Already classified all?
   if (sortIndex >= inputImages.length && labels.length > 0) {
-    labels.sort((a, b) => a.sortKey - b.sortKey);
-    const sortedImages = labels.map(item => inputImages[item.index]);
-    await supabase.from('video_jobs')
-      .update({ status: 'twilighting', input_images: sortedImages, metadata: { sortLabels: labels } })
-      .eq('id', job.id);
-    return NextResponse.json({ status: 'twilighting', message: `Sorted: ${labels.map(l => l.label).join(' → ')}` });
+    const result = finalizeSort(labels, inputImages);
+    await supabase.from('video_jobs').update({
+      status: 'twilighting',
+      input_images: result.sortedImages,
+      metadata: { ...metadata, sortLabels: result.labels, sortIndex: 0, sortPredictionId: null },
+    }).eq('id', job.id);
+    return NextResponse.json({ status: 'twilighting', message: `Sorted: ${result.labels.map(l => l.label).join(' → ')}` });
   }
 
-  // Classify one image
-  const sortOrder: Record<string, number> = {
-    exterior: 0, facade: 0, building: 0, house: 0, outside: 0,
-    balcony: 1, patio: 1, terrace: 1, garden: 1, yard: 1,
-    living: 2, lounge: 2, living_room: 2,
-    dining: 3, dining_room: 3, kitchen: 4, office: 5, study: 5,
-    hallway: 6, corridor: 6, entrance: 6,
-    bedroom: 7, bathroom: 8, other: 9,
-  };
-
-  // Track consecutive failures — if sorting keeps failing, skip it
-  const sortFailures = (metadata.sortFailures as number) || 0;
-
-  // Check if there's an active prediction (fire-and-forget pattern)
+  // Check active prediction
   const activeSortPredictionId = metadata.sortPredictionId as string | undefined;
-
   if (activeSortPredictionId) {
-    // Check status of existing prediction
     try {
       const prediction = await replicate.predictions.get(activeSortPredictionId);
       if (prediction.status === 'succeeded') {
-        let label = '';
-        if (typeof prediction.output === 'string') label = prediction.output.trim().toLowerCase();
-        else if (Array.isArray(prediction.output)) label = prediction.output.join('').trim().toLowerCase();
-        const match = label.match(/\b(living_room|living room|dining_room|dining room|exterior|facade|building|house|outside|balcony|patio|terrace|garden|yard|living|lounge|dining|kitchen|office|study|hallway|corridor|entrance|bedroom|bathroom|other)\b/);
-        const cleanLabel = match ? match[1].replace(/ /g, '_') : 'other';
-        labels.push({ index: sortIndex, label: cleanLabel, sortKey: sortOrder[cleanLabel] ?? 9 });
-        console.log(`[Sort] Image ${sortIndex}: ${cleanLabel}`);
+        let raw = '';
+        if (typeof prediction.output === 'string') raw = prediction.output.trim().toLowerCase();
+        else if (Array.isArray(prediction.output)) raw = prediction.output.join('').trim().toLowerCase();
+        const match = raw.match(/\b([a-z_]+)\b/);
+        const rawLabel = match ? match[1] : 'other';
+        const category = LABEL_MAP[rawLabel] || ((SORT_CATEGORIES as readonly string[]).includes(rawLabel) ? rawLabel : 'other');
+        labels.push({ index: sortIndex, label: category, sortKey: SORT_ORDER[category] ?? 8 });
+        console.log(`[Sort] Image ${sortIndex}: ${rawLabel} → ${category}`);
       } else if (prediction.status === 'failed') {
         console.warn(`[Sort] Prediction failed: ${prediction.error}`);
-        labels.push({ index: sortIndex, label: 'other', sortKey: 9 });
+        labels.push({ index: sortIndex, label: 'other', sortKey: 8 });
       } else {
-        // Still processing
         return NextResponse.json({ status: 'sorting', message: `Classifying image ${sortIndex + 1}/${inputImages.length}...` });
       }
     } catch (err) {
       console.warn(`[Sort] Error checking prediction:`, err);
-      labels.push({ index: sortIndex, label: 'other', sortKey: 9 });
+      labels.push({ index: sortIndex, label: 'other', sortKey: 8 });
     }
   } else {
     // Start new prediction
@@ -231,70 +247,77 @@ async function handleSorting(supabase: Awaited<ReturnType<typeof createClient>>,
         version: "72ccb656353c348c1385df54b237eeb7bfa874bf11486cf0b9473e691b662d31",
         input: {
           image: inputImages[sortIndex],
-          prompt: 'Classify this real estate photo. Choose EXACTLY one: exterior, living_room, kitchen, bedroom, bathroom, dining_room, office, hallway, balcony, garden, other. Reply with ONLY the label, nothing else.',
+          prompt: `Classify this real estate photo into exactly one category: ${SORT_CATEGORIES.join(', ')}. Reply with ONLY the category name, nothing else.`,
           temperature: 0.2,
           max_tokens: 1024,
           top_p: 1,
         },
       });
-
-      // Save prediction ID — check on next poll
-      await supabase.from('video_jobs')
-        .update({ metadata: { ...metadata, sortPredictionId: prediction.id } })
-        .eq('id', job.id);
+      await supabase.from('video_jobs').update({ metadata: { ...metadata, sortPredictionId: prediction.id } }).eq('id', job.id);
       return NextResponse.json({ status: 'sorting', message: `Classifying image ${sortIndex + 1}/${inputImages.length}...` });
     } catch (err) {
       console.warn(`[Sort] Failed image ${sortIndex}:`, err);
-      labels.push({ index: sortIndex, label: 'other', sortKey: 9 });
-      // If too many consecutive failures, skip sorting entirely
-      const nextFailures = sortFailures + 1;
-      if (nextFailures >= 2) {
+      labels.push({ index: sortIndex, label: 'other', sortKey: 8 });
+      const sortFailures = ((metadata.sortFailures as number) || 0) + 1;
+      if (sortFailures >= 2) {
         console.log('[Sort] Too many failures, skipping sort');
-        await supabase.from('video_jobs')
-          .update({ status: 'twilighting', metadata: { sortLabels: [] } })
-          .eq('id', job.id);
+        await supabase.from('video_jobs').update({ status: 'twilighting', metadata: { sortLabels: [] } }).eq('id', job.id);
         return NextResponse.json({ status: 'twilighting', message: 'Skipping auto-sort (model unavailable).' });
       }
+      await supabase.from('video_jobs').update({ metadata: { ...metadata, sortFailures } }).eq('id', job.id);
     }
   }
 
+  // Advance
   const nextIndex = sortIndex + 1;
-  const isDone = nextIndex >= inputImages.length;
-
-  if (isDone) {
-    // All classified — sort and proceed
-    labels.sort((a, b) => a.sortKey - b.sortKey);
-    const sortedImages = labels.map(item => inputImages[item.index]);
-    await supabase.from('video_jobs')
-      .update({ status: 'twilighting', input_images: sortedImages, metadata: { sortLabels: labels } })
-      .eq('id', job.id);
-    return NextResponse.json({ status: 'twilighting', message: `Sorted: ${labels.map(l => l.label).join(', ')}` });
+  if (nextIndex >= inputImages.length) {
+    const result = finalizeSort(labels, inputImages);
+    await supabase.from('video_jobs').update({
+      status: 'twilighting',
+      input_images: result.sortedImages,
+      metadata: { ...metadata, sortLabels: result.labels, sortIndex: 0, sortPredictionId: null },
+    }).eq('id', job.id);
+    return NextResponse.json({ status: 'twilighting', message: `Sorted: ${result.labels.map(l => l.label).join(' → ')}` });
   }
 
-  // Save progress, stay in sorting
-  await supabase.from('video_jobs')
-    .update({ metadata: { sortIndex: nextIndex, sortLabels: labels, sortPredictionId: null, sortFailures } })
-    .eq('id', job.id);
-  return NextResponse.json({ status: 'sorting', message: `Classifying image ${nextIndex}/${inputImages.length}...` });
+  await supabase.from('video_jobs').update({
+    metadata: { ...metadata, sortIndex: nextIndex, sortLabels: labels, sortPredictionId: null },
+  }).eq('id', job.id);
+  return NextResponse.json({ status: 'sorting', message: `Classifying image ${nextIndex + 1}/${inputImages.length}...` });
 }
 
-// ── Stage 1.7: Twilight exterior images ──────────────────────────────────
+// Dedup by category (max N per category), walkthrough order, cap at 12
+function finalizeSort(labels: Array<{ index: number; label: string; sortKey: number }>, images: string[]) {
+  const categoryCounts: Record<string, number> = {};
+  const deduped: Array<{ index: number; label: string; sortKey: number }> = [];
+  for (const item of labels) {
+    const max = MAX_PER_CATEGORY[item.label] ?? 1;
+    const count = categoryCounts[item.label] || 0;
+    if (count < max) {
+      deduped.push(item);
+      categoryCounts[item.label] = count + 1;
+    }
+  }
+  deduped.sort((a, b) => a.sortKey - b.sortKey);
+  const capped = deduped.slice(0, MAX_SORTED_IMAGES);
+  return { labels: capped, sortedImages: capped.map(item => images[item.index]) };
+}
+
+// ── Stage 3: Twilight — SDXL img2img for exterior shots only ───────────
 async function handleTwilighting(supabase: Awaited<ReturnType<typeof createClient>>, job: Record<string, unknown>) {
   const metadata = (job.metadata as Record<string, unknown>) || {};
   const inputImages = (job.input_images as string[]) || [];
   const sortLabels = (metadata.sortLabels as Array<{ index: number; label: string; sortKey: number }>) || [];
 
-  // Find exterior image indices
-  const exteriorLabels = ['exterior', 'facade', 'building', 'house', 'outside'];
+  // Only twilight exterior_front and exterior_garden (spec categories)
   const exteriorIndices = sortLabels
-    .filter(l => exteriorLabels.includes(l.label))
+    .filter(l => ['exterior_front', 'exterior_garden'].includes(l.label))
     .map(l => l.index);
 
   if (exteriorIndices.length === 0) {
-    // No exterior images — skip to renovating
-    console.log('[Twilight] No exterior images found, skipping');
-    await supabase.from('video_jobs').update({ status: 'renovating' }).eq('id', job.id);
-    return NextResponse.json({ status: 'renovating', message: 'No exterior images to twilight.' });
+    console.log('[Twilight] No exterior images, skipping');
+    await supabase.from('video_jobs').update({ status: 'enhancing' }).eq('id', job.id);
+    return NextResponse.json({ status: 'enhancing', message: 'No exterior images to twilight.' });
   }
 
   // Process one exterior image per poll
@@ -309,9 +332,9 @@ async function handleTwilighting(supabase: Awaited<ReturnType<typeof createClien
     }
     console.log(`[Twilight] Done. Enhanced ${Object.keys(twilightedImages).length} exterior images.`);
     await supabase.from('video_jobs')
-      .update({ status: 'renovating', input_images: updatedImages, metadata: { ...metadata, twilightedImages: undefined, twilightIndex: undefined } })
+      .update({ status: 'enhancing', input_images: updatedImages, metadata: { ...metadata, twilightedImages: undefined, twilightIndex: undefined } })
       .eq('id', job.id);
-    return NextResponse.json({ status: 'renovating', message: `Twilight enhanced ${Object.keys(twilightedImages).length} exterior shots.` });
+    return NextResponse.json({ status: 'enhancing', message: `Twilight enhanced ${Object.keys(twilightedImages).length} exterior shots.` });
   }
 
   const imageIdx = exteriorIndices[twilightIndex];
@@ -353,11 +376,11 @@ async function handleTwilighting(supabase: Awaited<ReturnType<typeof createClien
       version: "76604baddc85b1b4616e1c6475eca080da339c8875bd4996705440484a6eac38",
       input: {
         image: imageUrl,
-        prompt: 'virtual twilight, dusk exterior, warm interior lights glowing through windows, blue hour sky with stars, professional real estate photography, cinematic, high quality',
-        negative_prompt: 'blurry, low quality, distorted, overexposed, daytime, sunlight, watermark, text',
+        prompt: 'real estate exterior photography, golden hour twilight, warm orange sky, professional lighting, luxury property, cinematic --ar 16:9',
+        negative_prompt: 'daytime, harsh light, overcast, flat sky, dark, night, people, cars, text',
         num_inference_steps: 30,
-        guidance_scale: 12,
-        prompt_strength: 0.65,
+        guidance_scale: 7.5,
+        prompt_strength: 0.45,
       },
     });
 
@@ -376,7 +399,102 @@ async function handleTwilighting(supabase: Awaited<ReturnType<typeof createClien
   }
 }
 
-// ── Stage 2: Renovate ────────────────────────────────────────────────────
+// ── Stage 4: Enhance — Real-ESRGAN 2× upscale for all images ──────────
+async function handleEnhancing(supabase: Awaited<ReturnType<typeof createClient>>, job: Record<string, unknown>) {
+  const metadata = (job.metadata as Record<string, unknown>) || {};
+  const inputImages = (job.input_images as string[]) || [];
+
+  if (inputImages.length === 0) {
+    await supabase.from('video_jobs').update({ status: 'failed', metadata: { ...metadata, error: 'enhancing: No images to enhance' } }).eq('id', job.id);
+    return NextResponse.json({ status: 'failed', error: 'No images to enhance' });
+  }
+
+  const enhanceIndex = (metadata.enhanceIndex as number) || 0;
+  const enhancedImages = (metadata.enhancedImages as string[]) || [];
+
+  // All done?
+  if (enhanceIndex >= inputImages.length && enhancedImages.length > 0) {
+    console.log(`[Enhance] Done. ${enhancedImages.length} images upscaled.`);
+    await supabase.from('video_jobs').update({
+      status: 'renovating',
+      input_images: enhancedImages,
+      metadata: { ...metadata, enhancedImages: undefined, enhanceIndex: undefined, enhancePredictionId: undefined },
+    }).eq('id', job.id);
+    return NextResponse.json({ status: 'renovating', message: `Enhanced ${enhancedImages.length} images.` });
+  }
+
+  console.log(`[Enhance] Upscaling image ${enhanceIndex + 1}/${inputImages.length}`);
+
+  // Check active prediction
+  const activePredictionId = metadata.enhancePredictionId as string | undefined;
+  if (activePredictionId) {
+    try {
+      const prediction = await replicate.predictions.get(activePredictionId);
+      if (prediction.status === 'succeeded') {
+        const url = extractUrl(prediction.output);
+        enhancedImages.push(url || inputImages[enhanceIndex]);
+        console.log(`[Enhance] Image ${enhanceIndex + 1} done`);
+      } else if (prediction.status === 'failed') {
+        console.warn(`[Enhance] Prediction failed: ${prediction.error}`);
+        enhancedImages.push(inputImages[enhanceIndex]); // fallback to original
+      } else {
+        return NextResponse.json({ status: 'enhancing', message: `Enhancing image ${enhanceIndex + 1}/${inputImages.length}...` });
+      }
+    } catch (err) {
+      console.warn('[Enhance] Error checking prediction:', err);
+      enhancedImages.push(inputImages[enhanceIndex]);
+    }
+
+    const nextIdx = enhanceIndex + 1;
+    if (nextIdx >= inputImages.length) {
+      await supabase.from('video_jobs').update({
+        status: 'renovating',
+        input_images: enhancedImages,
+        metadata: { ...metadata, enhancedImages: undefined, enhanceIndex: undefined, enhancePredictionId: undefined },
+      }).eq('id', job.id);
+      return NextResponse.json({ status: 'renovating', message: `Enhanced ${enhancedImages.length} images.` });
+    }
+
+    await supabase.from('video_jobs').update({
+      metadata: { ...metadata, enhanceIndex: nextIdx, enhancedImages, enhancePredictionId: null },
+    }).eq('id', job.id);
+    return NextResponse.json({ status: 'enhancing', message: `Enhancing image ${nextIdx + 1}/${inputImages.length}...` });
+  }
+
+  // Start Real-ESRGAN prediction
+  try {
+    const prediction = await createPredictionWithRetry({
+      version: '42fed1c4974146d4d2414e2be2c5277c7fcf05fcc3a73abf41610695738c1d7b',
+      input: {
+        image: inputImages[enhanceIndex],
+        scale: 2,
+        face_enhance: false,
+      },
+    });
+    await supabase.from('video_jobs').update({
+      metadata: { ...metadata, enhancePredictionId: prediction.id },
+    }).eq('id', job.id);
+    return NextResponse.json({ status: 'enhancing', message: `Enhancing image ${enhanceIndex + 1}/${inputImages.length}...` });
+  } catch (err) {
+    console.warn(`[Enhance] Failed image ${enhanceIndex}:`, err);
+    enhancedImages.push(inputImages[enhanceIndex]);
+    const nextIdx = enhanceIndex + 1;
+    if (nextIdx >= inputImages.length) {
+      await supabase.from('video_jobs').update({
+        status: 'renovating',
+        input_images: enhancedImages,
+        metadata: { ...metadata, enhancedImages: undefined, enhanceIndex: undefined, enhancePredictionId: undefined },
+      }).eq('id', job.id);
+      return NextResponse.json({ status: 'renovating', message: `Enhanced ${enhancedImages.length} images (with fallbacks).` });
+    }
+    await supabase.from('video_jobs').update({
+      metadata: { ...metadata, enhanceIndex: nextIdx, enhancedImages, enhancePredictionId: null },
+    }).eq('id', job.id);
+    return NextResponse.json({ status: 'enhancing', message: `Enhancing image ${nextIdx + 1}/${inputImages.length}...` });
+  }
+}
+
+// ── Stage 5: Renovate — AI interior design (interior images only) ────────
 async function handleRenovating(supabase: Awaited<ReturnType<typeof createClient>>, job: Record<string, unknown>) {
   const inputImages = (job.input_images as string[]) || [];
   if (inputImages.length === 0) {
@@ -385,70 +503,76 @@ async function handleRenovating(supabase: Awaited<ReturnType<typeof createClient
   }
 
   const style = (job.renovation_style as string) || 'modern';
-  const prompt = (STYLE_PROMPTS[style] || STYLE_PROMPTS.modern) + ', interior design magazine, wide angle, full room visible';
-  const toProcess = inputImages.slice(0, 8);
-
-  // Process one image per call (keeps each request short)
-  // Track progress via metadata
+  const sortLabels = ((job.metadata as Record<string, unknown>)?.sortLabels as Array<{ index: number; label: string }>) || [];
   const metadata = (job.metadata as Record<string, unknown>) || {};
   const currentIndex = (metadata.renovateIndex as number) || 0;
   const renovated: string[] = (metadata.renovatedImages as string[]) || [];
 
-  // Prevent concurrent processing
-  if (metadata.renovating === true) {
-    return NextResponse.json({ status: 'renovating', message: `Still renovating image ${currentIndex + 1}/${toProcess.length}...` });
+  // All done?
+  if (currentIndex >= inputImages.length && renovated.length > 0) {
+    await supabase.from('video_jobs').update({ status: 'animating', metadata: { ...metadata, renovatedImages: renovated } }).eq('id', job.id);
+    return NextResponse.json({ status: 'animating', message: `Renovation done. ${renovated.length} images.` });
   }
 
-  if (currentIndex < toProcess.length) {
-    // Check if there's an active prediction
+  if (currentIndex < inputImages.length) {
     const activePredictionId = metadata.renovatePredictionId as string | undefined;
-    
     if (activePredictionId) {
-      // Check status of existing prediction
       try {
         const prediction = await replicate.predictions.get(activePredictionId);
         if (prediction.status === 'succeeded') {
           const url = extractUrl(prediction.output);
-          renovated.push(url || toProcess[currentIndex]);
-          console.log(`[Renovate] Image ${currentIndex + 1} done. URL: ${url ? 'yes' : 'fallback'}`);
-          
-          // Advance to next image
-          const nextIndex = currentIndex + 1;
-          const isDone = nextIndex >= toProcess.length;
-          await supabase.from('video_jobs').update({
-            status: isDone ? 'animating' : 'renovating',
-            metadata: { renovateIndex: nextIndex, renovatedImages: renovated },
-          }).eq('id', job.id);
-          return NextResponse.json({
-            status: isDone ? 'animating' : 'renovating',
-            message: isDone ? `Renovation done. ${renovated.length} images.` : `Renovated ${nextIndex}/${toProcess.length}...`,
-          });
+          renovated.push(url || inputImages[currentIndex]);
+          console.log(`[Renovate] Image ${currentIndex + 1} done`);
         } else if (prediction.status === 'failed') {
           console.warn(`[Renovate] Prediction failed: ${prediction.error}`);
-          renovated.push(toProcess[currentIndex]);
-          const nextIndex = currentIndex + 1;
-          const isDone = nextIndex >= toProcess.length;
-          await supabase.from('video_jobs').update({
-            status: isDone ? 'animating' : 'renovating',
-            metadata: { renovateIndex: nextIndex, renovatedImages: renovated },
-          }).eq('id', job.id);
-          return NextResponse.json({ status: isDone ? 'animating' : 'renovating', message: `Renovation ${nextIndex}/${toProcess.length} (fallback).` });
+          renovated.push(inputImages[currentIndex]);
+        } else {
+          return NextResponse.json({ status: 'renovating', message: `Renovating image ${currentIndex + 1}/${inputImages.length}...` });
         }
-        // Still processing — poll again later
-        return NextResponse.json({ status: 'renovating', message: `Renovating image ${currentIndex + 1}/${toProcess.length}...` });
       } catch (err) {
         console.warn(`[Renovate] Error checking prediction:`, err);
-        // Fall through to create new prediction
+        renovated.push(inputImages[currentIndex]);
       }
+
+      const nextIndex = currentIndex + 1;
+      const isDone = nextIndex >= inputImages.length;
+      await supabase.from('video_jobs').update({
+        status: isDone ? 'animating' : 'renovating',
+        metadata: { ...metadata, renovateIndex: nextIndex, renovatedImages: renovated, renovatePredictionId: null },
+      }).eq('id', job.id);
+      return NextResponse.json({
+        status: isDone ? 'animating' : 'renovating',
+        message: isDone ? `Renovation done. ${renovated.length} images.` : `Renovated ${nextIndex}/${inputImages.length}...`,
+      });
     }
 
-    // Start new prediction
-    console.log(`[Renovate] Starting image ${currentIndex + 1}/${toProcess.length}`);
+    // Determine if this is interior (needs renovation) or exterior (skip)
+    const roomLabel = sortLabels[currentIndex]?.label || 'other';
+    const isExterior = ['exterior_front', 'exterior_garden'].includes(roomLabel);
+
+    if (isExterior) {
+      console.log(`[Renovate] Image ${currentIndex + 1} is exterior (${roomLabel}), skipping`);
+      renovated.push(inputImages[currentIndex]);
+      const nextIndex = currentIndex + 1;
+      const isDone = nextIndex >= inputImages.length;
+      await supabase.from('video_jobs').update({
+        status: isDone ? 'animating' : 'renovating',
+        metadata: { ...metadata, renovateIndex: nextIndex, renovatedImages: renovated },
+      }).eq('id', job.id);
+      return NextResponse.json({
+        status: isDone ? 'animating' : 'renovating',
+        message: isDone ? `Renovation done. ${renovated.length} images.` : `Renovated ${nextIndex}/${inputImages.length}...`,
+      });
+    }
+
+    // Interior — start renovation prediction
+    const prompt = (STYLE_PROMPTS[style] || STYLE_PROMPTS.modern) + ', interior design magazine, wide angle, full room visible';
+    console.log(`[Renovate] Starting image ${currentIndex + 1}/${inputImages.length} (${roomLabel})`);
     try {
       const prediction = await createPredictionWithRetry({
         version: "76604baddc85b1b4616e1c6475eca080da339c8875bd4996705440484a6eac38",
         input: {
-          image: toProcess[currentIndex],
+          image: inputImages[currentIndex],
           prompt,
           negative_prompt: 'blurry, low quality, distorted, watermark, text, dark, empty room',
           num_inference_steps: 30,
@@ -456,27 +580,23 @@ async function handleRenovating(supabase: Awaited<ReturnType<typeof createClient
           prompt_strength: 0.6,
         },
       });
-
-      // Save prediction ID — don't wait, check on next poll
       await supabase.from('video_jobs').update({
         metadata: { ...metadata, renovatePredictionId: prediction.id },
       }).eq('id', job.id);
-
-      return NextResponse.json({ status: 'renovating', message: `Renovating image ${currentIndex + 1}/${toProcess.length}...` });
+      return NextResponse.json({ status: 'renovating', message: `Renovating image ${currentIndex + 1}/${inputImages.length}...` });
     } catch (err) {
       console.warn(`[Renovate] Failed to create prediction:`, err);
-      renovated.push(toProcess[currentIndex]);
+      renovated.push(inputImages[currentIndex]);
       const nextIndex = currentIndex + 1;
-      const isDone = nextIndex >= toProcess.length;
+      const isDone = nextIndex >= inputImages.length;
       await supabase.from('video_jobs').update({
         status: isDone ? 'animating' : 'renovating',
-        metadata: { renovateIndex: nextIndex, renovatedImages: renovated },
+        metadata: { ...metadata, renovateIndex: nextIndex, renovatedImages: renovated },
       }).eq('id', job.id);
-      return NextResponse.json({ status: isDone ? 'animating' : 'renovating', message: `Renovation ${nextIndex}/${toProcess.length} (failed, fallback).` });
+      return NextResponse.json({ status: isDone ? 'animating' : 'renovating', message: `Renovation ${nextIndex}/${inputImages.length} (fallback).` });
     }
   }
 
-  // All done already, move to animating
   await supabase.from('video_jobs').update({ status: 'animating' }).eq('id', job.id);
   return NextResponse.json({ status: 'animating', message: 'Starting animation...' });
 }
@@ -552,7 +672,7 @@ async function handleAnimating(supabase: Awaited<ReturnType<typeof createClient>
     // Get room-specific motion prompt from sort labels
     const sortLabels = (metadata.sortLabels as Array<{ index: number; label: string; sortKey: number }>) || [];
     const roomLabel = sortLabels[currentIndex]?.label || 'default';
-    const motionPrompt = ROOM_MOTION_PROMPTS[roomLabel] || ROOM_MOTION_PROMPTS.default;
+    const motionPrompt = MOTION_PROMPTS[roomLabel] || 'slow cinematic camera pan, professional real estate video, smooth motion, warm lighting';
     console.log(`[Animate] Room: ${roomLabel}, Motion: ${motionPrompt.substring(0, 60)}...`);
 
     try {
@@ -561,10 +681,10 @@ async function handleAnimating(supabase: Awaited<ReturnType<typeof createClient>
         input: {
           start_image: images[currentIndex],
           prompt: motionPrompt,
-          negative_prompt: 'blurry, distorted, low quality, watermark, text, fast motion, shaky',
+          negative_prompt: 'shaky, blurry, distorted, text, watermark, people',
           duration: 5,
           aspect_ratio: '16:9',
-          resolution: '720p',
+          cfg_scale: 0.5,
           mode: 'standard',
         },
       });

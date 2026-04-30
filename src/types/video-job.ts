@@ -9,6 +9,7 @@ export type VideoJobStatus =
   | 'scraping'
   | 'sorting'
   | 'twilighting'
+  | 'enhancing'
   | 'renovating'
   | 'animating'
   | 'stitching'
@@ -17,7 +18,7 @@ export type VideoJobStatus =
   | 'needs_images';
 
 // Pipeline stage for progress indicator
-export type PipelineStage = 'scrape' | 'sort' | 'twilight' | 'enhance' | 'generate' | 'complete';
+export type PipelineStage = 'scrape' | 'sort' | 'twilight' | 'upscale' | 'enhance' | 'generate' | 'complete';
 
 // Stage status for progress tracking
 export type StageStatus = 'pending' | 'active' | 'complete' | 'error';
@@ -135,6 +136,12 @@ export const VIDEO_STATUS_CONFIG: Record<VideoJobStatus, {
     bgColor: 'bg-indigo-100',
     icon: 'dark_mode',
   },
+  enhancing: {
+    label: 'Upscaling',
+    color: 'text-cyan-700',
+    bgColor: 'bg-cyan-100',
+    icon: 'auto_fix_high',
+  },
   renovating: {
     label: 'Enhancing',
     color: 'text-purple-700',
@@ -199,6 +206,12 @@ export const PIPELINE_STAGES: Array<{
     description: 'Enhancing exterior shots',
   },
   {
+    id: 'upscale',
+    label: 'Upscale',
+    icon: 'auto_fix_high',
+    description: 'AI upscaling & quality',
+  },
+  {
     id: 'enhance',
     label: 'Enhance',
     icon: 'auto_fix_high',
@@ -232,6 +245,8 @@ export function statusToStage(status: VideoJobStatus): {
       return { stage: 'sort', stageStatus: 'active' };
     case 'twilighting':
       return { stage: 'twilight', stageStatus: 'active' };
+    case 'enhancing':
+      return { stage: 'upscale', stageStatus: 'active' };
     case 'renovating':
       return { stage: 'enhance', stageStatus: 'active' };
     case 'animating':

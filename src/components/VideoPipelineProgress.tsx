@@ -19,6 +19,7 @@ function getStageDescription(stageId: PipelineStage, job: Record<string, unknown
       scrape: 'Extracting listing photos',
       sort: 'Auto-sorting images',
       twilight: 'Enhancing exterior shots',
+      upscale: 'AI upscaling 2×',
       enhance: 'AI virtual renovation',
       generate: 'Creating video clips',
       complete: 'Final video assembly',
@@ -75,7 +76,7 @@ export function VideoPipelineProgress({
   className,
 }: VideoPipelineProgressProps) {
   // Determine which stages are complete
-  const stageOrder: PipelineStage[] = ['scrape', 'sort', 'twilight', 'enhance', 'generate', 'complete'];
+  const stageOrder: PipelineStage[] = ['scrape', 'sort', 'twilight', 'upscale', 'enhance', 'generate', 'complete'];
   const currentIndex = stageOrder.indexOf(currentStage);
   
   return (

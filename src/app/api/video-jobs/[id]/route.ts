@@ -134,7 +134,7 @@ export async function PUT(
     return NextResponse.json({ error: 'Provide { status: "stage_name" }' }, { status: 400 });
   }
 
-  const validStatuses = ['scraping', 'sorting', 'twilighting', 'renovating', 'animating', 'stitching'];
+  const validStatuses = ['scraping', 'sorting', 'twilighting', 'enhancing', 'renovating', 'animating', 'stitching'];
   if (!validStatuses.includes(targetStatus)) {
     return NextResponse.json({ error: `Invalid status. Valid: ${validStatuses.join(', ')}` }, { status: 400 });
   }
