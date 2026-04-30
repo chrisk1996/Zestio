@@ -158,12 +158,13 @@ export async function POST(
 
 // ── Stage 1: Scrape ──────────────────────────────────────────────────────
 // ── Apify actor registry ─────────────────────────────────────────────────
-const APIFY_ACTORS: Record<string, { actorId: string; imageField: string }> = {
-  'immobilienscout24.de': { actorId: 'misceres/immobilienscout24-scraper', imageField: 'images' },
-  'immowelt.de': { actorId: 'misceres/immowelt-scraper', imageField: 'images' },
-  'zillow.com': { actorId: 'maxcopell/zillow-detail', imageField: 'photos' },
-  'rightmove.co.uk': { actorId: 'dhrumil/rightmove-scraper', imageField: 'images' },
-  'idealista.com': { actorId: 'tri_angle/idealista-scraper', imageField: 'images' },
+// Format: username~actor-name (Apify API uses tilde, not slash)
+const APIFY_ACTORS: Record<string, { actorId: string; imageField: string; inputKey: string }> = {
+  'immobilienscout24.de': { actorId: 'rigelbytes~immobilienscout24-scraper', imageField: 'images', inputKey: 'startUrls' },
+  'immowelt.de': { actorId: 'rigelbytes~immowelt-scraper', imageField: 'images', inputKey: 'startUrls' },
+  'zillow.com': { actorId: 'maxcopell~zillow-detail-scraper', imageField: 'photos', inputKey: 'propertyUrls' },
+  'rightmove.co.uk': { actorId: 'dhrumil~rightmove-scraper', imageField: 'images', inputKey: 'startUrls' },
+  'idealista.com': { actorId: 'tri_angle~idealista-scraper', imageField: 'images', inputKey: 'startUrls' },
 };
 
 function getApifyActor(url: string) {
@@ -209,7 +210,7 @@ async function handleScraping(supabase: Awaited<ReturnType<typeof createClient>>
       const actor = getApifyActor(url);
       if (actor && process.env.APIFY_API_TOKEN) {
         try {
-          const runId = await startApifyRun(actor.actorId, url);
+          const runId = await startApifyRun(actor.actorId, url, actor.inputKey);
           await supabase.from('video_jobs').update({
             metadata: { ...metadata, apifyRunId: runId },
           }).eq('id', job.id);
@@ -1250,18 +1251,21 @@ async function refundCredit(supabase: Awaited<ReturnType<typeof createClient>>, 
 }
 
 // ── Apify helpers ────────────────────────────────────────────────────────
-async function startApifyRun(actorId: string, url: string): Promise<string> {
+async function startApifyRun(actorId: string, url: string, inputKey: string): Promise<string> {
   const token = process.env.APIFY_API_TOKEN!;
   const res = await fetch(`https://api.apify.com/v2/acts/${actorId}/runs?token=${token}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      startUrls: [{ url }],
+      [inputKey]: [{ url }],
       maxItems: 1,
     }),
     signal: AbortSignal.timeout(30000),
   });
-  if (!res.ok) throw new Error(`Apify start failed: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Apify start failed: ${res.status} ${body.substring(0, 200)}`);
+  }
   const data = await res.json();
   return data?.data?.id as string;
 }
