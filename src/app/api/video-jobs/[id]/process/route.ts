@@ -70,22 +70,24 @@ const MOTION_PROMPTS: Record<string, string> = {
   bathroom: 'gentle pan across bathroom, spa-like atmosphere, clean whites',
   detail: 'macro slow zoom in, architectural detail, shallow depth of field',
 };
+// Asset URLs — Supabase Storage (public bucket)
+const ASSETS_BASE = 'https://dsotmgpvrstegxqgxkdh.supabase.co/storage/v1/object/public/assets';
 
-// Music tracks — Supabase Storage paths + CDN fallbacks
+// Music tracks — auto-select by listing price/style
 const MUSIC_TRACKS: Record<string, string> = {
-  cinematic: 'https://cdn.zestio.de/music/ambient_cinematic.mp3',
-  upbeat: 'https://cdn.zestio.de/music/upbeat_modern.mp3',
-  ambient: 'https://cdn.zestio.de/music/soft_ambient.mp3',
+  cinematic: `${ASSETS_BASE}/music/ambient_cinematic.mp3`,
+  upbeat: `${ASSETS_BASE}/music/upbeat_modern.mp3`,
+  ambient: `${ASSETS_BASE}/music/soft_ambient.mp3`,
   // Genre overrides from user selection
-  uplifting: 'https://cdn.zestio.de/music/upbeat_modern.mp3',
-  acoustic: 'https://cdn.zestio.de/music/soft_ambient.mp3',
-  electronic: 'https://cdn.zestio.de/music/upbeat_modern.mp3',
-  jazz: 'https://cdn.zestio.de/music/soft_ambient.mp3',
-  classical: 'https://cdn.zestio.de/music/ambient_cinematic.mp3',
+  uplifting: `${ASSETS_BASE}/music/upbeat_modern.mp3`,
+  acoustic: `${ASSETS_BASE}/music/soft_ambient.mp3`,
+  electronic: `${ASSETS_BASE}/music/upbeat_modern.mp3`,
+  jazz: `${ASSETS_BASE}/music/soft_ambient.mp3`,
+  classical: `${ASSETS_BASE}/music/ambient_cinematic.mp3`,
 };
 
 // Branding
-const WATERMARK_LOGO_URL = 'https://cdn.zestio.de/brand/logo-white.png';
+const WATERMARK_LOGO_URL = `${ASSETS_BASE}/brand/watermark.png`;
 
 export async function POST(
   request: NextRequest,
