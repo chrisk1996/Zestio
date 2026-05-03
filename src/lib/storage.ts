@@ -89,6 +89,50 @@ export async function uploadImage(
 }
 
 /**
+ * Download a remote image URL and upload to Supabase Storage.
+ * Returns the permanent public URL. Falls back to original URL on failure.
+ */
+export async function persistRemoteImage(
+  remoteUrl: string,
+  bucket: string = 'images',
+  folder: string = 'generated'
+): Promise<string> {
+  try {
+    const response = await fetch(remoteUrl, { signal: AbortSignal.timeout(30000) });
+    if (!response.ok) return remoteUrl;
+
+    const contentType = response.headers.get('content-type') || 'image/png';
+    const buffer = Buffer.from(await response.arrayBuffer());
+
+    if (buffer.length < 100) return remoteUrl; // too small, probably error
+
+    const ext = contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg'
+      : contentType.includes('webp') ? 'webp'
+      : contentType.includes('avif') ? 'avif'
+      : 'png';
+
+    const supabase = await createClient();
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const path = `${folder}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(bucket)
+      .upload(path, buffer, { contentType, upsert: false });
+
+    if (uploadError) {
+      console.warn('[Storage] Upload failed:', uploadError.message);
+      return remoteUrl;
+    }
+
+    const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(path);
+    return urlData.publicUrl;
+  } catch (err) {
+    console.warn('[Storage] persistRemoteImage failed:', err);
+    return remoteUrl;
+  }
+}
+
+/**
  * Delete an image from Supabase Storage by path.
  */
 export async function deleteImage(path: string, bucket: string = 'images'): Promise<void> {

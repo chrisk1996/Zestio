@@ -203,7 +203,7 @@ export default function LibraryPage() {
                 }`}
               >
                 {filter.icon}
-                {filter.label}
+                {t(filter.labelKey)}
                 <span className={`ml-1 px-2 py-0.5 rounded-full text-xs ${
                   activeFilter === filter.id
                     ? 'bg-indigo-500 text-white'

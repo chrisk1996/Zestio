@@ -3,6 +3,7 @@ import Replicate from 'replicate';
 import { CREDIT_COSTS } from '@/lib/pricing';
 import { logCreditTransaction } from '@/lib/credit-transactions';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { persistRemoteImage } from '@/lib/storage';
 // Force dynamic rendering - uses cookies/auth
 export const dynamic = 'force-dynamic';
 import { createClient } from '@/utils/supabase/server';
@@ -210,11 +211,14 @@ export async function POST(request: NextRequest) {
 
       logCreditTransaction({ userId, type: 'usage', amount: -creditsUsed, description: `Photo enhancement (${model})` }).catch(() => {});
 
+      // Persist result to Supabase Storage (Replicate URLs expire)
+      const permanentUrl = await persistRemoteImage(resultUrl);
+
       // Save to library (zestio_jobs)
       supabase.from('zestio_jobs').insert({
         user_id: userId,
         input_url: image,
-        output_url: resultUrl,
+        output_url: permanentUrl,
         job_type: enhancementType || 'enhance',
         status: 'completed',
         completed_at: new Date().toISOString(),
@@ -223,7 +227,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        output: resultUrl,
+        output: permanentUrl,
         creditsUsed,
         model,
       });

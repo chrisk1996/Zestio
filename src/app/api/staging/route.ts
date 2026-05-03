@@ -6,6 +6,7 @@ import { authenticateRequest, logApiUsage } from '@/lib/api-auth';
 import { CREDIT_COSTS } from '@/lib/pricing';
 import { logCreditTransaction } from '@/lib/credit-transactions';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { persistRemoteImage } from '@/lib/storage';
 
 const replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN! });
 
@@ -305,11 +306,14 @@ export async function POST(request: NextRequest) {
 
       logCreditTransaction({ userId, type: 'usage', amount: -creditsUsed, description: `Virtual staging (${usedModel})` }).catch(() => {});
 
+      // Persist result to Supabase Storage (Replicate URLs expire)
+      const permanentUrl = await persistRemoteImage(outputUrl);
+
       // Save to library (zestio_jobs)
       supabase.from('zestio_jobs').insert({
         user_id: userId,
         input_url: image,
-        output_url: outputUrl,
+        output_url: permanentUrl,
         job_type: 'staging',
         status: 'completed',
         completed_at: new Date().toISOString(),
@@ -318,7 +322,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        output: outputUrl,
+        output: permanentUrl,
         model: usedModel,
         creditsUsed,
         creditsRemaining: remainingCredits,
