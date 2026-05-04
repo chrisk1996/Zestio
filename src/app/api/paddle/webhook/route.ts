@@ -3,57 +3,27 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { createHmac } from 'crypto';
 import { logCreditTransaction } from '@/lib/credit-transactions';
 import { getPlanCredits } from '@/lib/credits-shared';
 import {
   isPaddleConfigured,
   getPlanFromPriceId,
   getTopupCreditsFromPriceId,
+  unmarshal,
 } from '@/lib/paddle';
 
 export const dynamic = 'force-dynamic';
 
-// Lazy-initialize Supabase admin client
+// Lazy-init Supabase admin client
 let supabaseAdmin: ReturnType<typeof createClient> | null = null;
 function getSupabaseAdmin() {
   if (!supabaseAdmin) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !key) {
-      throw new Error('Missing Supabase environment variables');
-    }
+    if (!url || !key) throw new Error('Missing Supabase env vars');
     supabaseAdmin = createClient(url, key);
   }
   return supabaseAdmin;
-}
-
-/**
- * Verify Paddle webhook signature using native crypto.
- * Paddle uses HMAC-SHA256 with a timestamp + signature format:
- * ts=<timestamp>;u=<unique_id>;v1=<hmac_signature>
- */
-function verifyPaddleSignature(payload: string, signatureHeader: string, secret: string): boolean {
-  const parts = signatureHeader.split(';');
-  let ts = '';
-  let h1 = '';
-  for (const part of parts) {
-    const eqIndex = part.indexOf('=');
-    const key = part.substring(0, eqIndex);
-    const value = part.substring(eqIndex + 1);
-    if (key === 'ts') ts = value;
-    if (key === 'h1') h1 = value;
-  }
-
-  if (!ts || !h1) {
-    console.error('[Paddle] Signature parse failed. Header:', signatureHeader);
-    return false;
-  }
-
-  const signedPayload = `${ts}:${payload}`;
-  const expectedSig = createHmac('sha256', secret).update(signedPayload).digest('hex');
-
-  return expectedSig === h1;
 }
 
 export async function POST(request: NextRequest) {
@@ -72,19 +42,12 @@ export async function POST(request: NextRequest) {
   const requestBody = await request.text();
   const signature = request.headers.get('paddle-signature') || '';
 
-  // Verify signature
-  if (!verifyPaddleSignature(requestBody, signature, secret)) {
-    console.error('[Paddle] Webhook signature verification failed');
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
-  }
-
-  // Parse event data
   let parsed: any;
   try {
-    parsed = JSON.parse(requestBody);
-  } catch {
-    console.error('[Paddle] Failed to parse webhook body');
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    parsed = await unmarshal(requestBody, secret, signature);
+  } catch (err) {
+    console.error('[Paddle] Webhook signature verification failed:', err);
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
   const eventType = parsed.event_type;
