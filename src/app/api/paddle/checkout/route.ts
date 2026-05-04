@@ -120,9 +120,10 @@ export async function POST(request: NextRequest) {
       customData.plan = plan!;
     }
 
-    // Create Paddle transaction — minimal body to debug
+    // Create Paddle transaction
     const transactionBody: Record<string, any> = {
       items: [{ priceId, quantity: 1 }],
+      customData,
     };
 
     if (customerId) {

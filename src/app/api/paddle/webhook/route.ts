@@ -58,16 +58,29 @@ export async function POST(request: NextRequest) {
   try {
     switch (eventType) {
       case 'transaction.completed': {
-        const customData = data.customData || {};
+        const customData = data.customData || data.custom_data || {};
         const userId = customData.user_id;
         const type = customData.type;
+        const customerId = data.customerId || data.customer_id || data.customer_id;
 
         console.log(
-          `[Paddle] Transaction completed — userId: ${userId}, type: ${type}, txId: ${data.id}`,
+          `[Paddle] Transaction completed — userId: ${userId}, type: ${type}, txId: ${data.id}, customerId: ${customerId}`,
         );
 
-        if (!userId) {
-          console.warn('[Paddle] No user_id in custom_data, skipping');
+        // If no userId in customData, try to look up user by paddle_customer_id
+        let resolvedUserId = userId;
+        if (!resolvedUserId && customerId) {
+          const { data: lookupUser } = await admin
+            .from('zestio_users')
+            .select('id')
+            .eq('paddle_customer_id', customerId)
+            .single();
+          resolvedUserId = lookupUser?.id;
+          console.log(`[Paddle] Resolved userId from customerId: ${resolvedUserId}`);
+        }
+
+        if (!resolvedUserId) {
+          console.warn('[Paddle] No user_id in custom_data and no customer match, skipping');
           break;
         }
 
@@ -82,7 +95,7 @@ export async function POST(request: NextRequest) {
           const { data: userData } = await admin
             .from('zestio_users')
             .select('credits')
-            .eq('id', userId)
+            .eq('id', resolvedUserId)
             .single();
 
           if (userData) {
@@ -90,7 +103,7 @@ export async function POST(request: NextRequest) {
             const { error: updateError } = await admin
               .from('zestio_users')
               .update({ credits: newCredits })
-              .eq('id', userId);
+              .eq('id', resolvedUserId);
 
             if (updateError) {
               console.error('[Paddle] Top-up failed:', updateError);
@@ -121,7 +134,7 @@ export async function POST(request: NextRequest) {
               subscription_cancel_at: null,
               subscription_canceled_at: null,
             })
-            .eq('id', userId);
+            .eq('id', resolvedUserId);
 
           if (updateError) {
             console.error('[Paddle] Failed to update subscription:', updateError);
@@ -146,7 +159,7 @@ export async function POST(request: NextRequest) {
               const { data: userData } = await admin
                 .from('zestio_users')
                 .select('credits')
-                .eq('id', userId)
+                .eq('id', resolvedUserId)
                 .single();
 
               if (userData) {
@@ -154,7 +167,7 @@ export async function POST(request: NextRequest) {
                 await admin
                   .from('zestio_users')
                   .update({ credits: newCredits })
-                  .eq('id', userId);
+                  .eq('id', resolvedUserId);
                 logCreditTransaction({
                   userId,
                   type: 'topup',
@@ -168,7 +181,7 @@ export async function POST(request: NextRequest) {
               const { data: userData } = await admin
                 .from('zestio_users')
                 .select('credits, subscription_tier')
-                .eq('id', userId)
+                .eq('id', resolvedUserId)
                 .single();
 
               if (userData) {
@@ -187,7 +200,7 @@ export async function POST(request: NextRequest) {
                     used_credits: 0,
                     credits: newTotalCredits,
                   })
-                  .eq('id', userId);
+                  .eq('id', resolvedUserId);
 
                 logCreditTransaction({
                   userId,
@@ -204,13 +217,13 @@ export async function POST(request: NextRequest) {
 
       case 'transaction.payment_failed': {
         console.warn(
-          `[Paddle] Payment failed — txId: ${data.id}, customerId: ${data.customerId}`,
+          `[Paddle] Payment failed — txId: ${data.id}, customerId: ${data.customerId || data.customer_id}`,
         );
         break;
       }
 
       case 'subscription.created': {
-        const customerId = data.customerId;
+        const customerId = data.customerId || data.customer_id;
         const priceId = data.items?.[0]?.price?.id;
         const plan = priceId ? getPlanFromPriceId(priceId) : 'pro';
         const planCredits = getPlanCredits(plan);
@@ -240,7 +253,7 @@ export async function POST(request: NextRequest) {
       }
 
       case 'subscription.updated': {
-        const customerId = data.customerId;
+        const customerId = data.customerId || data.customer_id;
         const priceId = data.items?.[0]?.price?.id;
         const plan = priceId ? getPlanFromPriceId(priceId) : 'pro';
         const status = data.status;
@@ -280,7 +293,7 @@ export async function POST(request: NextRequest) {
       }
 
       case 'subscription.canceled': {
-        const customerId = data.customerId;
+        const customerId = data.customerId || data.customer_id;
 
         const { data: user } = await admin
           .from('zestio_users')
@@ -311,7 +324,7 @@ export async function POST(request: NextRequest) {
 
       case 'subscription.past_due': {
         console.warn(
-          `[Paddle] Subscription past due — subId: ${data.id}, customerId: ${data.customerId}`,
+          `[Paddle] Subscription past due — subId: ${data.id}, customerId: ${data.customerId || data.customer_id}`,
         );
         break;
       }
