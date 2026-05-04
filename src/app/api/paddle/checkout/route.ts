@@ -74,9 +74,9 @@ export async function POST(request: NextRequest) {
       .single();
 
     let customerId = userData?.paddle_customer_id || undefined;
-    const customerEmail = user.email || userData?.email;
+    const customerEmail = userData?.email || user.email;
 
-    console.log('[Paddle] User data:', { customerId: customerId || 'none', customerEmail, priceId });
+    console.log('[Paddle] User data:', { customerId: customerId || 'none', customerEmail: customerEmail || 'MISSING', userId: user.id, priceId });
 
     if (!customerId) {
       console.log('[Paddle] Creating customer...');
