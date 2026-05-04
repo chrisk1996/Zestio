@@ -14,7 +14,7 @@ export async function POST() {
   }
 
   try {
-    const paddle = getPaddle();
+    const paddle = await getPaddle();
     const supabase = await createClient();
 
     const { data: user, error: authError } = await supabase.auth.getUser();

@@ -3,13 +3,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { unmarshal } from '@paddle/paddle-node-sdk';
 import { logCreditTransaction } from '@/lib/credit-transactions';
 import { getPlanCredits } from '@/lib/credits-shared';
 import {
   isPaddleConfigured,
   getPlanFromPriceId,
   getTopupCreditsFromPriceId,
+  unmarshal,
 } from '@/lib/paddle';
 
 export const dynamic = 'force-dynamic';
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
 
   let eventData: any;
   try {
-    eventData = unmarshal(requestBody, secret, signature);
+    const eventData = await unmarshal(requestBody, secret, signature);
   } catch (err) {
     console.error('[Paddle] Webhook signature verification failed:', err);
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });

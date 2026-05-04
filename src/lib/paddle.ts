@@ -1,13 +1,21 @@
-import { Paddle, Environment } from '@paddle/paddle-node-sdk';
+// Lazy-initialized Paddle client — avoids Turbopack build issues with static imports
 
-let paddle: Paddle | null = null;
+type PaddleInstance = any; // Avoid importing the type at module level
 
-export function getPaddle(): Paddle {
+let paddle: PaddleInstance | null = null;
+
+async function getPaddleModule() {
+  const mod = await import('@paddle/paddle-node-sdk');
+  return mod;
+}
+
+export async function getPaddle(): Promise<PaddleInstance> {
   if (!paddle) {
     const apiKey = process.env.PADDLE_API_KEY;
     if (!apiKey) {
       throw new Error('PADDLE_API_KEY environment variable is not set');
     }
+    const { Paddle, Environment } = await getPaddleModule();
     paddle = new Paddle(apiKey, {
       environment:
         process.env.NEXT_PUBLIC_PADDLE_ENV === 'production'
@@ -49,4 +57,10 @@ export function getPlanFromPriceId(priceId: string): string {
 // Get top-up credits from price ID
 export function getTopupCreditsFromPriceId(priceId: string): number | null {
   return PADDLE_TOPUP_CREDITS[priceId] ?? null;
+}
+
+// Re-export unmarshal for webhook verification (lazy)
+export async function unmarshal(body: string, secret: string, signature: string) {
+  const mod = await getPaddleModule();
+  return mod.unmarshal(body, secret, signature);
 }

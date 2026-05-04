@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const paddle = getPaddle();
+    const paddle = await getPaddle();
     const supabase = await createClient();
     const baseUrl =
       process.env.NEXT_PUBLIC_URL ||
