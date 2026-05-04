@@ -59,22 +59,22 @@ export async function POST(request: NextRequest) {
   try {
     switch (eventType) {
       case 'transaction.completed': {
-        const customData = data.custom_data || {};
+        const customData = data.customData || {};
         const userId = customData.user_id;
         const type = customData.type;
-        const customerId = data.customer_id;
+        const customerId = data.customerId;
 
         console.log(
           `[Paddle] Transaction completed — userId: ${userId}, type: ${type}, txId: ${data.id}, customerId: ${customerId}`,
         );
 
-        // If no userId in customData, look up by paddle_customer_id
+        // If no userId in customData, look up by paddle_customerId
         let resolvedUserId = userId;
         if (!resolvedUserId && customerId) {
           const { data: lookupUser } = await admin
             .from('zestio_users')
             .select('id')
-            .eq('paddle_customer_id', customerId)
+            .eq('paddle_customerId', customerId)
             .single();
           resolvedUserId = lookupUser?.id;
           console.log(`[Paddle] Resolved userId from customerId: ${resolvedUserId}`);
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
           const planCredits = getPlanCredits(plan);
 
           // Also save subscription_id
-          const subscriptionId = data.subscription_id || null;
+          const subscriptionId = data.subscriptionId || null;
 
           const { error: updateError } = await admin
             .from('zestio_users')
@@ -152,9 +152,9 @@ export async function POST(request: NextRequest) {
           }
         } else {
           // Try to determine type from line items
-          const items = data.details?.line_items || [];
+          const items = data.details?.lineItems || [];
           for (const item of items) {
-            const priceId = item.price_id || item.price?.id;
+            const priceId = item.priceId || item.price?.id;
             const plan = getPlanFromPriceId(priceId);
             const topupCredits = getTopupCreditsFromPriceId(priceId);
 
@@ -217,12 +217,12 @@ export async function POST(request: NextRequest) {
       }
 
       case 'transaction.payment_failed': {
-        console.warn(`[Paddle] Payment failed — txId: ${data.id}, customerId: ${data.customer_id}`);
+        console.warn(`[Paddle] Payment failed — txId: ${data.id}, customerId: ${data.customerId}`);
         break;
       }
 
       case 'subscription.created': {
-        const customerId = data.customer_id;
+        const customerId = data.customerId;
         const priceId = data.items?.[0]?.price?.id;
         const plan = priceId ? getPlanFromPriceId(priceId) : 'pro';
         const planCredits = getPlanCredits(plan);
@@ -230,7 +230,7 @@ export async function POST(request: NextRequest) {
         const { data: user } = await admin
           .from('zestio_users')
           .select('id')
-          .eq('paddle_customer_id', customerId)
+          .eq('paddle_customerId', customerId)
           .single();
 
         if (user) {
@@ -251,11 +251,11 @@ export async function POST(request: NextRequest) {
       }
 
       case 'subscription.updated': {
-        const customerId = data.customer_id;
+        const customerId = data.customerId;
         const priceId = data.items?.[0]?.price?.id;
         const plan = priceId ? getPlanFromPriceId(priceId) : 'pro';
         const status = data.status;
-        const scheduledChange = data.scheduled_change;
+        const scheduledChange = data.scheduledChange;
         const effectivePlan =
           status === 'canceled' || status === 'expired' ? 'free' : plan;
         const effectiveStatus =
@@ -264,7 +264,7 @@ export async function POST(request: NextRequest) {
         const { data: user } = await admin
           .from('zestio_users')
           .select('id')
-          .eq('paddle_customer_id', customerId)
+          .eq('paddle_customerId', customerId)
           .single();
 
         if (user) {
@@ -291,12 +291,12 @@ export async function POST(request: NextRequest) {
       }
 
       case 'subscription.canceled': {
-        const customerId = data.customer_id;
+        const customerId = data.customerId;
 
         const { data: user } = await admin
           .from('zestio_users')
           .select('id, subscription_tier')
-          .eq('paddle_customer_id', customerId)
+          .eq('paddle_customerId', customerId)
           .single();
 
         if (user) {
@@ -321,7 +321,7 @@ export async function POST(request: NextRequest) {
 
       case 'subscription.past_due': {
         console.warn(
-          `[Paddle] Subscription past due — subId: ${data.id}, customerId: ${data.customer_id}`,
+          `[Paddle] Subscription past due — subId: ${data.id}, customerId: ${data.customerId}`,
         );
         break;
       }
