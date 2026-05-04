@@ -110,3 +110,46 @@ INSERT INTO storage.buckets (id, name, public) VALUES ('job-assets', 'job-assets
 -- ============================================
 CREATE INDEX IF NOT EXISTS idx_zestio_users_stripe_customer ON zestio_users(stripe_customer_id)
   WHERE stripe_customer_id IS NOT NULL;
+
+-- ============================================
+-- Tour Scans Table
+-- ============================================
+CREATE TABLE IF NOT EXISTS public.tour_scans (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  title TEXT,
+  status TEXT NOT NULL DEFAULT 'uploading' CHECK (status IN ('uploading', 'processing', 'done', 'failed')),
+  kiri_task_id TEXT,
+  splat_file_url TEXT,
+  splat_file_path TEXT,
+  thumbnail_url TEXT,
+  image_count INTEGER NOT NULL DEFAULT 0,
+  credits_used INTEGER NOT NULL DEFAULT 8,
+  error_message TEXT,
+  metadata JSONB NOT NULL DEFAULT '{}',
+  is_public BOOLEAN NOT NULL DEFAULT false,
+  share_token TEXT NOT NULL UNIQUE DEFAULT uuid_generate_v4(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at TIMESTAMPTZ
+);
+
+-- Enable RLS
+ALTER TABLE public.tour_scans ENABLE ROW LEVEL SECURITY;
+
+-- Policies for tour_scans
+CREATE POLICY "Users can view their own scans" ON public.tour_scans
+  FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert their own scans" ON public.tour_scans
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own scans" ON public.tour_scans
+  FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own scans" ON public.tour_scans
+  FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY "Anyone can view public scans by share token" ON public.tour_scans
+  FOR SELECT USING (is_public = true);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_tour_scans_user_id ON tour_scans(user_id);
+CREATE INDEX IF NOT EXISTS idx_tour_scans_share_token ON tour_scans(share_token);
+CREATE INDEX IF NOT EXISTS idx_tour_scans_status ON tour_scans(status);
+CREATE INDEX IF NOT EXISTS idx_tour_scans_created_at ON tour_scans(created_at DESC);

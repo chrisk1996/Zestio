@@ -34,6 +34,7 @@ export async function GET() {
         : desc.toLowerCase().includes('staging') ? 'Virtual Staging'
         : desc.toLowerCase().includes('video') ? 'Video'
         : desc.toLowerCase().includes('floorplan') || desc.toLowerCase().includes('floor plan') ? 'Floor Plan'
+        : desc.toLowerCase().includes('3d tour') || desc.toLowerCase().includes('tour scan') ? '3D Tour'
         : desc.toLowerCase().includes('upscale') ? 'Enhancement'
         : desc.toLowerCase().includes('renovat') ? 'Enhancement'
         : 'Other';

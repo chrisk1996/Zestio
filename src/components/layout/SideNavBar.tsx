@@ -12,6 +12,7 @@ const navItems = [
   { href: '/listing', icon: 'description', labelKey: 'listingBuilder' },
   { href: '/video', icon: 'movie_filter', labelKey: 'video' },
   { href: '/floorplan', icon: 'polyline', labelKey: 'floorplan' },
+  { href: '/tour', icon: 'view_in_ar', labelKey: 'tour' },
   { href: '/library', icon: 'folder_special', labelKey: 'library' },
 ];
 

@@ -211,6 +211,13 @@ export default function PricingPage() {
               </summary>
               <p className="text-sm text-[#43474c] mt-3">{t('faq5A')}</p>
             </details>
+            <details className="bg-white rounded-lg border border-[#c4c6cd]/20 p-6 group">
+              <summary className="font-medium text-[#1d2832] cursor-pointer list-none flex justify-between items-center">
+                {t('faq6Q')}
+                <span className="material-symbols-outlined text-[#43474c] text-sm group-open:rotate-180 transition-transform">expand_more</span>
+              </summary>
+              <p className="text-sm text-[#43474c] mt-3">{t('faq6A')}</p>
+            </details>
           </div>
         </div>
       </main>

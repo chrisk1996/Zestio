@@ -20,6 +20,7 @@
 - **AI Processing:**
   - Replicate API (FLUX, SDXL, Ideogram models)
   - Decor8 AI (virtual staging)
+  - KIRI Engine API (3D Gaussian Splat generation)
 
 ### Infrastructure
 - **Hosting:** Vercel
@@ -287,4 +288,4 @@ interface FloorPlanState {
 
 ---
 
-*Last updated: April 10, 2026*
+*Last updated: May 2026*

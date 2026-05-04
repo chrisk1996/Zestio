@@ -21,6 +21,7 @@ const featureInfo: Record<string, { labelKey: string; color: string }> = {
   'Virtual Staging': { labelKey: 'featureVirtualStaging', color: 'bg-teal-500' },
   Video: { labelKey: 'featureVideo', color: 'bg-purple-500' },
   'Floor Plan': { labelKey: 'featureFloorPlan', color: 'bg-amber-500' },
+  '3D Tour': { labelKey: 'feature3DTour', color: 'bg-emerald-500' },
   Other: { labelKey: 'featureOther', color: 'bg-gray-400' },
 };
 

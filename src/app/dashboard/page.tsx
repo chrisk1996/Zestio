@@ -22,6 +22,7 @@ const toolDefs = [
   { titleKey: 'toolsSmartCaptions' as const, descKey: 'toolsSmartCaptionsDesc' as const, icon: 'share', href: '/social', color: 'bg-orange-50 text-orange-600' },
   { titleKey: 'toolsFloorPlans' as const, descKey: 'toolsFloorPlansDesc' as const, icon: 'architecture', href: '/floorplan', color: 'bg-teal-50 text-teal-600' },
   { titleKey: 'toolsApiDocs' as const, descKey: 'toolsApiDocsDesc' as const, icon: 'code', href: '/docs', color: 'bg-slate-100 text-slate-600' },
+  { titleKey: 'tools3DTour' as const, descKey: 'tools3DTourDesc' as const, icon: 'view_in_ar', href: '/tour', color: 'bg-indigo-50 text-indigo-600' },
 ];
 
 export default function DashboardPage() {

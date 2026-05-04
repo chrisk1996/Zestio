@@ -36,7 +36,8 @@
     "socialMediaKit": "Social Media Kit",
     "listingBuilder": "Listing Builder",
     "usage": "Usage",
-    "support": "Support"
+    "support": "Support",
+    "tour": "3D Tour"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -67,7 +68,9 @@
     "toolsFloorPlansDesc": "Convert 2D blueprints into interactive 3D models.",
     "toolsApiDocs": "API Docs",
     "toolsApiDocsDesc": "Build with Zestio. REST API, keys, full documentation.",
-    "toolsLabel": "Tools"
+    "toolsLabel": "Tools",
+    "tools3DTour": "3D Tour Scanner",
+    "tools3DTourDesc": "Create interactive 3D property tours from phone photos."
   },
   "enhance": {
     "title": "Image Enhancer",
@@ -335,7 +338,7 @@
     "creditSingular": "credit",
     "creditPlural": "credits",
     "faq1Q": "How many videos can I make with 100 credits?",
-    "faq1A": "Each video costs 5 credits. With Pro (100 credits) you can make 20 videos per month. Enterprise (500 credits) gives you 100 videos.",
+    "faq1A": "Videos cost 5 credits, 3D Tour scans cost 8 credits. With Pro (100 credits) you can make 20 videos or 12 tours per month — or any mix. Enterprise (500 credits) gives you much more flexibility.",
     "faq2Q": "Do credits roll over?",
     "faq2A": "Credits reset each billing cycle. Unused credits don't roll over to the next month.",
     "faq3Q": "Can I cancel anytime?",
@@ -383,7 +386,14 @@
     "startEnterpriseTrial": "Start Enterprise Trial",
     "topUp50": "50 Credits",
     "topUp200": "200 Credits",
-    "topUp500": "500 Credits"
+    "topUp500": "500 Credits",
+    "breakdownTour": "3D Tour Scan",
+    "breakdownTourNote": "Upload photos, get interactive 3D walkthrough",
+    "faq6Q": "How does the 3D Tour Scanner work?",
+    "faq6A": "Walk around a property with your phone and take 20-200 photos from different angles. Upload them to Zestio — our AI generates a fully interactive 3D walkthrough in minutes. Share it via link or embed it on any website. No special camera or Matterport subscription needed.",
+    "proFeature9": "3D Tour Scanner",
+    "enterpriseFeature6": "3D Tour Scanner (bulk)",
+    "freeFeature6": "3D Tour Scanner (limited)"
   },
   "auth": {
     "signIn": "Sign In",
@@ -530,6 +540,7 @@
     "featureVirtualStaging": "Virtual Staging",
     "featureVideo": "Video",
     "featureFloorPlan": "Floor Plan",
+    "feature3DTour": "3D Tour",
     "featureOther": "Other",
     "loadFailed": "Failed to load transactions"
   },
@@ -542,5 +553,43 @@
     "city": "City",
     "bedrooms": "Bedrooms",
     "highlights": "Highlights"
+  },
+  "tour": {
+    "title": "3D Tour Scanner",
+    "subtitle": "Create interactive 3D tours from phone photos — no special camera needed",
+    "uploadTitle": "Upload Photos",
+    "uploadHint": "Walk around the room and take 20-200 photos from different angles, or upload a video. The more coverage, the better the 3D result.",
+    "dragDrop": "Drag & drop photos or video",
+    "acceptedFormats": "JPG, PNG, WebP, or MP4 — up to 200 files",
+    "tourTitle": "Tour title (optional)",
+    "clearAll": "Clear all",
+    "photos": "photos",
+    "videos": "videos",
+    "uploading": "Uploading...",
+    "create": "Create 3D Tour (8 credits)",
+    "noTours": "No 3D tours yet",
+    "noToursHint": "Upload photos above to create your first tour",
+    "view": "View",
+    "share": "Share",
+    "copied": "Copied!",
+    "checkStatus": "Check Status",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this 3D tour? This cannot be undone.",
+    "public": "Public",
+    "private": "Private",
+    "credits": "credits",
+    "untitled": "Untitled Tour",
+    "howToScan": "How to get the best results",
+    "tip1": "Walk slowly around the entire room in a circle",
+    "tip2": "Take photos every 1-2 steps from different heights",
+    "tip3": "Cover all corners, ceilings, and details",
+    "tip4": "Avoid blurry photos — hold steady or use burst mode",
+    "tip5": "Good lighting produces better 3D results",
+    "poweredBy": "Powered by Zestio",
+    "shareTitle": "3D Virtual Tour",
+    "openInFullscreen": "Open Fullscreen",
+    "loading": "Loading 3D scene...",
+    "processing": "Processing your 3D tour...",
+    "error": "Failed to load 3D tour"
   }
 }

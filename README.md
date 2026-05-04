@@ -36,6 +36,13 @@ Create property videos:
 - Image mode: Upload images manually
 - Real-time progress tracking
 
+### 🏠 3D Tour Scanner
+Generate interactive 3D Gaussian Splat tours from property photos:
+- Upload 20-200 photos of a property
+- KIRI Engine processes photos into 3DGS
+- View, share, and embed interactive 3D tours
+- 8 credits per scan (~$1.00)
+
 ### 📋 Listing Builder
 Create property listings ready for portals:
 - German fields (Kaltmiete, Warmmiete, Nebenkosten)
@@ -56,7 +63,7 @@ Create property listings ready for portals:
 | State | Zustand + Zundo |
 | Database | Supabase (PostgreSQL) |
 | Auth | Supabase Auth |
-| AI | Replicate API, Decor8 AI |
+| AI | Replicate API, Decor8 AI, KIRI Engine API |
 
 ---
 
@@ -175,6 +182,7 @@ src/
 | Virtual Staging (Premium) | 3 | $0.20 |
 | 3D Floor Plan | 0 | Free |
 | Video Generation | 5 | ~$0.10 |
+| 3D Tour Scanner | 8 | ~$1.00 |
 
 ---
 
@@ -197,6 +205,11 @@ docker run -p 3000:3000 zestio-pro
 ---
 
 ## Recent Updates
+
+### May 2026
+- ✅ 3D Tour Scanner module with KIRI Engine integration
+- ✅ Interactive 3D Gaussian Splat viewer (GaussianSplats3D)
+- ✅ Tour sharing and embedding
 
 ### April 2026
 - ✅ Proper depth conditioning for FLUX Depth Pro
@@ -223,4 +236,4 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 ---
 
-*Last updated: April 10, 2026*
+*Last updated: May 2026*

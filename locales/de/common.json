@@ -36,7 +36,8 @@
     "socialMediaKit": "Social Media Kit",
     "listingBuilder": "Exposé-Generator",
     "usage": "Nutzung",
-    "support": "Support"
+    "support": "Support",
+    "tour": "3D-Tour"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -67,7 +68,9 @@
     "toolsFloorPlansDesc": "2D-Pläne in interaktive 3D-Modelle umwandeln.",
     "toolsApiDocs": "API-Dokumentation",
     "toolsApiDocsDesc": "Mit Zestio entwickeln. REST-API, Schlüssel, vollständige Dokumentation.",
-    "toolsLabel": "Werkzeuge"
+    "toolsLabel": "Werkzeuge",
+    "tools3DTour": "3D-Tour Scanner",
+    "tools3DTourDesc": "Erstellen Sie interaktive 3D-Immobilientouren aus Handyfotos."
   },
   "enhance": {
     "title": "Bildoptimierung",
@@ -335,7 +338,7 @@
     "creditSingular": "Credit",
     "creditPlural": "Credits",
     "faq1Q": "Wie viele Videos kann ich mit 100 Credits erstellen?",
-    "faq1A": "Jedes Video kostet 5 Credits. Mit Pro (100 Credits) können Sie 20 Videos pro Monat erstellen. Enterprise (500 Credits) gibt Ihnen 100 Videos.",
+    "faq1A": "Videos kosten 5 Credits, 3D-Tour-Scans kosten 8 Credits. Mit Pro (100 Credits) können Sie 20 Videos oder 12 Touren pro Monat erstellen — oder eine Mischung. Enterprise (500 Credits) bietet noch mehr Flexibilität.",
     "faq2Q": "Verfallen Credits?",
     "faq2A": "Credits werden jeden Abrechnungszeitraum zurückgesetzt. Nicht genutzte Credits verfallen nicht in den nächsten Monat.",
     "faq3Q": "Kann ich jederzeit kündigen?",
@@ -383,7 +386,14 @@
     "startEnterpriseTrial": "Enterprise testen",
     "topUp50": "50 Credits",
     "topUp200": "200 Credits",
-    "topUp500": "500 Credits"
+    "topUp500": "500 Credits",
+    "breakdownTour": "3D-Tour Scan",
+    "breakdownTourNote": "Fotos hochladen, interaktiven 3D-Rundgang erhalten",
+    "faq6Q": "Wie funktioniert der 3D-Tour Scanner?",
+    "faq6A": "Laufen Sie mit dem Handy durch eine Immobilie und machen Sie 20-200 Fotos aus verschiedenen Winkeln. Laden Sie diese in Zestio hoch — unsere KI generiert in Minuten einen vollständig interaktiven 3D-Rundgang. Teilen Sie ihn per Link oder binden Sie ihn auf jeder Website ein. Keine Spezialkamera oder Matterport-Abo nötig.",
+    "proFeature9": "3D-Tour Scanner",
+    "enterpriseFeature6": "3D-Tour Scanner (Bulk)",
+    "freeFeature6": "3D-Tour Scanner (eingeschränkt)"
   },
   "auth": {
     "signIn": "Anmelden",
@@ -530,6 +540,7 @@
     "featureVirtualStaging": "Virtual Staging",
     "featureVideo": "Video",
     "featureFloorPlan": "Grundriss",
+    "feature3DTour": "3D-Tour",
     "featureOther": "Sonstiges",
     "loadFailed": "Transaktionen konnten nicht geladen werden"
   },
@@ -542,5 +553,43 @@
     "city": "Stadt",
     "bedrooms": "Schlafzimmer",
     "highlights": "Highlights"
+  },
+  "tour": {
+    "title": "3D-Tour Scanner",
+    "subtitle": "Erstellen Sie interaktive 3D-Touren aus Handyfotos — keine Spezialkamera nötig",
+    "uploadTitle": "Fotos hochladen",
+    "uploadHint": "Laufen Sie langsam durch den Raum und machen Sie 20-200 Fotos aus verschiedenen Winkeln, oder laden Sie ein Video hoch. Je mehr Abdeckung, desto besser das 3D-Ergebnis.",
+    "dragDrop": "Fotos oder Video per Drag & Drop hochladen",
+    "acceptedFormats": "JPG, PNG, WebP oder MP4 — bis zu 200 Dateien",
+    "tourTitle": "Tour-Titel (optional)",
+    "clearAll": "Alle entfernen",
+    "photos": "Fotos",
+    "videos": "Videos",
+    "uploading": "Wird hochgeladen...",
+    "create": "3D-Tour erstellen (8 Credits)",
+    "noTours": "Noch keine 3D-Touren",
+    "noToursHint": "Laden Sie oben Fotos hoch, um Ihre erste Tour zu erstellen",
+    "view": "Ansehen",
+    "share": "Teilen",
+    "copied": "Kopiert!",
+    "checkStatus": "Status prüfen",
+    "delete": "Löschen",
+    "deleteConfirm": "3D-Tour löschen? Dies kann nicht rückgängig gemacht werden.",
+    "public": "Öffentlich",
+    "private": "Privat",
+    "credits": "Credits",
+    "untitled": "Unbenannte Tour",
+    "howToScan": "So erhalten Sie die besten Ergebnisse",
+    "tip1": "Laufen Sie langsam im Kreis um den gesamten Raum",
+    "tip2": "Machen Sie alle 1-2 Schritte Fotos aus verschiedenen Höhen",
+    "tip3": "Erfassen Sie alle Ecken, Decken und Details",
+    "tip4": "Vermeiden Sie unscharfe Fotos — halten Sie still oder nutzen Sie Serienaufnahme",
+    "tip5": "Gute Beleuchtung liefert bessere 3D-Ergebnisse",
+    "poweredBy": "Powered by Zestio",
+    "shareTitle": "3D-Virtuelle Tour",
+    "openInFullscreen": "Vollbild öffnen",
+    "loading": "3D-Szene wird geladen...",
+    "processing": "Ihre 3D-Tour wird verarbeitet...",
+    "error": "3D-Tour konnte nicht geladen werden"
   }
 }

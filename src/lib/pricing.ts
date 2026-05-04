@@ -10,6 +10,7 @@ export const CREDIT_COSTS = {
   LISTING_DESCRIPTION: 0,
   SMART_CAPTIONS: 0,
   SOCIAL_KIT: 0,
+  TOUR_3D_SCAN: 8,
 } as const;
 
 // Plan data — features are i18n keys resolved via t() within 'pricing' namespace
@@ -27,6 +28,7 @@ export const PLANS = {
       'freeFeature3',
       'freeFeature4',
       'freeFeature5',
+      'freeFeature6',
     ],
   },
   pro: {
@@ -45,6 +47,7 @@ export const PLANS = {
       'proFeature6',
       'proFeature7',
       'proFeature8',
+      'proFeature9',
     ],
     popular: true,
   },
@@ -61,6 +64,7 @@ export const PLANS = {
       'enterpriseFeature3',
       'enterpriseFeature4',
       'enterpriseFeature5',
+      'enterpriseFeature6',
     ],
   },
 } as const;
@@ -78,4 +82,5 @@ export const CREDIT_BREAKDOWN = [
   { actionKey: 'breakdownVideo', cost: 5, noteKey: 'breakdownVideoNote' },
   { actionKey: 'breakdownListing', cost: 0, noteKey: 'breakdownListingNote' },
   { actionKey: 'breakdownCaptions', cost: 0, noteKey: 'breakdownCaptionsNote' },
+  { actionKey: 'breakdownTour', cost: 8, noteKey: 'breakdownTourNote' },
 ] as const;

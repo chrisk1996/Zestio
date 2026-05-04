@@ -275,11 +275,56 @@ Staging ──────────────────┼──▶ Share
                           │    - ImageUploader
 Floor Planner ────────────┤    - Navigation
                           │    - Layout
-Video ────────────────────┘    - AuthProvider
+Video ────────────────────┤    - AuthProvider
+                          │
+Tour Scanner ─────────────┘
 
 Dashboard ─────────────────────▶ All modules (history tracking)
 ```
 
+## 7. 3D Tour Scanner Module
+
+**Location:** `src/app/tour/`, `src/app/api/tour-scans/`, `src/components/tour/`
+
+### Functional Description
+
+Upload property photos and AI generates an interactive 3D Gaussian Splat tour that can be viewed, shared, and embedded.
+
+**Features:**
+- Upload 20-200 photos of a property
+- KIRI Engine processes photos into 3D Gaussian Splat (3DGS)
+- Interactive browser-based 3D viewer
+- Share via unique link
+- Embed on external sites
+
+### User Flow
+1. Upload 20-200 property photos (drag-drop or file picker)
+2. KIRI Engine API processes photos into 3DGS `.splat` file
+3. View interactive 3D tour in browser (GaussianSplats3D)
+4. Share tour via link or embed on website
+
+### Technical Details
+
+**Frontend Components:**
+- `TourUpload` — Multi-photo upload with progress tracking
+- `TourList` — List of user's scans with status
+- `TourViewer` — Interactive 3D Gaussian Splat viewer
+
+**API Endpoints:**
+- `POST /api/tour-scans` — Create new scan, upload photos
+- `GET /api/tour-scans` — List user's scans
+- `GET /api/tour-scans/[id]` — Get scan details
+- `PATCH /api/tour-scans/[id]` — Update scan metadata
+- `DELETE /api/tour-scans/[id]` — Delete scan
+- `POST /api/tour-scans/[id]/check-status` — Poll KIRI Engine status
+
+**Technical Stack:**
+- KIRI Engine API — 3D Gaussian Splat generation
+- GaussianSplats3D — Three.js-based 3D viewer
+- Supabase Storage — Photo and `.splat` file storage
+
+**Credit Cost:** 8 credits per scan
+
 ---
 
-*Last updated: April 2026*
+*Last updated: May 2026*
