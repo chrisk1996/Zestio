@@ -75,18 +75,34 @@ export async function POST(request: NextRequest) {
 
     let customerId = userData?.paddle_customer_id || undefined;
 
-    if (!customerId) {
-      const customer = await paddle.customers.create({
-        email: user.email!,
-        name: user.user_metadata?.full_name || undefined,
-        customData: { supabase_user_id: user.id },
-      });
-      customerId = customer.id;
+    console.log('[Paddle] User data:', { customerId: customerId || 'none', email: user.email, priceId });
 
-      await supabase
-        .from('zestio_users')
-        .update({ paddle_customer_id: customerId })
-        .eq('id', user.id);
+    if (!customerId) {
+      console.log('[Paddle] Creating customer...');
+      try {
+        const customer = await paddle.customers.create({
+          email: user.email!,
+          name: user.user_metadata?.full_name || undefined,
+          customData: { supabase_user_id: user.id },
+        });
+        customerId = customer.id;
+        console.log('[Paddle] Customer created:', customerId);
+
+        await supabase
+          .from('zestio_users')
+          .update({ paddle_customer_id: customerId })
+          .eq('id', user.id);
+      } catch (custErr: any) {
+        console.error('[Paddle] Customer creation failed:', {
+          message: custErr?.message,
+          code: custErr?.code,
+          detail: custErr?.error?.detail,
+        });
+        return NextResponse.json(
+          { error: `Customer creation failed: ${custErr?.message || 'unknown'}` },
+          { status: 500 },
+        );
+      }
     }
 
     // Build custom_data
@@ -111,11 +127,7 @@ export async function POST(request: NextRequest) {
       transactionBody.customerId = customerId;
     }
 
-    console.log('[Paddle] Creating transaction:', JSON.stringify({
-      priceId,
-      customerId,
-      type: customDataType,
-    }));
+    console.log('[Paddle] Creating transaction with:', JSON.stringify({ priceId, customerId, customData }));
 
     const transaction = await paddle.transactions.create(transactionBody);
 
