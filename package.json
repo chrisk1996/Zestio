@@ -67,7 +67,8 @@
     "zundo": "^2.3.0",
     "zustand": "^5.0.12",
     "@paddle/paddle-node-sdk": "^3.6.0",
-    "@paddle/paddle-js": "^1.6.4"
+    "@paddle/paddle-js": "^1.6.4",
+    "@mkkellogg/gaussian-splats-3d": "^0.8.0"
   },
   "devDependencies": {
     "@types/fluent-ffmpeg": "^2.1.28",

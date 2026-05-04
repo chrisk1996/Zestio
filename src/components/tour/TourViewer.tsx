@@ -26,7 +26,7 @@ export function TourViewer({ splatUrl, className = '' }: TourViewerProps) {
     setError(null);
 
     try {
-      const gaussiansplats3d = await import('@mkkellogg/gaussiansplats3d');
+      const gaussiansplats3d = await import('@mkkellogg/gaussian-splats-3d');
       const { Viewer } = gaussiansplats3d;
 
       const viewer = new Viewer({
@@ -107,7 +107,7 @@ export function TourViewer({ splatUrl, className = '' }: TourViewerProps) {
         <AlertTriangle className="w-10 h-10 text-yellow-400 mb-4" />
         <p className="text-white text-center mb-2 font-medium">Gaussian Splatting library not installed</p>
         <p className="text-white/60 text-sm text-center mb-4">
-          Install it with: <code className="bg-white/10 px-2 py-0.5 rounded">npm install @mkkellogg/gaussiansplats3d</code>
+          Install it with: <code className="bg-white/10 px-2 py-0.5 rounded">npm install @mkkellogg/gaussian-splats-3d</code>
         </p>
       </div>
     );
