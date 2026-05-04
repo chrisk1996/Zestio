@@ -9,7 +9,6 @@ import {
   isPaddleConfigured,
   getPlanFromPriceId,
   getTopupCreditsFromPriceId,
-  unmarshal,
 } from '@/lib/paddle';
 
 export const dynamic = 'force-dynamic';
@@ -29,6 +28,8 @@ function getSupabaseAdmin() {
 }
 
 export async function POST(request: NextRequest) {
+  console.log('[Paddle] Webhook received');
+  const startTime = Date.now();
   if (!isPaddleConfigured()) {
     return NextResponse.json({ error: 'Paddle not configured' }, { status: 503 });
   }
@@ -43,9 +44,16 @@ export async function POST(request: NextRequest) {
   const requestBody = await request.text();
   const signature = request.headers.get('paddle-signature') || '';
 
-  let eventData: any;
   try {
-    const eventData = await unmarshal(requestBody, secret, signature);
+    // Dynamic import + unmarshal — do it inline to avoid double lazy init
+    console.log('[Paddle] Importing SDK...');
+    const { Paddle, Environment } = await import('@paddle/paddle-node-sdk');
+    console.log('[Paddle] SDK imported in', Date.now() - startTime, 'ms');
+    const paddle = new Paddle(process.env.PADDLE_API_KEY!, {
+      environment: process.env.NEXT_PUBLIC_PADDLE_ENV === 'production' ? Environment.production : Environment.sandbox,
+    });
+    const eventData = paddle.webhooks.unmarshal(requestBody, secret, signature);
+    console.log('[Paddle] Unmarshal done in', Date.now() - startTime, 'ms');
   } catch (err) {
     console.error('[Paddle] Webhook signature verification failed:', err);
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
