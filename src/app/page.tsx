@@ -1,9 +1,23 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
+import { createClient } from '@/utils/supabase/client';
 
 export default function LandingPage() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      setIsLoggedIn(!!data.user);
+    });
+  }, []);
+
+  const ctaHref = isLoggedIn ? '/dashboard' : '/auth';
+  const ctaText = isLoggedIn ? 'Go to Dashboard' : 'Get Started Free';
+
   return (
     <div className="min-h-screen bg-[#f7f9ff]">
       <Header />
@@ -26,10 +40,10 @@ export default function LandingPage() {
                 to transform standard property photos into marketing that converts.
               </p>
               <Link
-                href="/auth"
+                href={ctaHref}
                 className="inline-flex items-center gap-3 bg-[#006c4d] text-white px-8 py-4 rounded font-manrope uppercase tracking-widest text-xs hover:opacity-90 transition-all"
               >
-                Get Started Free
+                {ctaText}
                 <span className="material-symbols-outlined text-base">arrow_forward</span>
               </Link>
             </div>
@@ -248,10 +262,10 @@ export default function LandingPage() {
                   Free credits included. No credit card needed.
                 </p>
                 <Link
-                  href="/auth"
+                  href={ctaHref}
                   className="bg-white text-[#1d2832] px-8 py-3 rounded font-manrope uppercase tracking-widest text-xs hover:bg-[#86f8c8] transition-all"
                 >
-                  Get Started Free
+                  {ctaText}
                 </Link>
               </div>
             </div>
@@ -270,10 +284,10 @@ export default function LandingPage() {
           </p>
           <div className="flex flex-col md:flex-row items-center justify-center gap-4">
             <Link
-              href="/auth"
+              href={ctaHref}
               className="w-full md:w-auto bg-[#1d2832] text-white px-10 py-4 rounded font-manrope uppercase tracking-widest text-xs hover:bg-[#333e48] transition-all"
             >
-              Create Your Account
+              {isLoggedIn ? 'Go to Dashboard' : 'Create Your Account'}
             </Link>
             <Link
               href="/pricing"
