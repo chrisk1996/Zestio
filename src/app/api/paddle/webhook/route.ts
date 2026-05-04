@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
-  const eventType = parsed.event_type;
+  const eventType = parsed.eventType;
   const data = parsed.data;
 
   const admin = getSupabaseAdmin();
