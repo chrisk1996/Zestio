@@ -1,12 +1,11 @@
 // Lazy-initialized Paddle client — avoids Turbopack build issues with static imports
 
-type PaddleInstance = any; // Avoid importing the type at module level
+type PaddleInstance = any;
 
 let paddle: PaddleInstance | null = null;
 
 async function getPaddleModule() {
-  const mod = await import('@paddle/paddle-node-sdk');
-  return mod;
+  return await import('@paddle/paddle-node-sdk');
 }
 
 export async function getPaddle(): Promise<PaddleInstance> {
@@ -15,13 +14,9 @@ export async function getPaddle(): Promise<PaddleInstance> {
     if (!apiKey) {
       throw new Error('PADDLE_API_KEY environment variable is not set');
     }
-    const { Paddle, Environment } = await getPaddleModule();
-    paddle = new Paddle(apiKey, {
-      environment:
-        process.env.NEXT_PUBLIC_PADDLE_ENV === 'production'
-          ? Environment.PRODUCTION
-          : Environment.SANDBOX,
-    });
+    const { Paddle } = await getPaddleModule();
+    // Don't pass environment option — Paddle infers it from the API key prefix
+    paddle = new Paddle(apiKey);
   }
   return paddle;
 }

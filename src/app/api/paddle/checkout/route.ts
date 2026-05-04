@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     if (!priceId) {
       return NextResponse.json(
-        { error: 'Price ID not configured for this item.' },
+        { error: `Price ID not configured for this item. Key: ${type === 'topup' ? 'topup_' + credits : plan}` },
         { status: 500 },
       );
     }
@@ -76,7 +76,6 @@ export async function POST(request: NextRequest) {
     let customerId = userData?.paddle_customer_id || undefined;
 
     if (!customerId) {
-      // Create a Paddle customer
       const customer = await paddle.customers.create({
         email: user.email!,
         name: user.user_metadata?.full_name || undefined,
@@ -84,7 +83,6 @@ export async function POST(request: NextRequest) {
       });
       customerId = customer.id;
 
-      // Save customer ID
       await supabase
         .from('zestio_users')
         .update({ paddle_customer_id: customerId })
@@ -102,22 +100,38 @@ export async function POST(request: NextRequest) {
       customData.plan = plan!;
     }
 
-    // Create Paddle transaction
-    const transaction = await paddle.transactions.create({
-      collectionMode: 'automatic',
-      customerId,
-      customData,
+    // Create Paddle transaction — match SDK example format exactly
+    const transactionBody: Record<string, any> = {
       items: [{ priceId, quantity: 1 }],
-      checkout: {
-        url: `${baseUrl}/billing?checkout=success`,
-      },
-    });
+      customData,
+    };
+
+    // Only add customerId if we have one
+    if (customerId) {
+      transactionBody.customerId = customerId;
+    }
+
+    console.log('[Paddle] Creating transaction:', JSON.stringify({
+      priceId,
+      customerId,
+      type: customDataType,
+    }));
+
+    const transaction = await paddle.transactions.create(transactionBody);
+
+    console.log('[Paddle] Transaction created:', transaction?.id);
 
     return NextResponse.json({ transactionId: transaction.id });
-  } catch (error) {
-    console.error('[Paddle] Checkout error:', error);
+  } catch (error: any) {
+    console.error('[Paddle] Checkout error:', {
+      message: error?.message,
+      code: error?.code,
+      detail: error?.error?.detail,
+      errors: error?.error?.errors,
+      stack: error?.stack?.split('\n').slice(0, 3),
+    });
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Checkout failed' },
+      { error: error?.error?.detail || error?.message || 'Checkout failed' },
       { status: 500 },
     );
   }
