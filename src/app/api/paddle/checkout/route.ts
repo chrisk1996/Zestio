@@ -74,13 +74,17 @@ export async function POST(request: NextRequest) {
       .single();
 
     let customerId = userData?.paddle_customer_id || undefined;
+    const customerEmail = user.email || userData?.email;
 
-    console.log('[Paddle] User data:', { customerId: customerId || 'none', email: user.email, priceId });
+    console.log('[Paddle] User data:', { customerId: customerId || 'none', customerEmail, priceId });
 
     if (!customerId) {
       console.log('[Paddle] Creating customer...');
       try {
-        const customerBody: Record<string, any> = { email: user.email! };
+        if (!customerEmail) {
+          return NextResponse.json({ error: 'No email found for user' }, { status: 400 });
+        }
+        const customerBody: Record<string, any> = { email: customerEmail };
         if (user.user_metadata?.full_name) {
           customerBody.name = user.user_metadata.full_name;
         }
