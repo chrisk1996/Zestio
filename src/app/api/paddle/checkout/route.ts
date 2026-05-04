@@ -80,11 +80,11 @@ export async function POST(request: NextRequest) {
     if (!customerId) {
       console.log('[Paddle] Creating customer...');
       try {
-        const customer = await paddle.customers.create({
-          email: user.email!,
-          name: user.user_metadata?.full_name || undefined,
-          customData: { supabase_user_id: user.id },
-        });
+        const customerBody: Record<string, any> = { email: user.email! };
+        if (user.user_metadata?.full_name) {
+          customerBody.name = user.user_metadata.full_name;
+        }
+        const customer = await paddle.customers.create(customerBody);
         customerId = customer.id;
         console.log('[Paddle] Customer created:', customerId);
 
@@ -116,13 +116,11 @@ export async function POST(request: NextRequest) {
       customData.plan = plan!;
     }
 
-    // Create Paddle transaction — match SDK example format exactly
+    // Create Paddle transaction — minimal body to debug
     const transactionBody: Record<string, any> = {
       items: [{ priceId, quantity: 1 }],
-      customData,
     };
 
-    // Only add customerId if we have one
     if (customerId) {
       transactionBody.customerId = customerId;
     }
