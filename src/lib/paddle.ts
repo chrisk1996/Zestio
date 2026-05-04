@@ -14,9 +14,11 @@ export async function getPaddle(): Promise<PaddleInstance> {
     if (!apiKey) {
       throw new Error('PADDLE_API_KEY environment variable is not set');
     }
-    const { Paddle } = await getPaddleModule();
-    // Don't pass environment option — Paddle infers it from the API key prefix
-    paddle = new Paddle(apiKey);
+    const { Paddle, Environment } = await getPaddleModule();
+    const isProduction = process.env.NEXT_PUBLIC_PADDLE_ENV === 'production';
+    paddle = new Paddle(apiKey, {
+      environment: isProduction ? Environment.production : Environment.sandbox,
+    });
   }
   return paddle;
 }
