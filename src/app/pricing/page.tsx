@@ -118,20 +118,23 @@ export default function PricingPage() {
                   ))}
                 </ul>
 
-                {currentPlan === plan.nameKey ? (
-                  <div className="block w-full text-center py-3 rounded-lg font-medium bg-[#f0fdf4] text-[#006c4d] border border-[#006c4d]/20">
-                    {t('currentPlanLabel')}
-                  </div>
+                {(currentPlan === plan.nameKey || (currentPlan && currentPlan !== 'free' && plan.nameKey === 'free')) ? (
+                  <Link
+                    href="/dashboard"
+                    className="block w-full text-center py-3 rounded-lg font-medium bg-[#f0fdf4] text-[#006c4d] border border-[#006c4d]/20 hover:bg-[#e6f9f0] transition-all"
+                  >
+                    {currentPlan === plan.nameKey ? t('currentPlanLabel') : t('goToDashboard')}
+                  </Link>
                 ) : (
                   <Link
-                    href={isLoggedIn ? '/billing' : '/auth'}
+                    href={plan.nameKey === 'free' && !isLoggedIn ? '/auth' : '/billing'}
                     className={`block w-full text-center py-3 rounded-lg font-medium transition-all ${
                       plan.popular
                         ? 'bg-[#006c4d] text-white hover:opacity-90'
                         : 'bg-[#edf4ff] text-[#1d2832] hover:bg-[#e3efff]'
                     }`}
                   >
-                    {plan.nameKey === 'free' ? (isLoggedIn ? t('goToDashboard') : t('getStartedFree')) : plan.nameKey === 'enterprise' ? (isLoggedIn ? t('switchPlan') : t('startEnterpriseTrial')) : (isLoggedIn ? t('switchPlan') : t('startProTrial'))}
+                    {plan.nameKey === 'free' ? t('getStartedFree') : plan.nameKey === 'enterprise' ? (isLoggedIn ? t('switchPlan') : t('startEnterpriseTrial')) : (isLoggedIn ? t('switchPlan') : t('startProTrial'))}
                   </Link>
                 )}
               </div>
