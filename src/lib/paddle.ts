@@ -56,8 +56,8 @@ export function getTopupCreditsFromPriceId(priceId: string): number | null {
   return PADDLE_TOPUP_CREDITS[priceId] ?? null;
 }
 
-// Re-export unmarshal for webhook verification (lazy)
+// Re-export unmarshal for webhook verification (lazy, instance-based)
 export async function unmarshal(body: string, secret: string, signature: string) {
-  const mod = await getPaddleModule();
-  return mod.unmarshal(body, secret, signature);
+  const paddle = await getPaddle();
+  return paddle.webhooks.unmarshal(body, secret, signature);
 }
