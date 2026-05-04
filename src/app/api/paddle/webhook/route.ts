@@ -36,19 +36,24 @@ function getSupabaseAdmin() {
 function verifyPaddleSignature(payload: string, signatureHeader: string, secret: string): boolean {
   const parts = signatureHeader.split(';');
   let ts = '';
-  let v1 = '';
+  let h1 = '';
   for (const part of parts) {
-    const [key, value] = part.split('=');
+    const eqIndex = part.indexOf('=');
+    const key = part.substring(0, eqIndex);
+    const value = part.substring(eqIndex + 1);
     if (key === 'ts') ts = value;
-    if (key === 'v1') v1 = value;
+    if (key === 'h1') h1 = value;
   }
 
-  if (!ts || !v1) return false;
+  if (!ts || !h1) {
+    console.error('[Paddle] Signature parse failed. Header:', signatureHeader);
+    return false;
+  }
 
   const signedPayload = `${ts}:${payload}`;
   const expectedSig = createHmac('sha256', secret).update(signedPayload).digest('hex');
 
-  return expectedSig === v1;
+  return expectedSig === h1;
 }
 
 export async function POST(request: NextRequest) {
