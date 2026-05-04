@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getPaddle, PADDLE_PRICES, isPaddleConfigured } from '@/lib/paddle';
-import { getPaddleInstance } from '@/components/PaddleProvider';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * Create a Paddle checkout transaction for subscriptions or credit top-ups.
- * This replaces the legacy Stripe checkout endpoint.
- */
 export async function POST(request: NextRequest) {
   if (!isPaddleConfigured()) {
     return NextResponse.json({ error: 'Paddle is not configured' }, { status: 503 });
@@ -28,33 +23,47 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { priceId, plan, topUpCredits } = body as {
-      priceId?: string;
-      plan?: string;
-      topUpCredits?: number;
+    const { type, plan, credits } = body as {
+      type: 'subscription' | 'topup';
+      plan?: 'pro' | 'enterprise';
+      credits?: 50 | 200 | 500;
     };
 
-    // Resolve price ID and build metadata
-    let resolvedPriceId: string;
-    let customData: Record<string, string>;
+    // Resolve price ID
+    let priceId: string;
+    let customDataType: string;
 
-    if (topUpCredits) {
-      const credits = Number(topUpCredits);
-      if (![50, 200, 500].includes(credits)) {
-        return NextResponse.json({ error: 'Invalid top-up amount' }, { status: 400 });
+    if (type === 'topup') {
+      if (!credits || ![50, 200, 500].includes(credits)) {
+        return NextResponse.json(
+          { error: 'Invalid top-up amount. Must be 50, 200, or 500.' },
+          { status: 400 },
+        );
       }
       const key = `topup_${credits}` as keyof typeof PADDLE_PRICES;
-      resolvedPriceId = PADDLE_PRICES[key];
-      customData = { user_id: user.id, type: 'topup', credits: String(credits) };
-    } else if (plan && ['pro', 'enterprise'].includes(plan)) {
-      resolvedPriceId = priceId || PADDLE_PRICES[plan as keyof typeof PADDLE_PRICES];
-      customData = { user_id: user.id, type: 'subscription', plan };
+      priceId = PADDLE_PRICES[key];
+      customDataType = 'topup';
+    } else if (type === 'subscription') {
+      if (!plan || !['pro', 'enterprise'].includes(plan)) {
+        return NextResponse.json(
+          { error: 'Invalid plan. Must be "pro" or "enterprise".' },
+          { status: 400 },
+        );
+      }
+      priceId = PADDLE_PRICES[plan];
+      customDataType = 'subscription';
     } else {
-      return NextResponse.json({ error: 'Must provide plan or topUpCredits' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid type. Must be "subscription" or "topup".' },
+        { status: 400 },
+      );
     }
 
-    if (!resolvedPriceId) {
-      return NextResponse.json({ error: 'Price ID not configured' }, { status: 500 });
+    if (!priceId) {
+      return NextResponse.json(
+        { error: 'Price ID not configured for this item.' },
+        { status: 500 },
+      );
     }
 
     // Get or create Paddle customer
@@ -67,16 +76,30 @@ export async function POST(request: NextRequest) {
     let customerId = userData?.paddle_customer_id || undefined;
 
     if (!customerId) {
+      // Create a Paddle customer
       const customer = await paddle.customers.create({
         email: user.email!,
         name: user.user_metadata?.full_name || undefined,
         customData: { supabase_user_id: user.id },
       });
       customerId = customer.id;
+
+      // Save customer ID
       await supabase
         .from('zestio_users')
         .update({ paddle_customer_id: customerId })
         .eq('id', user.id);
+    }
+
+    // Build custom_data
+    const customData: Record<string, string> = {
+      user_id: user.id,
+      type: customDataType,
+    };
+    if (type === 'topup') {
+      customData.credits = String(credits);
+    } else {
+      customData.plan = plan!;
     }
 
     // Create Paddle transaction
@@ -84,11 +107,9 @@ export async function POST(request: NextRequest) {
       collectionMode: 'automatic',
       customerId,
       customData,
-      items: [{ priceId: resolvedPriceId, quantity: 1 }],
+      items: [{ priceId, quantity: 1 }],
       checkout: {
-        url: topUpCredits
-          ? `${baseUrl}/billing?topup=success`
-          : `${baseUrl}/billing?success=true`,
+        url: `${baseUrl}/billing?checkout=success`,
       },
     });
 

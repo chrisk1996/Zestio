@@ -26,14 +26,22 @@ export default function PricingPage() {
   const handleTopUp = async (credits: number) => {
     setLoadingPack(credits);
     try {
-      const res = await fetch('/api/stripe/checkout', {
+      const res = await fetch('/api/paddle/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topUpCredits: credits }),
+        body: JSON.stringify({ type: 'topup', credits }),
       });
       const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
+      if (data.transactionId) {
+        // Open Paddle.js checkout overlay
+        const { getPaddleInstance } = await import('@/components/PaddleProvider');
+        const paddle = getPaddleInstance();
+        if (paddle) {
+          paddle.Checkout.open({ transactionId: data.transactionId });
+        } else {
+          // Fallback: redirect to billing page
+          window.location.href = '/billing';
+        }
       } else {
         alert(data.error || t('startCheckoutFailed'));
       }

@@ -1,6 +1,8 @@
 // Centralized pricing configuration
 // Single source of truth for all credit costs and plan details
 // Display strings are i18n keys (resolved via useTranslations('pricing'))
+//
+// Payment processing is handled by Paddle. See src/lib/paddle.ts for price ID mapping.
 
 export const CREDIT_COSTS = {
   ENHANCE_BASIC: 1,

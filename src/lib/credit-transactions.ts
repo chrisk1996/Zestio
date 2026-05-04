@@ -11,7 +11,7 @@ export async function logCreditTransaction(params: {
   type: TransactionType;
   amount: number;
   description?: string;
-  stripePaymentIntentId?: string;
+  paymentReference?: string;
 }) {
   try {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -24,7 +24,8 @@ export async function logCreditTransaction(params: {
       type: params.type,
       amount: params.amount,
       description: params.description,
-      stripe_payment_intent_id: params.stripePaymentIntentId,
+      // Legacy column kept for backward compat — new entries use paymentReference in description
+      stripe_payment_intent_id: params.paymentReference || null,
     });
   } catch (err) {
     console.warn('[CreditTransaction] Failed to log:', err);

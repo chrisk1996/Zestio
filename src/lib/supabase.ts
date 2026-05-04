@@ -78,6 +78,8 @@ export interface Subscription {
   user_id: string;
   stripe_customer_id?: string;
   stripe_subscription_id?: string;
+  paddle_customer_id?: string;
+  paddle_subscription_id?: string;
   tier: 'free' | 'pro' | 'enterprise';
   status: 'active' | 'canceled' | 'past_due';
   current_period_start?: string;

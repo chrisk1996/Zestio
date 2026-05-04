@@ -1,14 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getPaddle, isPaddleConfigured } from '@/lib/paddle';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * Create a Paddle customer portal session for subscription management.
- * This replaces the legacy Stripe portal endpoint.
- */
-export async function POST() {
+export async function POST(request: NextRequest) {
   if (!isPaddleConfigured()) {
     return NextResponse.json({ error: 'Paddle is not configured' }, { status: 503 });
   }
@@ -18,8 +14,8 @@ export async function POST() {
     const supabase = await createClient();
     const baseUrl =
       process.env.NEXT_PUBLIC_URL ||
-      process.env.NEXT_PUBLIC_API_URL ||
-      'https://zestio.app';
+      request.headers.get('origin') ||
+      `https://${request.headers.get('host')}`;
 
     const { data: user, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -33,13 +29,16 @@ export async function POST() {
       .single();
 
     if (!userData?.paddle_customer_id) {
-      return NextResponse.json({ error: 'No subscription found' }, { status: 400 });
+      return NextResponse.json({ error: 'No Paddle customer found' }, { status: 400 });
     }
 
     const settings = await paddle.customerPortalSettings.create({
       returnUrl: `${baseUrl}/billing`,
+      customData: { user_id: user.id },
     });
 
+    // Generate a portal session URL
+    // Paddle SDK: customer portal uses a URL pattern
     const portalUrl = `https://my.paddle.com/customer/${userData.paddle_customer_id}?settings_id=${settings.id}&return_url=${encodeURIComponent(`${baseUrl}/billing`)}`;
 
     return NextResponse.json({ url: portalUrl });

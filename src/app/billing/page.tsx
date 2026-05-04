@@ -5,6 +5,7 @@ import { AppLayout } from '@/components/layout';
 import { CreditCard, Loader2, AlertCircle, Check, Zap, Crown, Building2, ArrowUpRight, Calendar, Clock, XCircle } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useTranslations } from 'next-intl';
+import { getPaddleInstance } from '@/components/PaddleProvider';
 
 interface UserData {
   email: string;
@@ -12,7 +13,7 @@ interface UserData {
   credits_remaining: number;
   credits_used: number;
   credits_total: number;
-  stripe_customer_id?: string;
+  paddle_customer_id?: string;
   subscription_status?: string;
   subscription_current_period_end?: string;
   subscription_cancel_at?: string;
@@ -45,7 +46,7 @@ export default function BillingPage() {
 
     // Check for success/cancel params
     const params = new URLSearchParams(window.location.search);
-    if (params.get('success')) {
+    if (params.get('success') || params.get('checkout') === 'success') {
       // Refresh to get updated subscription
       setTimeout(() => loadUser(), 2000);
     }
@@ -63,7 +64,7 @@ export default function BillingPage() {
       // Fetch credits via API (Model A: credits = remaining balance)
       const [creditsRes, profileRes] = await Promise.all([
         fetch('/api/credits'),
-        supabase.from('zestio_users').select('stripe_customer_id, subscription_status, subscription_current_period_end, subscription_cancel_at, subscription_canceled_at').eq('id', authUser.id).single(),
+        supabase.from('zestio_users').select('paddle_customer_id, subscription_status, subscription_current_period_end, subscription_cancel_at, subscription_canceled_at').eq('id', authUser.id).single(),
       ]);
       const creditsData = await creditsRes.json();
       const profile = profileRes.data;
@@ -74,7 +75,7 @@ export default function BillingPage() {
         credits_remaining: creditsData.credits || 0,
         credits_used: creditsData.used || 0,
         credits_total: creditsData.total || 5,
-        stripe_customer_id: profile?.stripe_customer_id,
+        paddle_customer_id: profile?.paddle_customer_id,
         subscription_status: profile?.subscription_status,
         subscription_current_period_end: profile?.subscription_current_period_end,
         subscription_cancel_at: profile?.subscription_cancel_at,
@@ -102,55 +103,82 @@ export default function BillingPage() {
     });
   };
 
-  const handleSubscribe = async (plan: string) => {
-    setCheckoutLoading(plan);
+  /**
+   * Open a Paddle checkout overlay using Paddle.js.
+   * The server creates a transaction, and we open it client-side.
+   */
+  const openPaddleCheckout = async (params: {
+    type: 'subscription' | 'topup';
+    plan?: 'pro' | 'enterprise';
+    credits?: number;
+    loadingKey: string;
+  }) => {
+    setCheckoutLoading(params.loadingKey);
     try {
-      // If user already has a subscription, redirect to portal for prorated upgrade
-      if (user?.plan !== 'free' && user?.stripe_customer_id) {
-        // Open billing portal which handles prorated upgrades
-        const response = await fetch('/api/stripe/portal', {
-          method: 'POST',
-        });
-        const data = await response.json();
-        if (data.url) {
-          window.location.href = data.url;
-        } else {
-          setError(data.error || t('portalFailed'));
-        }
+      const res = await fetch('/api/paddle/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: params.type,
+          plan: params.plan,
+          credits: params.credits,
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || t('checkoutFailed'));
         return;
       }
 
-      // New subscription - use checkout
-      const priceIds: Record<string, string> = {
-        pro: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID || 'price_pro_test',
-        enterprise: process.env.NEXT_PUBLIC_STRIPE_ENTERPRISE_PRICE_ID || 'price_enterprise_test',
-      };
-
-      const response = await fetch('/api/stripe/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan, priceId: priceIds[plan] }),
-      });
-      const data = await response.json();
-      if (data.url) {
-        window.location.href = data.url;
+      // Open Paddle.js checkout overlay with the transaction ID
+      const paddle = getPaddleInstance();
+      if (paddle && data.transactionId) {
+        paddle.Checkout.open({ transactionId: data.transactionId });
       } else {
-        setError(data.error || t('checkoutFailed'));
+        setError('Paddle checkout not available. Please try again.');
       }
     } catch (err) {
-      console.error('Checkout error:', err);
+      console.error('Paddle checkout error:', err);
       setError(t('startCheckoutFailed'));
     } finally {
       setCheckoutLoading(null);
     }
   };
 
+  const handleSubscribe = async (plan: string) => {
+    // If user already has a subscription, redirect to portal for upgrade
+    if (user?.plan !== 'free' && user?.paddle_customer_id) {
+      setCheckoutLoading(plan);
+      try {
+        const response = await fetch('/api/paddle/portal', { method: 'POST' });
+        const data = await response.json();
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          setError(data.error || t('portalFailed'));
+        }
+      } catch (err) {
+        console.error('Portal error:', err);
+        setError(t('portalFailed'));
+      } finally {
+        setCheckoutLoading(null);
+      }
+      return;
+    }
+
+    // New subscription via Paddle checkout
+    await openPaddleCheckout({
+      type: 'subscription',
+      plan: plan as 'pro' | 'enterprise',
+      loadingKey: plan,
+    });
+  };
+
   const handleManageSubscription = async () => {
     setCheckoutLoading('portal');
     try {
-      const response = await fetch('/api/stripe/portal', {
-        method: 'POST',
-      });
+      const response = await fetch('/api/paddle/portal', { method: 'POST' });
       const data = await response.json();
       if (data.url) {
         window.location.href = data.url;
@@ -166,24 +194,11 @@ export default function BillingPage() {
   };
 
   const handleTopUp = async (credits: number) => {
-    setCheckoutLoading(`topup-${credits}`);
-    try {
-      const res = await fetch('/api/stripe/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topUpCredits: credits }),
-      });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        setError(data.error || t('startCheckoutFailed'));
-      }
-    } catch {
-      setError(t('startCheckoutFailed'));
-    } finally {
-      setCheckoutLoading(null);
-    }
+    await openPaddleCheckout({
+      type: 'topup',
+      credits: credits as 50 | 200 | 500,
+      loadingKey: `topup-${credits}`,
+    });
   };
 
   if (loading) {
@@ -285,19 +300,18 @@ export default function BillingPage() {
               </span>
             </div>
             <div className="h-3 bg-white/20 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-white rounded-full transition-all duration-500"
-          style={{ width: `${getCreditPercentage()}%` }}
-        />
-      </div>
-      <div className="flex justify-between mt-2 text-xs text-indigo-200">
-        <span>{user?.credits_used} {t('used')}</span>
-        <span>{`${getCreditPercentage()}% ${t('remaining')}`}</span>
-      </div>
+              <div
+                className="h-full bg-white rounded-full transition-all duration-500"
+                style={{ width: `${getCreditPercentage()}%` }}
+              />
             </div>
+            <div className="flex justify-between mt-2 text-xs text-indigo-200">
+              <span>{user?.credits_used} {t('used')}</span>
+              <span>{`${getCreditPercentage()}% ${t('remaining')}`}</span>
+            </div>
+          </div>
 
-      {/* Top Up Credits */}
-
+          {/* Top Up Credits */}
           <div className="mt-4 bg-white/10 rounded-lg p-4">
             <span className="text-sm text-indigo-200 block mb-3">{t('needMoreCredits')}</span>
             <div className="flex gap-2">
@@ -320,52 +334,35 @@ export default function BillingPage() {
                 {t('topUp500')}
               </button>
             </div>
-      </div>
+          </div>
+        </div>
 
-          {/* Subscription Details */}
-          {user?.plan !== 'free' && (
-            <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-              {user?.subscription_current_period_end && !isCancelAtPeriodEnd && (
-                <div className="flex items-center gap-2 text-indigo-200">
-                  <Calendar className="w-4 h-4" />
-                  <span>{t('renews')} {formatDate(user.subscription_current_period_end)}</span>
-                </div>
-              )}
-              {user?.subscription_cancel_at && isCancelAtPeriodEnd && (
-                <div className="flex items-center gap-2 text-yellow-200">
-                  <Clock className="w-4 h-4" />
-                  <span>{t('ends')} {formatDate(user.subscription_cancel_at)}</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Manage Subscription Button */}
-          {user?.plan !== 'free' && user?.stripe_customer_id && (
+        {/* Manage Subscription */}
+        {user?.plan !== 'free' && user?.paddle_customer_id && (
+          <div className="mb-8">
             <button
               onClick={handleManageSubscription}
               disabled={checkoutLoading === 'portal'}
-              className="mt-4 w-full bg-white/20 hover:bg-white/30 text-white font-medium py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
             >
               {checkoutLoading === 'portal' ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                <>
-                  <CreditCard className="w-4 h-4" />
-                  {isCancelAtPeriodEnd ? t('reactivateSubscription') : t('manageSubscription')}
-                </>
+                <CreditCard className="w-4 h-4" />
               )}
+              {t('manageSubscription')}
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Plans Comparison */}
-        <div className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('availablePlans')}</h2>
+        {/* Plan Cards */}
+        <div>
+          <h2 className="text-lg font-bold text-gray-900 mb-4">{t('changePlan')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {plans.map((plan) => {
+              const isCurrent = plan.id === user?.plan;
               const Icon = plan.icon;
-              const isCurrent = user?.plan === plan.id;
+
               return (
                 <div
                   key={plan.id}
@@ -373,9 +370,9 @@ export default function BillingPage() {
                     isCurrent
                       ? 'border-indigo-500 ring-2 ring-indigo-500/20'
                       : 'border-gray-200'
-                  } ${'popular' in plan && plan.popular && !isCurrent ? 'border-indigo-300' : ''}`}
+                  } ${plan.popular && !isCurrent ? 'border-indigo-300' : ''}`}
                 >
-                  {'popular' in plan && plan.popular && !isCurrent && (
+                  {plan.popular && !isCurrent && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-indigo-600 text-white text-xs font-medium rounded-full">
                       {t('mostPopular')}
                     </div>
@@ -436,24 +433,16 @@ export default function BillingPage() {
               );
             })}
           </div>
-      </div>
+        </div>
 
         {/* Upgrade Info for existing subscribers */}
-        {user?.plan !== 'free' && user?.stripe_customer_id && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        {user?.plan !== 'free' && user?.paddle_customer_id && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 mt-6">
             <p className="text-blue-800 text-sm">
-              {t("upgradingInfo")}
+              {t('upgradingInfo')}
             </p>
           </div>
         )}
-
-        {/* Stripe Test Mode Notice */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-          <p className="text-yellow-800 text-sm">
-            <strong>{t('testModeNotice')}</strong>{' '}
-            <code className="bg-yellow-100 px-1 rounded">4242 4242 4242 4242</code> {t('testCardAny')}
-          </p>
-        </div>
       </div>
     </AppLayout>
   );
