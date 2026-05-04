@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 /**
  * Create a Paddle customer portal session for subscription management.
- * This replaces the legacy Stripe portal endpoint.
+ * Replaces the legacy Stripe portal endpoint.
  */
 export async function POST() {
   if (!isPaddleConfigured()) {
@@ -16,10 +16,6 @@ export async function POST() {
   try {
     const paddle = getPaddle();
     const supabase = await createClient();
-    const baseUrl =
-      process.env.NEXT_PUBLIC_URL ||
-      process.env.NEXT_PUBLIC_API_URL ||
-      'https://zestio.app';
 
     const { data: user, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -28,7 +24,7 @@ export async function POST() {
 
     const { data: userData } = await supabase
       .from('zestio_users')
-      .select('paddle_customer_id')
+      .select('paddle_customer_id, paddle_subscription_id')
       .eq('id', user.id)
       .single();
 
@@ -36,11 +32,20 @@ export async function POST() {
       return NextResponse.json({ error: 'No subscription found' }, { status: 400 });
     }
 
-    const settings = await paddle.customerPortalSettings.create({
-      returnUrl: `${baseUrl}/billing`,
-    });
+    const subscriptionIds = userData.paddle_subscription_id
+      ? [userData.paddle_subscription_id]
+      : [];
 
-    const portalUrl = `https://my.paddle.com/customer/${userData.paddle_customer_id}?settings_id=${settings.id}&return_url=${encodeURIComponent(`${baseUrl}/billing`)}`;
+    const session = await paddle.customerPortalSessions.create(
+      userData.paddle_customer_id,
+      subscriptionIds,
+    );
+
+    const portalUrl = session.urls?.general?.overview;
+
+    if (!portalUrl) {
+      return NextResponse.json({ error: 'Failed to generate portal URL' }, { status: 500 });
+    }
 
     return NextResponse.json({ url: portalUrl });
   } catch (error) {

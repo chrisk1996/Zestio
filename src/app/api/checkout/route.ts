@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getPaddle, PADDLE_PRICES, isPaddleConfigured } from '@/lib/paddle';
-import { getPaddleInstance } from '@/components/PaddleProvider';
 
 export const dynamic = 'force-dynamic';
 
