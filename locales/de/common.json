@@ -167,7 +167,10 @@
     "stageSorting": "Bildsortierung",
     "stageRenovating": "KI-Renovierung",
     "stageAnimating": "Video-Animation",
-    "stageStitching": "Finalisierung"
+    "stageStitching": "Finalisierung",
+    "voiceover": "Sprachausgabe",
+    "voiceoverDesc": "KI erstellt eine professionelle Erzählung aus Ihren Immobiliendaten. Oder schreiben Sie Ihr eigenes Skript unten.",
+    "scriptPlaceholder": "Leer lassen für automatisch generiertes Skript, oder eigenes Skript hier eingeben..."
   },
   "library": {
     "title": "Bibliothek",

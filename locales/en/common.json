@@ -167,7 +167,10 @@
     "stageSorting": "Image sorting",
     "stageRenovating": "AI renovation",
     "stageAnimating": "Video animation",
-    "stageStitching": "Final assembly"
+    "stageStitching": "Final assembly",
+    "voiceover": "Voiceover",
+    "voiceoverDesc": "AI generates a professional narration from your listing data. Or write your own script below.",
+    "scriptPlaceholder": "Leave empty for auto-generated script, or write your custom narration here..."
   },
   "library": {
     "title": "Library",
