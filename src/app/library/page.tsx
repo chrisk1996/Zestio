@@ -238,18 +238,11 @@ export default function LibraryPage() {
             <p className="text-gray-500 mb-6">{t('noItems')}</p>
             <div className="flex flex-wrap justify-center gap-3">
               <Link
-                href="/enhance"
+                href="/studio"
                 className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
               >
                 <Sparkles className="w-4 h-4" />
-                Enhance Photo
-              </Link>
-              <Link
-                href="/staging"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
-              >
-                <Sofa className="w-4 h-4" />
-                Virtual Staging
+                Image Studio
               </Link>
               <Link
                 href="/video"
