@@ -29,7 +29,9 @@ export async function POST(request: NextRequest) {
       listing_url,
       manual_images,
       renovation_style = 'modern',
-      music_genre = 'cinematic'
+      music_genre = 'cinematic',
+      custom_script,
+      voiceover_enabled = true,
     } = body;
 
     const isManualMode = Array.isArray(manual_images) && manual_images.length >= 5;
@@ -76,6 +78,10 @@ export async function POST(request: NextRequest) {
         status: 'scraping',
         credits_used: 1,
         input_images: isManualMode ? manual_images : null,
+        metadata: {
+          customScript: custom_script || null,
+          voiceoverEnabled: voiceover_enabled,
+        },
       })
       .select()
       .single();

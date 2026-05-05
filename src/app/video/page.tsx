@@ -88,6 +88,8 @@ export default function VideoPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [renovationStyle, setRenovationStyle] = useState<RenovationStyle>('modern');
   const [musicGenre, setMusicGenre] = useState<MusicGenre>('cinematic');
+  const [customScript, setCustomScript] = useState('');
+  const [voiceoverEnabled, setVoiceoverEnabled] = useState(true);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -101,7 +103,7 @@ export default function VideoPage() {
   // Polling: trigger processing and refetch for active jobs
   useEffect(() => {
     if (!activeJob?.id) return;
-    const activeStatuses = ['scraping', 'sorting', 'twilighting', 'enhancing', 'renovating', 'animating', 'stitching'];
+    const activeStatuses = ['scraping', 'sorting', 'scripting', 'twilighting', 'enhancing', 'renovating', 'animating', 'stitching'];
     if (!activeStatuses.includes(activeJob.status)) return;
 
     // Safety: stop polling if stitch errors keep repeating (server should fail after 3, but double-guard)
@@ -217,6 +219,8 @@ export default function VideoPage() {
           listing_url: mode === 'url' ? listingUrl : undefined,
           renovation_style: renovationStyle,
           music_genre: musicGenre,
+          custom_script: customScript || undefined,
+          voiceover_enabled: voiceoverEnabled,
           ...(mode === 'manual' && { manual_images: uploadedImages }),
         }),
       });
@@ -248,6 +252,7 @@ export default function VideoPage() {
     setListingUrl('');
     setUploadedImages([]);
     setCreateError(null);
+    setCustomScript('');
   };
 
   const handleRetry = useCallback(async () => {
@@ -441,6 +446,32 @@ export default function VideoPage() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {MUSIC_GENRES.map(genre => (<button key={genre} type="button" onClick={() => setMusicGenre(genre)} className={cn('px-4 py-3 rounded-xl font-semibold text-sm capitalize transition-all', musicGenre === genre ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200')}>{genre}</button>))}
                   </div>
+                </div>
+
+                {/* Voiceover */}
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-slate-900">{t('voiceover') || 'Voiceover'}</h3>
+                    <button
+                      type="button"
+                      onClick={() => setVoiceoverEnabled(!voiceoverEnabled)}
+                      className={cn('relative w-12 h-6 rounded-full transition-colors', voiceoverEnabled ? 'bg-purple-600' : 'bg-slate-300')}
+                    >
+                      <span className={cn('absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform', voiceoverEnabled && 'translate-x-6')} />
+                    </button>
+                  </div>
+                  {voiceoverEnabled && (
+                    <>
+                      <p className="text-sm text-slate-600 mb-3">{t('voiceoverDesc') || 'AI generates a professional narration from your listing data. Or write your own script below.'}</p>
+                      <textarea
+                        value={customScript}
+                        onChange={(e) => setCustomScript(e.target.value)}
+                        placeholder={t('scriptPlaceholder') || 'Leave empty for auto-generated script, or write your custom narration here...'}
+                        rows={3}
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all text-sm resize-none"
+                      />
+                    </>
+                  )}
                 </div>
                 
                 {createError && (<div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3"><span className="material-symbols-outlined text-red-600">error</span><div><p className="font-semibold text-red-900">{t('failedToCreate')}</p><p className="text-sm text-red-700 mt-1">{createError}</p></div></div>)}

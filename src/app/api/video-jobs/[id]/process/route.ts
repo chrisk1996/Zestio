@@ -121,6 +121,8 @@ export async function POST(
         return await handleScraping(supabase, job);
       case 'sorting':
         return await handleSorting(supabase, job);
+      case 'scripting':
+        return await handleScripting(supabase, job);
       case 'twilighting':
         return await handleTwilighting(supabase, job);
       case 'enhancing':
@@ -250,8 +252,8 @@ async function handleSorting(supabase: Awaited<ReturnType<typeof createClient>>,
   const inputImages = (job.input_images as string[]) || [];
   if (inputImages.length <= 1) {
     const singleLabel = inputImages.length === 1 ? [{ index: 0, label: 'other', sortKey: 8 }] : [];
-    await supabase.from('video_jobs').update({ status: 'twilighting', metadata: { sortLabels: singleLabel } }).eq('id', job.id);
-    return NextResponse.json({ status: 'twilighting', message: 'Only one image, skipping sort.' });
+    await supabase.from('video_jobs').update({ status: 'scripting', metadata: { sortLabels: singleLabel } }).eq('id', job.id);
+    return NextResponse.json({ status: 'scripting', message: 'Only one image, skipping sort.' });
   }
 
   console.log(`[Sort] Classifying ${inputImages.length} images with LLaVA`);
@@ -264,11 +266,11 @@ async function handleSorting(supabase: Awaited<ReturnType<typeof createClient>>,
   if (sortIndex >= inputImages.length && labels.length > 0) {
     const result = finalizeSort(labels, inputImages);
     await supabase.from('video_jobs').update({
-      status: 'twilighting',
+      status: 'scripting',
       input_images: result.sortedImages,
       metadata: { ...metadata, sortLabels: result.labels, sortIndex: 0, sortPredictionId: null },
     }).eq('id', job.id);
-    return NextResponse.json({ status: 'twilighting', message: `Sorted: ${result.labels.map(l => l.label).join(' → ')}` });
+    return NextResponse.json({ status: 'scripting', message: `Sorted: ${result.labels.map(l => l.label).join(' → ')}` });
   }
 
   // Check active prediction
@@ -316,8 +318,8 @@ async function handleSorting(supabase: Awaited<ReturnType<typeof createClient>>,
       const sortFailures = ((metadata.sortFailures as number) || 0) + 1;
       if (sortFailures >= 2) {
         console.log('[Sort] Too many failures, skipping sort');
-        await supabase.from('video_jobs').update({ status: 'twilighting', metadata: { sortLabels: [] } }).eq('id', job.id);
-        return NextResponse.json({ status: 'twilighting', message: 'Skipping auto-sort (model unavailable).' });
+        await supabase.from('video_jobs').update({ status: 'scripting', metadata: { sortLabels: [] } }).eq('id', job.id);
+        return NextResponse.json({ status: 'scripting', message: 'Skipping auto-sort (model unavailable).' });
       }
       await supabase.from('video_jobs').update({ metadata: { ...metadata, sortFailures } }).eq('id', job.id);
     }
@@ -328,11 +330,11 @@ async function handleSorting(supabase: Awaited<ReturnType<typeof createClient>>,
   if (nextIndex >= inputImages.length) {
     const result = finalizeSort(labels, inputImages);
     await supabase.from('video_jobs').update({
-      status: 'twilighting',
+      status: 'scripting',
       input_images: result.sortedImages,
       metadata: { ...metadata, sortLabels: result.labels, sortIndex: 0, sortPredictionId: null },
     }).eq('id', job.id);
-    return NextResponse.json({ status: 'twilighting', message: `Sorted: ${result.labels.map(l => l.label).join(' → ')}` });
+    return NextResponse.json({ status: 'scripting', message: `Sorted: ${result.labels.map(l => l.label).join(' → ')}` });
   }
 
   await supabase.from('video_jobs').update({
@@ -359,6 +361,136 @@ function finalizeSort(labels: Array<{ index: number; label: string; sortKey: num
 }
 
 // ── Stage 3: Twilight — SDXL img2img for exterior shots only ───────────
+// ── Stage 2.5: Scripting — Generate voiceover script + TTS ──────────────
+// Generates a narration script from listing data, then creates TTS audio.
+// The voiceover duration determines how many images to use and clip duration.
+async function handleScripting(supabase: Awaited<ReturnType<typeof createClient>>, job: Record<string, unknown>) {
+  const metadata = (job.metadata as Record<string, unknown>) || {};
+  const inputImages = (job.input_images as string[]) || [];
+  const sortLabels = (metadata.sortLabels as Array<{ index: number; label: string; sortKey: number }>) || [];
+  const listingTitle = (metadata.listingTitle as string) || '';
+  const listingDescription = (metadata.listingDescription as string) || '';
+  const listingPrice = metadata.listingPrice as number | undefined;
+
+  // Check if user provided a custom script
+  const customScript = metadata.customScript as string | undefined;
+
+  // Check if voiceover is disabled
+  const voiceoverEnabled = metadata.voiceoverEnabled !== false; // default true
+  if (!voiceoverEnabled) {
+    console.log('[Script] Voiceover disabled, skipping');
+    await supabase.from('video_jobs').update({ status: 'twilighting' }).eq('id', job.id);
+    return NextResponse.json({ status: 'twilighting', message: 'Voiceover disabled, skipping.' });
+  }
+
+  // Step 1: Generate script if not provided
+  let script = customScript || (metadata.generatedScript as string | undefined);
+
+  if (!script) {
+    console.log('[Script] Generating voiceover script...');
+    const roomNames = sortLabels.map(l => l.label).filter((v, i, a) => a.indexOf(v) === i);
+    const propertyType = roomNames.includes('kitchen') && roomNames.includes('living_room') ? 'apartment' : 'property';
+
+    // Build a concise, natural narration (~30-45 seconds)
+    const parts: string[] = [];
+    if (listingTitle) {
+      parts.push(`Welcome to this ${listingTitle.toLowerCase().replace(/\d+/g, '').trim() || propertyType}.`);
+    } else {
+      parts.push(`Welcome to this beautiful ${propertyType}.`);
+    }
+
+    if (listingPrice) {
+      parts.push(`Listed at ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(listingPrice)}.`);
+    }
+
+    // Describe rooms based on sorted images
+    if (roomNames.includes('exterior_front')) {
+      parts.push('The stunning exterior immediately catches your eye.');
+    }
+    if (roomNames.includes('living_room')) {
+      parts.push('Inside, the spacious living room offers a bright and inviting atmosphere.');
+    }
+    if (roomNames.includes('kitchen')) {
+      parts.push('The modern kitchen is fully equipped with high-end appliances.');
+    }
+    if (roomNames.includes('bedroom')) {
+      parts.push('The bedrooms are generous in size with plenty of natural light.');
+    }
+    if (roomNames.includes('bathroom')) {
+      parts.push('The bathroom features elegant finishes and contemporary design.');
+    }
+    if (roomNames.includes('exterior_garden')) {
+      parts.push('Step outside to enjoy the beautiful garden and outdoor space.');
+    }
+    parts.push('This property won\'t stay on the market for long. Schedule your viewing today.');
+
+    script = parts.join(' ');
+    console.log(`[Script] Generated: ${script.substring(0, 80)}...`);
+  }
+
+  // Step 2: Generate TTS audio via Replicate (MiniMax Speech 2.8 HD)
+  const ttsAudioUrl = metadata.ttsAudioUrl as string | undefined;
+  if (ttsAudioUrl) {
+    // TTS already done — move to twilighting
+    console.log(`[Script] Voiceover ready, moving to twilighting`);
+    await supabase.from('video_jobs').update({ status: 'twilighting' }).eq('id', job.id);
+    return NextResponse.json({ status: 'twilighting', message: 'Voiceover ready.' });
+  }
+
+  // Check active TTS prediction
+  const ttsPredictionId = metadata.ttsPredictionId as string | undefined;
+  if (ttsPredictionId) {
+    try {
+      const prediction = await replicate.predictions.get(ttsPredictionId);
+      if (prediction.status === 'succeeded') {
+        const audioUrl = extractUrl(prediction.output);
+        if (audioUrl) {
+          console.log(`[Script] TTS complete: ${audioUrl.substring(0, 60)}...`);
+          await supabase.from('video_jobs').update({
+            metadata: { ...metadata, ttsAudioUrl: audioUrl, generatedScript: script, ttsPredictionId: null },
+          }).eq('id', job.id);
+          // Still scripting — will move to twilighting on next poll
+          return NextResponse.json({ status: 'scripting', message: 'Voiceover generated.' });
+        }
+      } else if (prediction.status === 'failed') {
+        console.warn(`[Script] TTS failed: ${prediction.error}, continuing without voiceover`);
+        await supabase.from('video_jobs').update({ status: 'twilighting' }).eq('id', job.id);
+        return NextResponse.json({ status: 'twilighting', message: 'TTS failed, continuing without voiceover.' });
+      } else {
+        return NextResponse.json({ status: 'scripting', message: 'Generating voiceover...' });
+      }
+    } catch (err) {
+      console.warn('[Script] TTS check error:', err);
+      await supabase.from('video_jobs').update({ status: 'twilighting' }).eq('id', job.id);
+      return NextResponse.json({ status: 'twilighting', message: 'TTS check failed, continuing without voiceover.' });
+    }
+  }
+
+  // Start TTS prediction
+  try {
+    console.log(`[Script] Starting TTS for: ${script.substring(0, 60)}...`);
+    const prediction = await createPredictionWithRetry({
+      model: 'minimax/speech-2.8-hd',
+      input: {
+        text: script,
+        voice_id: 'Deep_Voice_Man', // Professional real estate voice
+        emotion: 'calm',
+        speed: 1.0,
+      },
+    });
+
+    await supabase.from('video_jobs').update({
+      metadata: { ...metadata, ttsPredictionId: prediction.id, generatedScript: script },
+    }).eq('id', job.id);
+    return NextResponse.json({ status: 'scripting', message: 'Generating voiceover...' });
+  } catch (err) {
+    console.warn('[Script] TTS start failed:', err);
+    // Continue without voiceover
+    await supabase.from('video_jobs').update({ status: 'twilighting' }).eq('id', job.id);
+    return NextResponse.json({ status: 'twilighting', message: 'Skipping voiceover (TTS unavailable).' });
+  }
+}
+
 async function handleTwilighting(supabase: Awaited<ReturnType<typeof createClient>>, job: Record<string, unknown>) {
   const metadata = (job.metadata as Record<string, unknown>) || {};
   const inputImages = (job.input_images as string[]) || [];
@@ -862,6 +994,14 @@ async function handleStitching(supabase: Awaited<ReturnType<typeof createClient>
       musicPath = await downloadToTemp(musicFile, tmpDir, 'music.mp3');
     }
 
+    // Get voiceover audio
+    let voiceoverPath: string | null = null;
+    const ttsAudioUrl = metadata.ttsAudioUrl as string | undefined;
+    if (ttsAudioUrl) {
+      voiceoverPath = await downloadToTemp(ttsAudioUrl, tmpDir, 'voiceover.mp3');
+      console.log(`[Stitch] Voiceover audio downloaded`);
+    }
+
     // Get watermark
     watermarkPath = await downloadToTemp(WATERMARK_LOGO_URL, tmpDir, 'watermark.png');
 
@@ -874,13 +1014,13 @@ async function handleStitching(supabase: Awaited<ReturnType<typeof createClient>
       const concatPath = path.join(tmpDir, 'concat.mp4');
       await stitchWithFFmpegConcat(concatListPath, concatPath);
 
-      // Add watermark + music in one pass
-      await addWatermarkAndMusic(concatPath, outputPath, watermarkPath, musicPath);
+      // Add watermark + voiceover + music in one pass
+      await addWatermarkAndMusic(concatPath, outputPath, watermarkPath, musicPath, voiceoverPath);
     } catch (concatErr) {
       console.warn('[Stitch] Simple concat failed, trying crossfade:', concatErr);
       try {
         await stitchWithCrossfade(clipPaths, path.join(tmpDir, 'stitched.mp4'), tmpDir);
-        await addWatermarkAndMusic(path.join(tmpDir, 'stitched.mp4'), outputPath, watermarkPath, musicPath);
+        await addWatermarkAndMusic(path.join(tmpDir, 'stitched.mp4'), outputPath, watermarkPath, musicPath, voiceoverPath);
       } catch (xfadeErr) {
         throw new Error(`Both concat and crossfade failed. Concat: ${concatErr instanceof Error ? concatErr.message : concatErr}. Xfade: ${xfadeErr instanceof Error ? xfadeErr.message : xfadeErr}`);
       }
@@ -1074,31 +1214,59 @@ async function downloadToTemp(url: string, tmpDir: string, filename: string): Pr
   }
 }
 
-async function addWatermarkAndMusic(videoPath: string, outputPath: string, watermarkPath: string | null, musicPath: string | null): Promise<void> {
+async function addWatermarkAndMusic(videoPath: string, outputPath: string, watermarkPath: string | null, musicPath: string | null, voiceoverPath: string | null = null): Promise<void> {
   return new Promise(async (resolve, reject) => {
     try {
       const ffmpegPath = await ensureFFmpeg();
       const ffmpeg = await import('fluent-ffmpeg');
       const cmd = ffmpeg.default().setFfmpegPath(ffmpegPath);
-      cmd.input(videoPath);
+      cmd.input(videoPath); // input 0: video
 
-      if (musicPath) cmd.input(musicPath);
-      if (watermarkPath) cmd.input(watermarkPath);
+      // Input mapping: voiceover first (if present), then music, then watermark
+      let inputIdx = 1;
+      let voiceoverIdx = -1;
+      let musicIdx = -1;
+      let watermarkIdx = -1;
+
+      if (voiceoverPath) {
+        cmd.input(voiceoverPath);
+        voiceoverIdx = inputIdx++;
+      }
+      if (musicPath) {
+        cmd.input(musicPath);
+        musicIdx = inputIdx++;
+      }
+      if (watermarkPath) {
+        cmd.input(watermarkPath);
+        watermarkIdx = inputIdx++;
+      }
 
       const filters: string[] = [];
       const outputOpts: string[] = ['-c:v libx264', '-preset fast', '-crf 23', '-pix_fmt yuv420p', '-movflags +faststart'];
 
-      if (watermarkPath) {
-        const wmIdx = musicPath ? 2 : 1;
-        filters.push(`[${wmIdx}:v]scale=160:-1,format=rgba,colorchannelmixer=aa=0.7[wm]`, '[0:v][wm]overlay=W-w-24:H-h-24[outv]');
+      // Watermark overlay
+      if (watermarkIdx >= 0) {
+        filters.push(`[${watermarkIdx}:v]scale=160:-1,format=rgba,colorchannelmixer=aa=0.7[wm]`, '[0:v][wm]overlay=W-w-24:H-h-24[outv]');
         outputOpts.push('-map [outv]');
       } else {
         outputOpts.push("-vf", "drawtext=text='Made by Zestio':fontsize=22:fontcolor=white@0.7:x=W-tw-24:y=H-th-24:shadowcolor=black:shadowx=1:shadowy=1");
       }
 
-      if (musicPath) {
-        const audioIdx = 1;
-        outputOpts.push('-map', `${audioIdx}:a`, '-c:a aac', '-b:a 128k', '-af volume=0.3', '-shortest');
+      // Audio mixing: voiceover (100%) + background music (15%)
+      if (voiceoverIdx >= 0 && musicIdx >= 0) {
+        // Mix voiceover + background music
+        filters.push(
+          `[${voiceoverIdx}:a]volume=1.0[voice]`,
+          `[${musicIdx}:a]volume=0.15[bgm]`,
+          '[voice][bgm]amix=inputs=2:duration=longest[aout]',
+        );
+        outputOpts.push('-map', '[aout]', '-c:a aac', '-b:a 128k', '-shortest');
+      } else if (voiceoverIdx >= 0) {
+        // Voiceover only, no music
+        outputOpts.push('-map', `${voiceoverIdx}:a`, '-c:a aac', '-b:a 128k', '-shortest');
+      } else if (musicIdx >= 0) {
+        // Music only (original behavior)
+        outputOpts.push('-map', `${musicIdx}:a`, '-c:a aac', '-b:a 128k', '-af volume=0.3', '-shortest');
       } else {
         outputOpts.push('-an');
       }
