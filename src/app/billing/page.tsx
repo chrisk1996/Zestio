@@ -107,6 +107,30 @@ export default function BillingPage() {
    * Open a Paddle checkout overlay using Paddle.js.
    * The server creates a transaction, and we open it client-side.
    */
+  // Poll for subscription changes after checkout
+  const startPolling = () => {
+    let attempts = 0;
+    const maxAttempts = 30; // Poll for up to ~90 seconds
+    const interval = setInterval(async () => {
+      attempts++;
+      if (attempts >= maxAttempts) {
+        clearInterval(interval);
+        return;
+      }
+      try {
+        const res = await fetch('/api/credits');
+        const data = await res.json();
+        if (data.plan && data.plan !== 'free') {
+          clearInterval(interval);
+          // Reload to reflect new plan
+          window.location.href = '/billing?checkout=success';
+        }
+      } catch {
+        // Ignore poll errors
+      }
+    }, 3000);
+  };
+
   const openPaddleCheckout = async (params: {
     type: 'subscription' | 'topup';
     plan?: 'pro' | 'enterprise';
@@ -135,6 +159,8 @@ export default function BillingPage() {
       const paddle = getPaddleInstance();
       if (paddle && data.transactionId) {
         paddle.Checkout.open({ transactionId: data.transactionId });
+        // Start polling for subscription update after checkout opens
+        startPolling();
       } else {
         setError('Paddle checkout not available. Please try again.');
       }
@@ -240,6 +266,17 @@ export default function BillingPage() {
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-red-600" />
             <p className="text-red-700">{error}</p>
+          </div>
+        )}
+
+        {/* Checkout processing overlay */}
+        {checkoutLoading && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-center gap-3">
+            <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+            <div>
+              <p className="text-blue-800 font-medium">Processing your subscription...</p>
+              <p className="text-blue-600 text-sm mt-1">This page will update automatically once payment is confirmed.</p>
+            </div>
           </div>
         )}
 
