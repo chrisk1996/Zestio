@@ -39,6 +39,7 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const [confirmPlanChange, setConfirmPlanChange] = useState<{ plan: string; name: string; isUpgrade: boolean } | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -108,7 +109,7 @@ export default function BillingPage() {
    * The server creates a transaction, and we open it client-side.
    */
   // Poll for subscription changes after checkout
-  const startPolling = () => {
+  const startPolling = (initialPlan: string) => {
     let attempts = 0;
     const maxAttempts = 30; // Poll for up to ~90 seconds
     const interval = setInterval(async () => {
@@ -120,9 +121,14 @@ export default function BillingPage() {
       try {
         const res = await fetch('/api/credits');
         const data = await res.json();
-        if (data.plan && data.plan !== 'free') {
+        // Only reload if plan actually changed (prevents false reload on top-ups)
+        if (data.plan && data.plan !== initialPlan) {
           clearInterval(interval);
-          // Reload to reflect new plan
+          window.location.href = '/billing?checkout=success';
+        }
+        // Also reload if credits changed significantly (top-up completed)
+        if (user && data.credits > user.credits_remaining + 10) {
+          clearInterval(interval);
           window.location.href = '/billing?checkout=success';
         }
       } catch {
@@ -159,8 +165,8 @@ export default function BillingPage() {
       const paddle = getPaddleInstance();
       if (paddle && data.transactionId) {
         paddle.Checkout.open({ transactionId: data.transactionId });
-        // Start polling for subscription update after checkout opens
-        startPolling();
+        // Start polling — track current plan to detect actual changes
+        startPolling(user?.plan || 'free');
       } else {
         setError('Paddle checkout not available. Please try again.');
       }
@@ -173,30 +179,12 @@ export default function BillingPage() {
   };
 
   const handleSubscribe = async (plan: string) => {
-    // If user already has a subscription, update it (plan change with proration)
+    // If user already has a subscription, show confirmation first
     if (user?.plan !== 'free' && user?.paddle_customer_id) {
-      setCheckoutLoading(plan);
-      try {
-        const response = await fetch('/api/paddle/update-subscription', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ plan }),
-        });
-        const data = await response.json();
-
-        if (!response.ok) {
-          setError(data.error || 'Failed to update subscription');
-          return;
-        }
-
-        // Poll for subscription update to take effect
-        startPolling();
-      } catch (err) {
-        console.error('Update subscription error:', err);
-        setError('Failed to update subscription. Please try again.');
-      } finally {
-        setCheckoutLoading(null);
-      }
+      const planOrder = ['free', 'pro', 'enterprise'];
+      const isUpgrade = planOrder.indexOf(plan) > planOrder.indexOf(user?.plan || 'free');
+      const planName = plan === 'pro' ? 'Pro' : 'Enterprise';
+      setConfirmPlanChange({ plan, name: planName, isUpgrade });
       return;
     }
 
@@ -221,6 +209,33 @@ export default function BillingPage() {
     } catch (err) {
       console.error('Portal error:', err);
       setError(t('portalFailed'));
+    } finally {
+      setCheckoutLoading(null);
+    }
+  };
+
+  const handleConfirmPlanChange = async () => {
+    if (!confirmPlanChange) return;
+    const { plan } = confirmPlanChange;
+    setConfirmPlanChange(null);
+    setCheckoutLoading(plan);
+    try {
+      const response = await fetch('/api/paddle/update-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || 'Failed to update subscription');
+        return;
+      }
+
+      startPolling(user?.plan || 'free');
+    } catch (err) {
+      console.error('Update subscription error:', err);
+      setError('Failed to update subscription. Please try again.');
     } finally {
       setCheckoutLoading(null);
     }
@@ -283,6 +298,36 @@ export default function BillingPage() {
             <div>
               <p className="text-blue-800 font-medium">Processing your subscription...</p>
               <p className="text-blue-600 text-sm mt-1">This page will update automatically once payment is confirmed.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Plan Change Confirmation Modal */}
+        {confirmPlanChange && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4">
+              <h3 className="text-lg font-bold text-gray-900 mb-2">
+                {confirmPlanChange.isUpgrade ? (t('upgrade') || 'Upgrade') : (t('downgrade') || 'Downgrade')} to {confirmPlanChange.name}
+              </h3>
+              <p className="text-gray-600 mb-4">
+                {t('planChangeInfo') || 'Switching plans takes effect immediately. You\'ll only be charged the prorated difference for the remaining billing period. Your top-up credits are always preserved.'}
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setConfirmPlanChange(null)}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmPlanChange}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors ${
+                    confirmPlanChange.isUpgrade ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-gray-600 hover:bg-gray-700'
+                  }`}
+                >
+                  Confirm {confirmPlanChange.isUpgrade ? (t('upgrade') || 'Upgrade') : (t('downgrade') || 'Downgrade')}
+                </button>
+              </div>
             </div>
           </div>
         )}

@@ -256,7 +256,11 @@
     "topUp50": "+50 Cr / 9€",
     "topUp200": "+200 Cr / 29€",
     "topUp500": "+500 Cr / 59€",
-    "creditsPerMonth": "Credits/Monat"
+    "creditsPerMonth": "Credits/Monat",
+    "changePlan": "Tarif wechseln",
+    "upgrade": "Upgrade",
+    "downgrade": "Downgrade",
+    "planChangeInfo": "Tarifwechsel werden sofort wirksam. Ihnen wird nur der anteilige Differenzbetrag für den verbleibenden Abrechnungszeitraum berechnet. Aufgeladene Credits bleiben stets erhalten."
   },
   "settings": {
     "title": "Einstellungen",

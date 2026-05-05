@@ -256,7 +256,11 @@
     "topUp50": "+50 cr / €9",
     "topUp200": "+200 cr / €29",
     "topUp500": "+500 cr / €59",
-    "creditsPerMonth": "credits/month"
+    "creditsPerMonth": "credits/month",
+    "changePlan": "Change Plan",
+    "upgrade": "Upgrade",
+    "downgrade": "Downgrade",
+    "planChangeInfo": "Switching plans takes effect immediately. You'll only be charged the prorated difference for the remaining billing period. Your top-up credits are always preserved."
   },
   "settings": {
     "title": "Settings",
