@@ -874,12 +874,22 @@ async function handleStitching(supabase: Awaited<ReturnType<typeof createClient>
       await addWatermarkAndMusic(stitchedPath, outputPath, watermarkPath, musicPath);
     } catch (xfadeErr) {
       console.warn('[Stitch] Crossfade failed, trying simple concat:', xfadeErr);
-      const concatListPath = path.join(tmpDir, 'concat.txt');
-      const concatContent = clipPaths.map(p => `file '${p}'`).join('\n');
-      await fs.writeFile(concatListPath, concatContent);
-      const concatPath = path.join(tmpDir, 'concat.mp4');
-      await stitchWithFFmpeg(concatListPath, concatPath);
-      await addWatermarkAndMusic(concatPath, outputPath, watermarkPath, musicPath);
+      // Simple concat via WASM — just join clips sequentially
+      const inputFiles: { name: string; data: Uint8Array }[] = [];
+      for (let i = 0; i < clipPaths.length; i++) {
+        const data = await fs.readFile(clipPaths[i]);
+        inputFiles.push({ name: `clip${i}.mp4`, data: new Uint8Array(data) });
+      }
+      const concatArgs = [
+        ...clipPaths.map((_, i) => ['-i', `clip${i}.mp4`]).flat(),
+        '-filter_complex', clipPaths.map((_, i) => `[${i}:v]`).join('') + `concat=n=${clipPaths.length}:v=1[vout]`,
+        '-map', '[vout]',
+        '-c:v', 'libx264', '-preset', 'fast', '-crf', '23', '-pix_fmt', 'yuv420p',
+        'concat.mp4',
+      ];
+      const concatData = await runFFmpegWasm(concatArgs, inputFiles);
+      await fs.writeFile(path.join(tmpDir, 'concat.mp4'), concatData);
+      await addWatermarkAndMusic(path.join(tmpDir, 'concat.mp4'), outputPath, watermarkPath, musicPath);
     }
 
     const finalBuffer = await fs.readFile(outputPath);
@@ -923,118 +933,63 @@ async function handleStitching(supabase: Awaited<ReturnType<typeof createClient>
   }
 }
 
-// Stitch clips using crossfade transitions via xfade filter
-async function stitchWithCrossfade(clipPaths: string[], outputPath: string, tmpDir: string): Promise<void> {
-  const ffmpegPath = getFFmpegPath();
-  if (!ffmpegPath) throw new Error('No ffmpeg binary found');
+// ── WASM FFmpeg (works on Vercel serverless, no native binary needed) ────
 
+let ffmpegWasm: InstanceType<typeof import('@ffmpeg/ffmpeg').FFmpeg> | null = null;
+let ffmpegLoading: Promise<InstanceType<typeof import('@ffmpeg/ffmpeg').FFmpeg>> | null = null;
+
+async function getFFmpegWasm(): Promise<InstanceType<typeof import('@ffmpeg/ffmpeg').FFmpeg>> {
+  if (ffmpegWasm) return ffmpegWasm;
+  if (ffmpegLoading) return ffmpegLoading;
+
+  ffmpegLoading = (async () => {
+    const { FFmpeg } = await import('@ffmpeg/ffmpeg');
+    const { toBlobURL } = await import('@ffmpeg/util');
+    const ffmpeg = new FFmpeg();
+
+    // Load from CDN — works in serverless (no local binary needed)
+    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm';
+    await ffmpeg.load({
+      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+    });
+
+    ffmpegWasm = ffmpeg;
+    return ffmpeg;
+  })();
+
+  return ffmpegLoading;
+}
+
+/** Run an ffmpeg command via WASM. Reads/writes from virtual filesystem. */
+async function runFFmpegWasm(args: string[], inputFiles: { name: string; data: Uint8Array }[]): Promise<Uint8Array> {
+  const ffmpeg = await getFFmpegWasm();
   const fs = await import('fs/promises');
-  const path = await import('path');
-  const fadeDuration = 0.8; // seconds of crossfade
-  const clipDuration = 5; // Kling produces 5s clips
-  const offset = clipDuration - fadeDuration; // offset for each xfade
+  const { fetchFile } = await import('@ffmpeg/util');
 
-  if (clipPaths.length === 2) {
-    return crossfadeTwo(ffmpegPath, clipPaths[0], clipPaths[1], outputPath, fadeDuration, offset);
+  // Write input files to virtual FS
+  for (const file of inputFiles) {
+    await ffmpeg.writeFile(file.name, file.data);
   }
 
-  // Normalize all clips to same resolution/codec/fps first
-  const normalizedPaths: string[] = [];
-  for (let i = 0; i < clipPaths.length; i++) {
-    const normPath = path.join(tmpDir, `norm${i}.mp4`);
-    await normalizeClip(ffmpegPath, clipPaths[i], normPath);
-    normalizedPaths.push(normPath);
+  // Run the command
+  console.log(`[FFmpeg WASM] Running: ffmpeg ${args.join(' ')}`);
+  await ffmpeg.exec(args);
+
+  // Read the last output file from args (the one after -o or the last positional arg)
+  // Parse output path from args
+  const outputPath = args[args.length - 1];
+  const outputData = await ffmpeg.readFile(outputPath);
+
+  // Cleanup virtual FS
+  for (const file of inputFiles) {
+    try { await ffmpeg.deleteFile(file.name); } catch {}
   }
+  try { await ffmpeg.deleteFile(outputPath); } catch {}
 
-  // Build a single complex filter with chained xfade for all clips
-  // This is more efficient than processing pair by pair
-  return new Promise((resolve, reject) => {
-    import('fluent-ffmpeg').then(ffmpeg => {
-      const cmd = ffmpeg.default().setFfmpegPath(ffmpegPath);
-
-      // Add all inputs
-      for (const p of normalizedPaths) {
-        cmd.input(p);
-      }
-
-      // Build xfade filter chain
-      const filters: string[] = [];
-      let currentOffset = offset;
-
-      for (let i = 0; i < normalizedPaths.length - 1; i++) {
-        const inTag = i === 0 ? '[0:v]' : `[v${i - 1}]`;
-        const outTag = i === normalizedPaths.length - 2 ? '[vout]' : `[v${i}]`;
-        filters.push(`${inTag}[${i + 1}:v]xfade=transition=fade:duration=${fadeDuration}:offset=${currentOffset.toFixed(1)}${outTag}`);
-        currentOffset += offset;
-      }
-
-      cmd
-        .complexFilter(filters)
-        .outputOptions([
-          '-map [vout]',
-          '-c:v libx264',
-          '-preset fast',
-          '-crf 23',
-          '-movflags +faststart',
-          '-pix_fmt yuv420p',
-        ])
-        .output(outputPath)
-        .on('start', (cmd: string) => console.log(`[Stitch] Multi-xfade: ${cmd}`))
-        .on('end', () => resolve())
-        .on('error', (err: Error) => reject(err))
-        .run();
-    });
-  });
+  return outputData as Uint8Array;
 }
 
-function crossfadeTwo(ffmpegPath: string, input1: string, input2: string, outputPath: string, fadeSec: number, offset: number): Promise<void> {
-  return new Promise((resolve, reject) => {
-    import('fluent-ffmpeg').then(ffmpeg => {
-      ffmpeg.default()
-        .setFfmpegPath(ffmpegPath)
-        .input(input1)
-        .input(input2)
-        .complexFilter([
-          `[0:v][1:v]xfade=transition=fade:duration=${fadeSec}:offset=${offset.toFixed(1)}[v]`,
-        ])
-        .outputOptions([
-          '-map [v]',
-          '-c:v libx264',
-          '-preset fast',
-          '-crf 23',
-          '-movflags +faststart',
-          '-pix_fmt yuv420p',
-        ])
-        .output(outputPath)
-        .on('start', (cmd: string) => console.log(`[Stitch] xfade: ${cmd}`))
-        .on('end', () => resolve())
-        .on('error', (err: Error) => reject(err))
-        .run();
-    });
-  });
-}
-
-function normalizeClip(ffmpegPath: string, inputPath: string, outputPath: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    import('fluent-ffmpeg').then(ffmpeg => {
-      ffmpeg.default(inputPath)
-        .setFfmpegPath(ffmpegPath)
-        .outputOptions([
-          '-c:v libx264',
-          '-preset fast',
-          '-crf 23',
-          '-vf scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2',
-          '-r 30',
-          '-pix_fmt yuv420p',
-          '-an', // strip audio from individual clips
-        ])
-        .output(outputPath)
-        .on('end', () => resolve())
-        .on('error', (err: Error) => reject(err))
-        .run();
-    });
-  });
-}
 
 // Add background music to video
 // Select music track based on listing metadata or user genre choice
@@ -1077,131 +1032,117 @@ async function downloadToTemp(url: string, tmpDir: string, filename: string): Pr
   }
 }
 
-// Single-pass: add watermark (bottom-right) + music (30% volume)
-function addWatermarkAndMusic(videoPath: string, outputPath: string, watermarkPath: string | null, musicPath: string | null): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const ffmpegPath = getFFmpegPath();
-    if (!ffmpegPath) { reject(new Error('No ffmpeg')); return; }
+async function addWatermarkAndMusic(videoPath: string, outputPath: string, watermarkPath: string | null, musicPath: string | null): Promise<void> {
+  const fs = await import('fs/promises');
+  const inputFiles: { name: string; data: Uint8Array }[] = [];
 
-    import('fluent-ffmpeg').then(ffmpeg => {
-      const cmd = ffmpeg.default().setFfmpegPath(ffmpegPath);
-      cmd.input(videoPath); // input 0: video
+  // Video input
+  const videoData = await fs.readFile(videoPath);
+  inputFiles.push({ name: 'video.mp4', data: new Uint8Array(videoData) });
 
-      let audioInputIdx = -1;
-      if (musicPath) {
-        cmd.input(musicPath); // input 1: music
-        audioInputIdx = 1;
-      }
+  let inputIdx = 1;
+  let musicIdx = -1;
+  let watermarkIdx = -1;
 
-      let watermarkInputIdx = -1;
-      if (watermarkPath) {
-        cmd.input(watermarkPath); // input 2 (or 1): watermark
-        watermarkInputIdx = musicPath ? 2 : 1;
-      }
+  if (musicPath) {
+    const musicData = await fs.readFile(musicPath);
+    inputFiles.push({ name: 'music.mp3', data: new Uint8Array(musicData) });
+    musicIdx = inputIdx++;
+  }
 
-      const filters: string[] = [];
-      const outputOpts: string[] = [
-        '-c:v libx264', '-preset fast', '-crf 23',
-        '-pix_fmt yuv420p',
-        '-movflags +faststart',
-      ];
+  if (watermarkPath) {
+    const wmData = await fs.readFile(watermarkPath);
+    inputFiles.push({ name: 'watermark.png', data: new Uint8Array(wmData) });
+    watermarkIdx = inputIdx++;
+  }
 
-      if (watermarkPath && watermarkInputIdx >= 0) {
-        filters.push(
-          `[${watermarkInputIdx}:v]scale=160:-1,format=rgba,colorchannelmixer=aa=0.7[wm]`,
-          `[0:v][wm]overlay=W-w-24:H-h-24[outv]`
-        );
-        outputOpts.push('-map', '[outv]');
-      } else {
-        // No PNG watermark — drawtext fallback
-        outputOpts.push(
-          "-vf", "drawtext=text='Made by Zestio':fontsize=22:fontcolor=white@0.7:x=W-tw-24:y=H-th-24:shadowcolor=black:shadowx=1:shadowy=1"
-        );
-      }
+  const outputName = 'final.mp4';
+  const args: string[] = ['-i', 'video.mp4'];
 
-      if (musicPath && audioInputIdx >= 0) {
-        outputOpts.push('-map', `${audioInputIdx}:a`);
-        outputOpts.push('-c:a aac', '-b:a 128k', '-af volume=0.3', '-shortest');
-      } else {
-        // No music — strip audio
-        outputOpts.push('-an');
-      }
+  if (musicIdx >= 0) args.push('-i', 'music.mp3');
+  if (watermarkIdx >= 0) args.push('-i', 'watermark.png');
 
-      if (filters.length > 0) {
-        cmd.complexFilter(filters);
-      }
-      cmd.outputOptions(outputOpts);
-      cmd.output(outputPath);
+  const filters: string[] = [];
+  const mapArgs: string[] = [];
 
-      cmd.on('start', (c: string) => console.log(`[Final] ${c}`));
-      cmd.on('end', () => resolve());
-      cmd.on('error', (err: Error) => reject(err));
-      cmd.run();
-    });
-  });
+  if (watermarkIdx >= 0) {
+    filters.push(
+      `[${watermarkIdx}:v]scale=160:-1,format=rgba,colorchannelmixer=aa=0.7[wm]`,
+      '[0:v][wm]overlay=W-w-24:H-h-24[outv]',
+    );
+    mapArgs.push('-map', '[outv]');
+  } else {
+    args.push('-vf', "drawtext=text='Made by Zestio':fontsize=22:fontcolor=white@0.7:x=W-tw-24:y=H-th-24:shadowcolor=black:shadowx=1:shadowy=1");
+  }
+
+  if (musicIdx >= 0) {
+    mapArgs.push('-map', `${musicIdx}:a`);
+    args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '23', '-pix_fmt', 'yuv420p');
+    args.push('-c:a', 'aac', '-b:a', '128k', '-af', 'volume=0.3', '-shortest');
+  } else {
+    args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '23', '-pix_fmt', 'yuv420p', '-an');
+  }
+
+  if (filters.length > 0) {
+    args.push('-filter_complex', filters.join(';'), ...mapArgs);
+  }
+
+  args.push(outputName);
+
+  const outputData = await runFFmpegWasm(args, inputFiles);
+  await fs.writeFile(outputPath, outputData);
 }
 
+// getFFmpegPath kept as fallback for local dev with native ffmpeg
 function getFFmpegPath(): string | null {
   const { existsSync } = require('fs');
-  const path = require('path');
-
-  // 1. Try ffmpeg-static npm package
-  try {
-    const p = require('ffmpeg-static') as string;
-    if (p && existsSync(p)) return p;
-    // ffmpeg-static may return a /ROOT/... path on Vercel — resolve relative to node_modules
-    if (p && p.startsWith('/ROOT/')) {
-      const relPath = p.replace('/ROOT/', '');
-      // Try resolving from the project root
-      for (const base of [process.cwd(), path.dirname(require.resolve('ffmpeg-static/package.json'))]) {
-        const candidate = path.resolve(base, relPath.replace('node_modules/', ''));
-        if (existsSync(candidate)) return candidate;
-      }
-      // Try the package directory directly
-      try {
-        const pkgDir = path.dirname(require.resolve('ffmpeg-static/package.json'));
-        const binaryName = path.basename(p);
-        const candidate = path.join(pkgDir, binaryName);
-        if (existsSync(candidate)) return candidate;
-      } catch {}
-    }
-  } catch {}
-
-  // 2. Try resolving ffmpeg-static binary directly from the package
-  try {
-    const pkgDir = path.dirname(require.resolve('ffmpeg-static/package.json'));
-    // ffmpeg-static puts the binary at the root of its package dir
-    for (const name of ['ffmpeg', 'ffmpeg-linux-x64', 'ffmpeg-darwin-x64']) {
-      const candidate = path.join(pkgDir, name);
-      if (existsSync(candidate)) return candidate;
-    }
-  } catch {}
-
-  // 3. System fallback
   for (const p of ['/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/bin/ffmpeg', '/opt/bin/ffmpeg', '/opt/homebrew/bin/ffmpeg']) {
     if (existsSync(p)) return p;
   }
+  try {
+    const p = require('ffmpeg-static') as string;
+    if (p && existsSync(p)) return p;
+  } catch {}
   return null;
 }
 
 // Stitch clips using FFmpeg simple concat (fallback)
-async function stitchWithFFmpeg(concatListPath: string, outputPath: string): Promise<void> {
-  const ffmpegPath = getFFmpegPath();
-  if (!ffmpegPath) throw new Error('No ffmpeg binary found');
+async function stitchWithCrossfade(clipPaths: string[], outputPath: string, tmpDir: string): Promise<void> {
+  const fs = await import('fs/promises');
+  const path = await import('path');
+  const fadeDuration = 0.8;
+  const clipDuration = 5;
+  const offset = clipDuration - fadeDuration;
 
-  return new Promise((resolve, reject) => {
-    import('fluent-ffmpeg').then(ffmpeg => {
-      ffmpeg.default(concatListPath)
-        .setFfmpegPath(ffmpegPath!)
-        .inputOptions(['-f concat', '-safe 0'])
-        .outputOptions(['-c:v libx264', '-preset fast', '-crf 23', '-movflags +faststart', '-pix_fmt yuv420p'])
-        .output(outputPath)
-        .on('start', (cmd: string) => console.log(`[Stitch] FFmpeg: ${cmd}`))
-        .on('end', () => resolve())
-        .on('error', (err: Error) => reject(err))
-        .run();
-    });
-  });
+  const inputFiles: { name: string; data: Uint8Array }[] = [];
+  for (let i = 0; i < clipPaths.length; i++) {
+    const data = await fs.readFile(clipPaths[i]);
+    inputFiles.push({ name: `clip${i}.mp4`, data: new Uint8Array(data) });
+  }
+
+  const outputName = 'stitched.mp4';
+
+  // Build xfade filter chain
+  const filters: string[] = [];
+  let currentOffset = offset;
+  for (let i = 0; i < clipPaths.length - 1; i++) {
+    const inTag = i === 0 ? '[0:v]' : `[v${i - 1}]`;
+    const outTag = i === clipPaths.length - 2 ? '[vout]' : `[v${i}]`;
+    filters.push(`${inTag}[${i + 1}:v]xfade=transition=fade:duration=${fadeDuration}:offset=${currentOffset.toFixed(1)}${outTag}`);
+    currentOffset += offset;
+  }
+
+  const args = [
+    ...clipPaths.map((_, i) => ['-i', `clip${i}.mp4`]).flat(),
+    '-filter_complex', filters.join(';'),
+    '-map', '[vout]',
+    '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+    '-pix_fmt', 'yuv420p',
+    outputName,
+  ];
+
+  const outputData = await runFFmpegWasm(args, inputFiles);
+  await fs.writeFile(outputPath, outputData);
 }
 async function uploadVideo(job: Record<string, unknown>, buffer: Buffer): Promise<string> {
   try {
