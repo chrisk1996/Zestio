@@ -496,9 +496,10 @@ async function handleTwilighting(supabase: Awaited<ReturnType<typeof createClien
   const inputImages = (job.input_images as string[]) || [];
   const sortLabels = (metadata.sortLabels as Array<{ index: number; label: string; sortKey: number }>) || [];
 
-  // Only twilight exterior_front and exterior_garden (spec categories)
+  // Twilight exterior, garden, balcony, terrace, pool, backyard (broadened)
+  const exteriorLabels = ['exterior_front', 'exterior_garden', 'balcony', 'terrace', 'pool', 'backyard'];
   const exteriorIndices = sortLabels
-    .filter(l => ['exterior_front', 'exterior_garden'].includes(l.label))
+    .filter(l => exteriorLabels.includes(l.label) || l.label.startsWith('exterior') || l.label === 'garden')
     .map(l => l.index);
 
   if (exteriorIndices.length === 0) {
@@ -578,7 +579,7 @@ async function handleTwilighting(supabase: Awaited<ReturnType<typeof createClien
         negative_prompt: 'daytime, harsh light, overcast, flat sky, dark, night, people, cars, text',
         num_inference_steps: 30,
         guidance_scale: 7.5,
-        prompt_strength: 0.45,
+        prompt_strength: 0.7,
       },
     });
 
@@ -800,6 +801,75 @@ async function handleRenovating(supabase: Awaited<ReturnType<typeof createClient
 }
 
 // ── Stage 3: Animate ─────────────────────────────────────────────────────
+
+// Pad an image to exactly 16:9 aspect ratio using ffmpeg.
+// Returns the public URL of the normalized image (or original if already 16:9 or fails).
+async function normalizeImageForKling(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  imageUrl: string,
+  job: Record<string, unknown>
+): Promise<string> {
+  const path = await import('path');
+  const fs = await import('fs/promises');
+  const os = await import('os');
+
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'norm-'));
+
+  // Download image to temp
+  const ext = imageUrl.match(/\.(jpg|jpeg|png|webp)(\?|$)/i)?.[1] || 'jpg';
+  const inputPath = path.join(tmpDir, `input.${ext}`);
+  const outputPath = path.join(tmpDir, `normalized.jpg`);
+
+  try {
+    const res = await fetch(imageUrl, { signal: AbortSignal.timeout(20000) });
+    if (!res.ok) { await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {}); return imageUrl; }
+    await fs.writeFile(inputPath, Buffer.from(await res.arrayBuffer()));
+  } catch (err) {
+    console.warn('[Normalize] Download failed:', err);
+    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    return imageUrl;
+  }
+
+  // Use ffmpeg to pad to exactly 1280x720 (16:9) with letterboxing
+  try {
+    const ffmpegPath = await ensureFFmpeg();
+    await new Promise<void>((resolve, reject) => {
+      import('fluent-ffmpeg').then(ffmpeg => {
+        ffmpeg.default(inputPath)
+          .setFfmpegPath(ffmpegPath)
+          .outputOptions([
+            '-vf', 'scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2:black',
+            '-q:v', '2',
+          ])
+          .output(outputPath)
+          .on('end', () => resolve())
+          .on('error', (err: Error) => reject(err))
+          .run();
+      });
+    });
+
+    // Upload normalized image to user-uploads
+    const userId = job.user_id as string;
+    const normBuffer = await fs.readFile(outputPath);
+    const normFileName = `${userId}/normalized/${job.id}_${Date.now()}.jpg`;
+    await supabase.storage
+      .from('user-uploads')
+      .upload(normFileName, normBuffer, {
+        contentType: 'image/jpeg',
+        cacheControl: '86400',
+        upsert: true,
+      });
+    const { data: urlData } = supabase.storage.from('user-uploads').getPublicUrl(normFileName);
+    console.log(`[Normalize] Padded to 16:9: ${urlData.publicUrl.substring(0, 60)}...`);
+    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    return urlData.publicUrl;
+  } catch (err) {
+    console.warn('[Normalize] Padding failed, using original:', err);
+    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    return imageUrl;
+  }
+}
+
 async function handleAnimating(supabase: Awaited<ReturnType<typeof createClient>>, job: Record<string, unknown>) {
   const metadata = (job.metadata as Record<string, unknown>) || {};
   const images = (metadata.renovatedImages as string[]) || [];
@@ -873,11 +943,14 @@ async function handleAnimating(supabase: Awaited<ReturnType<typeof createClient>
     const motionPrompt = MOTION_PROMPTS[roomLabel] || 'slow cinematic camera pan, professional real estate video, smooth motion, warm lighting';
     console.log(`[Animate] Room: ${roomLabel}, Motion: ${motionPrompt.substring(0, 60)}...`);
 
+    // Normalize image to 16:9 before Kling (ensures consistent sizing)
+    const normalizedUrl = await normalizeImageForKling(supabase, images[currentIndex], job);
+
     try {
       const prediction = await createPredictionWithRetry({
         model: "kwaivgi/kling-v2.1",
         input: {
-          start_image: images[currentIndex],
+          start_image: normalizedUrl,
           prompt: motionPrompt,
           negative_prompt: 'shaky, blurry, distorted, text, watermark, people',
           duration: 5,
@@ -1005,7 +1078,14 @@ async function handleStitching(supabase: Awaited<ReturnType<typeof createClient>
     // Get watermark
     watermarkPath = await downloadToTemp(WATERMARK_LOGO_URL, tmpDir, 'watermark.png');
 
-    // Stitch: try fast concat first, fallback to crossfade
+    // Generate outro/CTA card (branded purple slide)
+    const outroPath = await generateOutroCard(tmpDir);
+    if (outroPath) {
+      clipPaths.push(outroPath);
+      console.log('[Stitch] Outro card appended');
+    }
+
+    // Stitch: try fast concat first, fallback to normalized concat
     try {
       // Simple concat is fast — single ffmpeg pass
       const concatListPath = path.join(tmpDir, 'concat.txt');
@@ -1017,12 +1097,12 @@ async function handleStitching(supabase: Awaited<ReturnType<typeof createClient>
       // Add watermark + voiceover + music in one pass
       await addWatermarkAndMusic(concatPath, outputPath, watermarkPath, musicPath, voiceoverPath);
     } catch (concatErr) {
-      console.warn('[Stitch] Simple concat failed, trying crossfade:', concatErr);
+      console.warn('[Stitch] Simple concat failed, trying normalized concat:', concatErr);
       try {
-        await stitchWithCrossfade(clipPaths, path.join(tmpDir, 'stitched.mp4'), tmpDir);
-        await addWatermarkAndMusic(path.join(tmpDir, 'stitched.mp4'), outputPath, watermarkPath, musicPath, voiceoverPath);
-      } catch (xfadeErr) {
-        throw new Error(`Both concat and crossfade failed. Concat: ${concatErr instanceof Error ? concatErr.message : concatErr}. Xfade: ${xfadeErr instanceof Error ? xfadeErr.message : xfadeErr}`);
+        await stitchWithNormalizedConcat(clipPaths, path.join(tmpDir, 'normalized.mp4'), tmpDir);
+        await addWatermarkAndMusic(path.join(tmpDir, 'normalized.mp4'), outputPath, watermarkPath, musicPath, voiceoverPath);
+      } catch (normErr) {
+        throw new Error(`Both concat methods failed. Simple: ${concatErr instanceof Error ? concatErr.message : concatErr}. Normalized: ${normErr instanceof Error ? normErr.message : normErr}`);
       }
     }
 
@@ -1174,6 +1254,35 @@ function getFFmpegPathLocal(): string | null {
 
 
 // Add background music to video
+// Generate a branded outro/CTA card (purple slide, 2 seconds)
+async function generateOutroCard(tmpDir: string): Promise<string | null> {
+  const path = await import('path');
+  const outroPath = path.join(tmpDir, 'outro.mp4');
+  try {
+    const ffmpegPath = await ensureFFmpeg();
+    await new Promise<void>((resolve, reject) => {
+      import('fluent-ffmpeg').then(ffmpeg => {
+        ffmpeg.default()
+          .setFfmpegPath(ffmpegPath)
+          .input('color=c=#7c3aed:s=1280x720:d=2:r=30')
+          .inputFormat('lavfi')
+          .outputOptions(['-c:v libx264', '-preset ultrafast', '-crf 23', '-pix_fmt yuv420p'])
+          .output(outroPath)
+          .on('end', () => resolve())
+          .on('error', (err: Error) => reject(err))
+          .run();
+      });
+    });
+    console.log('[Outro] Generated branded outro card');
+    return outroPath;
+  } catch (err) {
+    console.warn('[Outro] Failed to generate, skipping:', err);
+    return null;
+  }
+}
+
+// Rest of helpers...
+
 // Select music track based on listing metadata or user genre choice
 function selectMusicTrack(job: Record<string, unknown>): string | null {
   // User override takes priority
@@ -1314,13 +1423,11 @@ function getFFmpegPath(): string | null {
   return getFFmpegPathLocal();
 }
 
-// Stitch clips using FFmpeg simple concat (fallback)
-async function stitchWithCrossfade(clipPaths: string[], outputPath: string, tmpDir: string): Promise<void> {
+// Stitch clips using normalize + simple concat (reliable, no OOM)
+async function stitchWithNormalizedConcat(clipPaths: string[], outputPath: string, tmpDir: string): Promise<void> {
   const ffmpegPath = await ensureFFmpeg();
   const path = await import('path');
-  const fadeDuration = 0.8;
-  const clipDuration = 5;
-  const offset = clipDuration - fadeDuration;
+  const fs = await import('fs/promises');
 
   // Normalize all clips to same resolution/codec/fps
   const normalizedPaths: string[] = [];
@@ -1330,55 +1437,14 @@ async function stitchWithCrossfade(clipPaths: string[], outputPath: string, tmpD
     normalizedPaths.push(normPath);
   }
 
-  if (clipPaths.length === 2) {
-    return crossfadeTwo(ffmpegPath, normalizedPaths[0], normalizedPaths[1], outputPath, fadeDuration, offset);
-  }
-
-  // Build chained xfade filter for all clips
-  return new Promise((resolve, reject) => {
-    import('fluent-ffmpeg').then(ffmpeg => {
-      const cmd = ffmpeg.default().setFfmpegPath(ffmpegPath);
-      for (const p of normalizedPaths) cmd.input(p);
-
-      const filters: string[] = [];
-      let currentOffset = offset;
-      for (let i = 0; i < normalizedPaths.length - 1; i++) {
-        const inTag = i === 0 ? '[0:v]' : `[v${i - 1}]`;
-        const outTag = i === normalizedPaths.length - 2 ? '[vout]' : `[v${i}]`;
-        filters.push(`${inTag}[${i + 1}:v]xfade=transition=fade:duration=${fadeDuration}:offset=${currentOffset.toFixed(1)}${outTag}`);
-        currentOffset += offset;
-      }
-
-      cmd
-        .complexFilter(filters)
-        .outputOptions(['-map [vout]', '-c:v libx264', '-preset fast', '-crf 23', '-movflags +faststart', '-pix_fmt yuv420p'])
-        .output(outputPath)
-        .on('start', (cmd: string) => console.log(`[Stitch] Multi-xfade: ${cmd}`))
-        .on('end', () => resolve())
-        .on('error', (err: Error) => reject(err))
-        .run();
-    });
-  });
+  // Write concat list and stitch
+  const concatPath = path.join(tmpDir, 'normalized_concat.txt');
+  await fs.writeFile(concatPath, normalizedPaths.map(p => `file '${p}'`).join('\n'));
+  await stitchWithFFmpegConcat(concatPath, outputPath);
+  console.log(`[Stitch] Normalized concat done: ${normalizedPaths.length} clips`);
 }
 
-function crossfadeTwo(ffmpegPath: string, input1: string, input2: string, outputPath: string, fadeSec: number, offset: number): Promise<void> {
-  return new Promise((resolve, reject) => {
-    import('fluent-ffmpeg').then(ffmpeg => {
-      ffmpeg.default()
-        .setFfmpegPath(ffmpegPath)
-        .input(input1).input(input2)
-        .complexFilter([`[0:v][1:v]xfade=transition=fade:duration=${fadeSec}:offset=${offset.toFixed(1)}[v]`])
-        .outputOptions(['-map [v]', '-c:v libx264', '-preset fast', '-crf 23', '-movflags +faststart', '-pix_fmt yuv420p'])
-        .output(outputPath)
-        .on('start', (cmd: string) => console.log(`[Stitch] xfade: ${cmd}`))
-        .on('end', () => resolve())
-        .on('error', (err: Error) => reject(err))
-        .run();
-    });
-  });
-}
-
-function normalizeClip(ffmpegPath: string, inputPath: string, outputPath: string): Promise<void> {
+async function normalizeClip(ffmpegPath: string, inputPath: string, outputPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
     import('fluent-ffmpeg').then(ffmpeg => {
       ffmpeg.default(inputPath)
