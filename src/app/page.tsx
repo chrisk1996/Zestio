@@ -70,7 +70,7 @@ export default function LandingPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {/* Image Studio */}
-              <div className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10">
+              <Link href="/studio" className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10 cursor-pointer group">
                 <div className="h-64 relative overflow-hidden">
                   <img
                     alt="Enhanced property photography"
@@ -98,10 +98,10 @@ export default function LandingPage() {
                     <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">+9 More</span>
                   </div>
                 </div>
-              </div>
+              </Link>
 
               {/* Video Creator */}
-              <div className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10">
+              <Link href="/video" className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10 cursor-pointer group">
                 <div className="h-64 relative overflow-hidden bg-[#333e48]">
                   <img
                     alt="Cinematic property video frame"
@@ -135,10 +135,10 @@ export default function LandingPage() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </Link>
 
               {/* Social Media Kit */}
-              <div className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10">
+              <Link href="/social" className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10 cursor-pointer group">
                 <div className="h-64 relative overflow-hidden">
                   <img
                     alt="Social media content creation"
@@ -164,10 +164,10 @@ export default function LandingPage() {
                     <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">Auto-Resize</span>
                   </div>
                 </div>
-              </div>
+              </Link>
 
               {/* Floor Plans */}
-              <div className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10">
+              <Link href="/floorplan" className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10 cursor-pointer group">
                 <div className="h-64 relative overflow-hidden">
               <img
                 alt="Modern 3D floor plan rendering with minimalist interior design"
@@ -197,10 +197,10 @@ export default function LandingPage() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </Link>
 
               {/* Listing Builder */}
-              <div className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10">
+              <Link href="/listing/new" className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10 cursor-pointer group">
                 <div className="h-64 relative overflow-hidden">
                   <img
                     alt="Real estate listing document on desk with property photos"
@@ -226,10 +226,10 @@ export default function LandingPage() {
                     <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">SEO Optimized</span>
                   </div>
                 </div>
-              </div>
+              </Link>
 
               {/* API Access */}
-              <div className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10">
+              <Link href="/settings" className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10 cursor-pointer group">
                 <div className="h-64 relative overflow-hidden bg-[#1d2832] flex items-center justify-center">
                   <div className="text-center">
                     <span className="material-symbols-outlined text-white/20 text-[80px]">code</span>
@@ -253,7 +253,7 @@ export default function LandingPage() {
                     <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">Full Docs</span>
                   </div>
                 </div>
-              </div>
+              </Link>
 
               {/* CTA Card */}
               <div className="bg-[#1d2832] flex flex-col justify-center items-center p-8 rounded-lg text-center card-hover-effect">
