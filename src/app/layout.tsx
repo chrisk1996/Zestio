@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { Footer } from "@/components/Footer";
 import { PaddleProvider } from "@/components/PaddleProvider";
 import { CookieConsent } from "@/components/CookieConsent";
 import { GlobalErrorTelemetry } from "@/components/GlobalErrorTelemetry";
@@ -88,6 +89,7 @@ export default async function RootLayout({
           <PaddleProvider>
             <ErrorBoundary>
               {children}
+              <Footer />
             </ErrorBoundary>
             <CookieConsent />
           </PaddleProvider>

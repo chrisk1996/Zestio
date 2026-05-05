@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { AppLayout } from '@/components/layout';
 import { CreditCard, Loader2, AlertCircle, Check, Zap, Crown, Building2, ArrowUpRight, Calendar, Clock, XCircle } from 'lucide-react';
+import { Skeleton } from '@/components/Skeleton';
 import { createClient } from '@/utils/supabase/client';
 import { useTranslations } from 'next-intl';
 import { getPaddleInstance } from '@/components/PaddleProvider';
@@ -341,6 +342,32 @@ export default function BillingPage() {
           </div>
         )}
 
+        {/* Loading Skeleton */}
+        {loading && (
+          <div className="space-y-6 animate-pulse">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="bg-white rounded-xl border border-[#c4c6cd]/20 p-6">
+                  <Skeleton className="h-3 w-20 mb-3" />
+                  <Skeleton className="h-8 w-40 mb-1" />
+                  <Skeleton className="h-3 w-32" />
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="bg-white rounded-xl border border-[#c4c6cd]/20 p-6">
+                  <Skeleton className="h-4 w-24 mb-2" />
+                  <Skeleton className="h-3 w-full mb-4" />
+                  <Skeleton className="h-10 w-full rounded" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!loading && (<>
+
         {/* Plan Change Review Modal */}
         {confirmPlanChange && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -647,6 +674,7 @@ export default function BillingPage() {
               {t('planChangeInfo') || 'Switching plans takes effect immediately. You\'ll only be charged the prorated difference for the remaining billing period. Your top-up credits are always preserved.'}
             </p>
           </div>
+          </>
         )}
       </div>
     </AppLayout>

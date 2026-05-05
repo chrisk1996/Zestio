@@ -410,7 +410,9 @@
     "breakdownUpscale": "Image Upscaling",
     "breakdownUpscaleNote": "2× AI-powered upscale",
     "breakdownFloorplan": "2D & 3D Floor Plans",
-    "breakdownFloorplanNote": "Free — unlimited projects"
+    "breakdownFloorplanNote": "Free — unlimited projects",
+    "inclVAT": "inkl. VAT",
+    "noCreditCard": "No credit card required"
   },
   "auth": {
     "signIn": "Sign In",
@@ -436,7 +438,17 @@
     "byContinuing": "By continuing, you agree to our",
     "termsOfService": "Terms of Service",
     "and": "and",
-    "privacyPolicy": "Privacy Policy"
+    "privacyPolicy": "Privacy Policy",
+    "resetPassword": "Reset Password",
+    "resetPasswordDesc": "Enter your email and we'll send you a reset link.",
+    "resetEmailSent": "Reset link sent! Check your inbox.",
+    "cancel": "Cancel",
+    "sendResetLink": "Send Reset Link",
+    "setNewPassword": "Set New Password",
+    "setNewPasswordDesc": "Choose a new password for your account.",
+    "newPassword": "New Password",
+    "setPassword": "Set Password",
+    "resetting": "Setting password..."
   },
   "landing": {
     "heroTitle": "Real Estate Photography, Reimagined",

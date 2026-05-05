@@ -34,9 +34,12 @@ export async function GET(request: Request) {
       type: type as 'signup' | 'email' | 'recovery' | 'invite',
     })
     if (!error) {
+      // For password recovery, redirect to reset password page
       const redirectTo = type === 'signup'
         ? `${origin}/dashboard?welcome=1`
-        : `${origin}${next}`;
+        : type === 'recovery'
+          ? `${origin}/auth/reset-password`
+          : `${origin}${next}`;
       return NextResponse.redirect(redirectTo);
     }
     console.error(`[Auth Callback] OTP verification failed: ${error.message}`)

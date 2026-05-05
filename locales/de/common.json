@@ -410,7 +410,9 @@
     "breakdownUpscale": "Bild-Hochskalierung",
     "breakdownUpscaleNote": "2× KI-Hochskalierung",
     "breakdownFloorplan": "2D & 3D Grundrisse",
-    "breakdownFloorplanNote": "Kostenlos — unbegrenzte Projekte"
+    "breakdownFloorplanNote": "Kostenlos — unbegrenzte Projekte",
+    "inclVAT": "inkl. MwSt.",
+    "noCreditCard": "Keine Kreditkarte erforderlich"
   },
   "auth": {
     "signIn": "Anmelden",
@@ -436,7 +438,17 @@
     "byContinuing": "Durch Fortfahren stimmen Sie unseren",
     "termsOfService": "Nutzungsbedingungen",
     "and": "und",
-    "privacyPolicy": "Datenschutzrichtlinie"
+    "privacyPolicy": "Datenschutzrichtlinie",
+    "resetPassword": "Passwort zurücksetzen",
+    "resetPasswordDesc": "Gib deine E-Mail ein und wir senden dir einen Reset-Link.",
+    "resetEmailSent": "Reset-Link gesendet! Prüfe deinen Posteingang.",
+    "cancel": "Abbrechen",
+    "sendResetLink": "Reset-Link senden",
+    "setNewPassword": "Neues Passwort setzen",
+    "setNewPasswordDesc": "Wähle ein neues Passwort für dein Konto.",
+    "newPassword": "Neues Passwort",
+    "setPassword": "Passwort setzen",
+    "resetting": "Passwort wird gesetzt..."
   },
   "landing": {
     "heroTitle": "Immobilienfotografie neu definiert",

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from '@/components/Header';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -19,6 +19,18 @@ export default function AuthPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Read error from URL params (redirected from auth callback)
+  useEffect(() => {
+    const errorParam = new URLSearchParams(window.location.search).get('error');
+    if (errorParam) {
+      setError(decodeURIComponent(errorParam));
+      // Clean URL
+      window.history.replaceState({}, '', '/auth');
+    }
+  }, []);
+  const [isResetMode, setIsResetMode] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +74,25 @@ export default function AuthPage() {
         if (signUpError) throw signUpError;
         setSuccess(t('checkEmail'));
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('authFailed'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!resetEmail) { setError(t('fillAllFields')); return; }
+    setIsLoading(true);
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      });
+      if (resetError) throw resetError;
+      setSuccess(t('resetEmailSent'));
+      setIsResetMode(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('authFailed'));
     } finally {
@@ -136,6 +167,33 @@ export default function AuthPage() {
             </div>
           </div>
 
+          {/* Reset Password Modal */}
+          {isResetMode && (
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-xl p-8 max-w-md w-full">
+                <h2 className="font-serif text-2xl text-[#1d2832] mb-2">{t('resetPassword')}</h2>
+                <p className="text-sm text-[#43474c] mb-6">{t('resetPasswordDesc')}</p>
+                <form onSubmit={handleResetPassword} className="space-y-4">
+                  <input
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="w-full px-4 py-2.5 border border-[#c4c6cd]/30 rounded-lg focus:ring-2 focus:ring-[#006c4d] focus:border-transparent outline-none"
+                  />
+                  <div className="flex gap-3">
+                    <button type="button" onClick={() => setIsResetMode(false)} className="flex-1 px-4 py-2.5 border border-[#c4c6cd]/30 rounded-lg text-[#1d2832] hover:bg-[#edf4ff]">
+                      {t('cancel')}
+                    </button>
+                    <button type="submit" disabled={isLoading} className="flex-1 px-4 py-2.5 bg-[#006c4d] text-white rounded-lg hover:opacity-90 disabled:opacity-50">
+                      {isLoading ? '...' : t('sendResetLink')}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-[#1d2832] mb-1">
@@ -183,7 +241,7 @@ export default function AuthPage() {
 
             {isLogin && (
               <div className="flex justify-end">
-                <button type="button" className="text-sm text-[#006c4d] hover:underline">
+                <button type="button" onClick={() => { setIsResetMode(true); setError(null); }} className="text-sm text-[#006c4d] hover:underline">
                   {t('forgotPassword')}
                 </button>
               </div>

@@ -112,6 +112,12 @@ export default function PricingPage() {
                 <div className="mb-6">
                   <span className="text-4xl font-bold text-[#1d2832]">{plan.priceLabel}</span>
                   <span className="text-[#43474c] ml-2">{t(plan.periodKey)}</span>
+                  {plan.price > 0 && (
+                    <span className="block text-xs text-[#43474c] mt-1">{t('inclVAT') || 'inkl. MwSt.'}</span>
+                  )}
+                  {plan.price === 0 && (
+                    <span className="block text-xs text-[#006c4d] mt-1">{t('noCreditCard') || 'No credit card required'}</span>
+                  )}
                   <span className="block text-sm text-[#006c4d] font-medium mt-1">
                     {plan.credits} {t('creditsPerMonth')}
                   </span>
