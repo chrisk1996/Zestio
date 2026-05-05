@@ -263,7 +263,15 @@
     "changePlan": "Tarif wechseln",
     "upgrade": "Upgrade",
     "downgrade": "Downgrade",
-    "planChangeInfo": "Tarifwechsel werden sofort wirksam. Ihnen wird nur der anteilige Differenzbetrag für den verbleibenden Abrechnungszeitraum berechnet. Aufgeladene Credits bleiben stets erhalten."
+    "planChangeInfo": "Tarifwechsel werden sofort wirksam. Ihnen wird nur der anteilige Differenzbetrag für den verbleibenden Abrechnungszeitraum berechnet. Aufgeladene Credits bleiben stets erhalten.",
+    "reviewChanges": "Überprüfen Sie Ihre Tarifänderung unten.",
+    "dueToday": "Heute fällig",
+    "proratedForRemainingPeriod": "Anteilig für den verbleibenden Abrechnungszeitraum",
+    "nextRenewal": "Nächste Verlängerung",
+    "onDate": "am",
+    "creditForUnused": "Gutschrift für ungenutzte Zeit",
+    "chargeForUpgrade": "Kosten für Upgrade",
+    "creditsAlwaysPreserved": "Ihre aufgeladenen Credits bleiben bei Tarifwechseln stets erhalten."
   },
   "settings": {
     "title": "Einstellungen",

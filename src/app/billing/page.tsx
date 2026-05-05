@@ -40,6 +40,8 @@ export default function BillingPage() {
   const [error, setError] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [confirmPlanChange, setConfirmPlanChange] = useState<{ plan: string; name: string; isUpgrade: boolean } | null>(null);
+  const [previewData, setPreviewData] = useState<{ immediateCharge?: { amount: string; currency: string }; nextCharge?: { amount: string; date: string }; proration?: { credit: string; charge: string } } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -179,12 +181,36 @@ export default function BillingPage() {
   };
 
   const handleSubscribe = async (plan: string) => {
-    // If user already has a subscription, show confirmation first
+    // If user already has a subscription, fetch preview first
     if (user?.plan !== 'free' && user?.paddle_customer_id) {
       const planOrder = ['free', 'pro', 'enterprise'];
       const isUpgrade = planOrder.indexOf(plan) > planOrder.indexOf(user?.plan || 'free');
       const planName = plan === 'pro' ? 'Pro' : 'Enterprise';
+      setPreviewLoading(true);
+      setPreviewData(null);
       setConfirmPlanChange({ plan, name: planName, isUpgrade });
+
+      // Fetch proration preview from Paddle
+      try {
+        const res = await fetch('/api/paddle/preview-update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setPreviewData(data);
+        } else {
+          setError(data.error || 'Failed to preview plan change');
+          setConfirmPlanChange(null);
+        }
+      } catch (err) {
+        console.error('Preview error:', err);
+        setError('Failed to preview plan change. Please try again.');
+        setConfirmPlanChange(null);
+      } finally {
+        setPreviewLoading(false);
+      }
       return;
     }
 
@@ -249,6 +275,19 @@ export default function BillingPage() {
     });
   };
 
+  // Format cent-based amounts from Paddle API (e.g. "1500" → "€15.00")
+  const formatPreviewAmount = (amount: string, currency: string) => {
+    const num = Number(amount) / 100;
+    const symbol = currency === 'EUR' ? '€' : currency === 'USD' ? '$' : currency;
+    return `${symbol}${num.toFixed(2)}`;
+  };
+
+  const formatPreviewDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      year: 'numeric', month: 'long', day: 'numeric',
+    });
+  };
+
   if (loading) {
     return (
       <AppLayout title="Billing">
@@ -302,30 +341,99 @@ export default function BillingPage() {
           </div>
         )}
 
-        {/* Plan Change Confirmation Modal */}
+        {/* Plan Change Review Modal */}
         {confirmPlanChange && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4">
-              <h3 className="text-lg font-bold text-gray-900 mb-2">
+              <h3 className="text-lg font-bold text-gray-900 mb-1">
                 {confirmPlanChange.isUpgrade ? (t('upgrade') || 'Upgrade') : (t('downgrade') || 'Downgrade')} to {confirmPlanChange.name}
               </h3>
-              <p className="text-gray-600 mb-4">
-                {t('planChangeInfo') || 'Switching plans takes effect immediately. You\'ll only be charged the prorated difference for the remaining billing period. Your top-up credits are always preserved.'}
+              <p className="text-sm text-gray-500 mb-4">
+                {t('reviewChanges') || 'Review your plan change details below.'}
               </p>
+
+              {previewLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+                  <span className="ml-2 text-gray-600">Calculating proration...</span>
+                </div>
+              ) : previewData ? (
+                <div className="space-y-3 mb-4">
+                  {/* Proration charge/credit */}
+                  {previewData.immediateCharge && (
+                    <div className="bg-indigo-50 rounded-xl p-4">
+                      <p className="text-xs font-medium text-indigo-600 uppercase tracking-wide">
+                        {t('dueToday') || 'Due Today'}
+                      </p>
+                      <p className="text-2xl font-bold text-indigo-900 mt-1">
+                        {formatPreviewAmount(previewData.immediateCharge.amount, previewData.immediateCharge.currency)}
+                      </p>
+                      <p className="text-xs text-indigo-600 mt-0.5">
+                        {t('proratedForRemainingPeriod') || 'Prorated for the remaining billing period'}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Next renewal */}
+                  {previewData.nextCharge && (
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                        {t('nextRenewal') || 'Next Renewal'}
+                      </p>
+                      <p className="text-lg font-semibold text-gray-900 mt-1">
+                        {formatPreviewAmount(previewData.nextCharge.amount, 'EUR')}
+                      </p>
+                      {previewData.nextCharge.date && (
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {t('onDate') || 'on'} {formatPreviewDate(previewData.nextCharge.date)}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Proration breakdown */}
+                  {previewData.proration && (
+                    <div className="text-xs text-gray-500 px-1">
+                      {Number(previewData.proration.credit) > 0 && (
+                        <p>✓ {t('creditForUnused') || 'Credit for unused time'}: {formatPreviewAmount(previewData.proration.credit, 'EUR')}</p>
+                      )}
+                      {Number(previewData.proration.charge) > 0 && (
+                        <p>✓ {t('chargeForUpgrade') || 'Charge for upgrade'}: {formatPreviewAmount(previewData.proration.charge, 'EUR')}</p>
+                      )}
+                    </div>
+                  )}
+
+                  <p className="text-xs text-gray-400">
+                    {t('creditsAlwaysPreserved') || 'Your top-up credits are always preserved across plan changes.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-yellow-50 rounded-xl p-4 mb-4">
+                  <p className="text-sm text-yellow-800">
+                    {t('planChangeInfo') || 'Switching plans takes effect immediately. You\'ll only be charged the prorated difference for the remaining billing period.'}
+                  </p>
+                </div>
+              )}
+
               <div className="flex gap-3 justify-end">
                 <button
-                  onClick={() => setConfirmPlanChange(null)}
+                  onClick={() => { setConfirmPlanChange(null); setPreviewData(null); }}
                   className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleConfirmPlanChange}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors ${
+                  disabled={checkoutLoading === confirmPlanChange.plan}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors disabled:opacity-50 ${
                     confirmPlanChange.isUpgrade ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-gray-600 hover:bg-gray-700'
                   }`}
                 >
-                  Confirm {confirmPlanChange.isUpgrade ? (t('upgrade') || 'Upgrade') : (t('downgrade') || 'Downgrade')}
+                  {checkoutLoading === confirmPlanChange.plan ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    `Confirm ${confirmPlanChange.isUpgrade ? (t('upgrade') || 'Upgrade') : (t('downgrade') || 'Downgrade')}`
+                  )}
                 </button>
               </div>
             </div>

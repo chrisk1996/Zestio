@@ -263,7 +263,15 @@
     "changePlan": "Change Plan",
     "upgrade": "Upgrade",
     "downgrade": "Downgrade",
-    "planChangeInfo": "Switching plans takes effect immediately. You'll only be charged the prorated difference for the remaining billing period. Your top-up credits are always preserved."
+    "planChangeInfo": "Switching plans takes effect immediately. You'll only be charged the prorated difference for the remaining billing period. Your top-up credits are always preserved.",
+    "reviewChanges": "Review your plan change details below.",
+    "dueToday": "Due Today",
+    "proratedForRemainingPeriod": "Prorated for the remaining billing period",
+    "nextRenewal": "Next Renewal",
+    "onDate": "on",
+    "creditForUnused": "Credit for unused time",
+    "chargeForUpgrade": "Charge for upgrade",
+    "creditsAlwaysPreserved": "Your top-up credits are always preserved across plan changes."
   },
   "settings": {
     "title": "Settings",
