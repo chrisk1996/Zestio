@@ -1241,34 +1241,20 @@ async function stitchWithFFmpegConcat(concatListPath: string, outputPath: string
 }
 
 async function uploadVideo(job: Record<string, unknown>, buffer: Buffer): Promise<string> {
-  try {
-    const { createServiceClient } = await import('@/utils/supabase/server');
-    const serviceClient = createServiceClient();
-    const filePath = `${job.id}/final.mp4`;
-    const { error: uploadError } = await serviceClient.storage
-      .from('videos')
-      .upload(filePath, buffer, { contentType: 'video/mp4', cacheControl: '31536000', upsert: true });
-    if (uploadError) throw uploadError;
-    const { data: urlData } = serviceClient.storage.from('videos').getPublicUrl(filePath);
-    return urlData.publicUrl;
-  } catch (err) {
-    console.warn('[Upload] videos bucket failed, falling back to user-uploads:', err);
-    try {
-      const { createServiceClient } = await import('@/utils/supabase/server');
-      const serviceClient = createServiceClient();
-      const userId = job.user_id as string;
-      const filePath = `${userId}/video-output/${job.id}-${Date.now()}.mp4`;
-      const { error: uploadError } = await serviceClient.storage
-        .from('user-uploads')
-        .upload(filePath, buffer, { contentType: 'video/mp4', upsert: true });
-      if (uploadError) throw uploadError;
-      const { data: urlData } = serviceClient.storage.from('user-uploads').getPublicUrl(filePath);
-      return urlData.publicUrl;
-    } catch (fallbackErr) {
-      console.error('[Upload] All uploads failed:', fallbackErr);
-      throw fallbackErr;
-    }
+  const { createServiceClient } = await import('@/utils/supabase/server');
+  const serviceClient = createServiceClient();
+  const userId = job.user_id as string;
+  const filePath = `${userId}/video-output/${job.id}.mp4`;
+  const { error: uploadError } = await serviceClient.storage
+    .from('user-uploads')
+    .upload(filePath, buffer, { contentType: 'video/mp4', cacheControl: '31536000', upsert: true });
+  if (uploadError) {
+    console.error('[Upload] Failed:', uploadError);
+    throw uploadError;
   }
+  const { data: urlData } = serviceClient.storage.from('user-uploads').getPublicUrl(filePath);
+  console.log(`[Upload] Uploaded ${filePath} (${(buffer.length / 1024 / 1024).toFixed(1)}MB)`);
+  return urlData.publicUrl;
 }
 
 // Clean up temp directory
