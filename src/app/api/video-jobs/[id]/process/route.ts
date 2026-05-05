@@ -952,62 +952,68 @@ async function downloadFFmpeg(): Promise<string | null> {
   const targetPath = path.join(process.env.TMPDIR || '/tmp', 'ffmpeg-static');
 
   try {
-    // Check if already downloaded (e.g. from a previous warm instance)
     await fs.access(targetPath, fs.constants.X_OK);
-    console.log('[FFmpeg] Using cached binary at', targetPath);
     return targetPath;
   } catch {}
 
-  console.log('[FFmpeg] Downloading static binary...');
-  // Download and extract without system `tar` using Node.js streams
-  const url = 'https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz';
+  console.log('[FFmpeg] Resolving bundled binary...');
+
+  // The outputFileTracingIncludes in next.config.mjs bundles ffmpeg-static/ffmpeg
+  // but require('ffmpeg-static') returns /ROOT/... (build-time placeholder)
+  // Resolve the actual runtime path from the package location
   try {
-    const resp = await fetch(url, { signal: AbortSignal.timeout(120000), redirect: 'follow' });
-    if (!resp.ok) throw new Error(`Download failed: ${resp.status}`);
-    const arrayBuffer = await resp.arrayBuffer();
-
-    // Use Node.js to extract: decompress xz -> untar -> find ffmpeg binary
-    const { createReadStream, createWriteStream, writeFileSync, readFileSync } = await import('fs');
-    const zlib = await import('zlib');
-    const { execFileSync } = await import('child_process');
-
-    // Write tar.xz to temp
-    const tmpTarXz = path.join(process.env.TMPDIR || '/tmp', 'ffmpeg.tar.xz');
-    writeFileSync(tmpTarXz, Buffer.from(arrayBuffer));
-
-    // Decompress xz using Node's lzma (available in Node 22+) or use xz binary
-    try {
-      // Try xz command first
-      execFileSync('xz', ['-d', '-k', '-f', tmpTarXz], { timeout: 30000 });
-    } catch {
-      // No xz either — try with Python which is usually available
-      try {
-        execFileSync('python3', ['-c', `import lzma,sys; open(sys.argv[1],'wb').write(lzma.open(sys.argv[2]).read())`, tmpTarXz.replace('.xz', ''), tmpTarXz], { timeout: 30000 });
-      } catch {
-        throw new Error('No tar, xz, or python3 available for extraction');
+    const staticModulePath = require.resolve('ffmpeg-static');
+    console.log('[FFmpeg] require.resolve returned:', staticModulePath);
+    if (staticModulePath && !staticModulePath.startsWith('/ROOT/')) {
+      // Path is valid at runtime
+      await fs.copyFile(staticModulePath, targetPath);
+      await fs.chmod(targetPath, 0o755);
+      console.log('[FFmpeg] Copied from module to', targetPath);
+      return targetPath;
+    }
+    // /ROOT/ path — resolve relative to actual package location
+    const pkgDir = path.dirname(require.resolve('ffmpeg-static/package.json'));
+    const binaryName = path.basename(staticModulePath);
+    const runtimePath = path.join(pkgDir, binaryName);
+    console.log('[FFmpeg] Trying runtime path:', runtimePath);
+    if (await fs.access(runtimePath).then(() => true).catch(() => false)) {
+      await fs.copyFile(runtimePath, targetPath);
+      await fs.chmod(targetPath, 0o755);
+      console.log('[FFmpeg] Copied from', runtimePath, 'to', targetPath);
+      return targetPath;
+    }
+    // Try just the package directory
+    for (const name of [binaryName, 'ffmpeg', 'ffmpeg-linux-x64']) {
+      const candidate = path.join(pkgDir, name);
+      if (await fs.access(candidate).then(() => true).catch(() => false)) {
+        await fs.copyFile(candidate, targetPath);
+        await fs.chmod(targetPath, 0o755);
+        console.log('[FFmpeg] Copied from', candidate, 'to', targetPath);
+        return targetPath;
       }
     }
-
-    // Now we have a .tar file — extract the ffmpeg binary from it
-    const tarPath = tmpTarXz.replace('.xz', '');
-    const tarBuffer = readFileSync(tarPath);
-    const ffmpegBinary = extractFileFromTar(tarBuffer, 'ffmpeg');
-
-    if (!ffmpegBinary) throw new Error('ffmpeg binary not found in archive');
-
-    await fs.writeFile(targetPath, ffmpegBinary);
-    await fs.chmod(targetPath, 0o755);
-
-    // Cleanup
-    await fs.unlink(tmpTarXz).catch(() => {});
-    await fs.unlink(tarPath).catch(() => {});
-
-    console.log(`[FFmpeg] Downloaded to ${targetPath} (${(ffmpegBinary.length / 1024 / 1024).toFixed(1)}MB)`);
-    return targetPath;
-  } catch (err) {
-    console.error('[FFmpeg] Download failed:', err);
-    return null;
+  } catch (resolveErr) {
+    console.warn('[FFmpeg] require.resolve failed:', resolveErr);
   }
+
+  // Try resolving relative to cwd (Vercel functions run from /var/task)
+  const cwdCandidates = [
+    path.join(process.cwd(), 'node_modules', 'ffmpeg-static', 'ffmpeg'),
+    path.join(process.cwd(), 'node_modules', 'ffmpeg-static', 'ffmpeg-linux-x64'),
+    '/var/task/node_modules/ffmpeg-static/ffmpeg',
+  ];
+  for (const candidate of cwdCandidates) {
+    console.log('[FFmpeg] Trying:', candidate);
+    if (await fs.access(candidate).then(() => true).catch(() => false)) {
+      await fs.copyFile(candidate, targetPath);
+      await fs.chmod(targetPath, 0o755);
+      console.log('[FFmpeg] Copied from', candidate, 'to', targetPath);
+      return targetPath;
+    }
+  }
+
+  console.error('[FFmpeg] No binary found anywhere');
+  return null;
 }
 
 function getFFmpegPathLocal(): string | null {
