@@ -959,31 +959,50 @@ async function downloadFFmpeg(): Promise<string | null> {
   } catch {}
 
   console.log('[FFmpeg] Downloading static binary...');
+  // Download and extract without system `tar` using Node.js streams
   const url = 'https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz';
   try {
-    const resp = await fetch(url, { signal: AbortSignal.timeout(60000) });
+    const resp = await fetch(url, { signal: AbortSignal.timeout(120000), redirect: 'follow' });
     if (!resp.ok) throw new Error(`Download failed: ${resp.status}`);
     const arrayBuffer = await resp.arrayBuffer();
 
-    // Extract using tar
-    const { execSync } = await import('child_process');
-    const tmpExtract = path.join(process.env.TMPDIR || '/tmp', 'ffmpeg-extract');
-    await fs.mkdir(tmpExtract, { recursive: true });
+    // Use Node.js to extract: decompress xz -> untar -> find ffmpeg binary
+    const { createReadStream, createWriteStream, writeFileSync, readFileSync } = await import('fs');
+    const zlib = await import('zlib');
+    const { execFileSync } = await import('child_process');
 
-    // Write tar.xz to temp file
-    const tarPath = path.join(tmpExtract, 'ffmpeg.tar.xz');
-    await fs.writeFile(tarPath, Buffer.from(arrayBuffer));
-    execSync(`tar -xf ${tarPath} -C ${tmpExtract} --strip-components=1`);
+    // Write tar.xz to temp
+    const tmpTarXz = path.join(process.env.TMPDIR || '/tmp', 'ffmpeg.tar.xz');
+    writeFileSync(tmpTarXz, Buffer.from(arrayBuffer));
 
-    // Find and move the binary
-    const extractedBin = path.join(tmpExtract, 'ffmpeg');
-    await fs.rename(extractedBin, targetPath);
+    // Decompress xz using Node's lzma (available in Node 22+) or use xz binary
+    try {
+      // Try xz command first
+      execFileSync('xz', ['-d', '-k', '-f', tmpTarXz], { timeout: 30000 });
+    } catch {
+      // No xz either — try with Python which is usually available
+      try {
+        execFileSync('python3', ['-c', `import lzma,sys; open(sys.argv[1],'wb').write(lzma.open(sys.argv[2]).read())`, tmpTarXz.replace('.xz', ''), tmpTarXz], { timeout: 30000 });
+      } catch {
+        throw new Error('No tar, xz, or python3 available for extraction');
+      }
+    }
+
+    // Now we have a .tar file — extract the ffmpeg binary from it
+    const tarPath = tmpTarXz.replace('.xz', '');
+    const tarBuffer = readFileSync(tarPath);
+    const ffmpegBinary = extractFileFromTar(tarBuffer, 'ffmpeg');
+
+    if (!ffmpegBinary) throw new Error('ffmpeg binary not found in archive');
+
+    await fs.writeFile(targetPath, ffmpegBinary);
     await fs.chmod(targetPath, 0o755);
 
     // Cleanup
-    await fs.rm(tmpExtract, { recursive: true }).catch(() => {});
+    await fs.unlink(tmpTarXz).catch(() => {});
+    await fs.unlink(tarPath).catch(() => {});
 
-    console.log('[FFmpeg] Downloaded to', targetPath);
+    console.log(`[FFmpeg] Downloaded to ${targetPath} (${(ffmpegBinary.length / 1024 / 1024).toFixed(1)}MB)`);
     return targetPath;
   } catch (err) {
     console.error('[FFmpeg] Download failed:', err);
@@ -1082,6 +1101,34 @@ async function addWatermarkAndMusic(videoPath: string, outputPath: string, water
       cmd.run();
     } catch (err) { reject(err); }
   });
+}
+
+// Minimal tar extraction — find a file by name in a tar archive (pure JS)
+function extractFileFromTar(buffer: Buffer, fileName: string): Buffer | null {
+  // tar format: 512-byte headers followed by 512-byte blocks
+  let offset = 0;
+  while (offset + 512 <= buffer.length) {
+    const header = buffer.subarray(offset, offset + 512);
+    const name = header.subarray(0, 100).toString('utf-8').replace(/\0/g, '');
+    const sizeOctal = header.subarray(124, 136).toString('utf-8').replace(/\0/g, '').trim();
+    const size = parseInt(sizeOctal, 8) || 0;
+    const type = header[156];
+
+    offset += 512; // move past header
+
+    if (name.endsWith(fileName) && type === 0x30) { // '0' = regular file
+      // Also match just 'ffmpeg' at end of path
+      const baseName = name.split('/').pop();
+      if (baseName === fileName) {
+        const data = buffer.subarray(offset, offset + size);
+        return Buffer.from(data);
+      }
+    }
+
+    // Skip to next header (data is padded to 512-byte blocks)
+    offset += Math.ceil(size / 512) * 512;
+  }
+  return null;
 }
 
 // Legacy alias
