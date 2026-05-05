@@ -27,14 +27,17 @@ export async function GET(request: Request) {
     console.error(`[Auth Callback] Code exchange failed: ${error.message}`)
   }
 
-  // Token hash flow (pre-fetch safe email confirmation)
+  // Token hash flow (email confirmation) — redirect new signups to welcome
   if (token_hash && type) {
     const { error } = await supabase.auth.verifyOtp({
       token_hash,
       type: type as 'signup' | 'email' | 'recovery' | 'invite',
     })
     if (!error) {
-      return NextResponse.redirect(`${origin}${next}`)
+      const redirectTo = type === 'signup'
+        ? `${origin}/dashboard?welcome=1`
+        : `${origin}${next}`;
+      return NextResponse.redirect(redirectTo);
     }
     console.error(`[Auth Callback] OTP verification failed: ${error.message}`)
   }

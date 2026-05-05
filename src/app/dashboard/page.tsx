@@ -74,6 +74,39 @@ export default function DashboardPage() {
     <AppLayout title="Dashboard" hideTopNav>
       <div className="px-6 md:px-12 py-8 max-w-7xl mx-auto">
 
+        {/* Welcome Banner for new users */}
+        {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('welcome') && (
+          <div className="mb-8 bg-[#edf4ff] rounded-xl p-6 border border-[#006c4d]/20 flex items-start gap-4">
+            <span className="material-symbols-outlined text-[#006c4d] text-2xl shrink-0">waving_hand</span>
+            <div className="flex-1">
+              <h2 className="font-serif text-xl text-[#1d2832] mb-1">Welcome to Zestio! 🎉</h2>
+              <p className="text-sm text-[#43474c] mb-3">
+                You have <strong>5 free credits</strong> to try any tool. Here&apos;s where to start:
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Link href="/studio" className="px-3 py-1.5 bg-white rounded-lg text-xs font-medium text-[#1d2832] hover:bg-[#e3efff] transition-colors border border-[#c4c6cd]/20">
+                  ✨ Image Studio
+                </Link>
+                <Link href="/video" className="px-3 py-1.5 bg-white rounded-lg text-xs font-medium text-[#1d2832] hover:bg-[#e3efff] transition-colors border border-[#c4c6cd]/20">
+                  🎬 Video Creator
+                </Link>
+                <Link href="/listing" className="px-3 py-1.5 bg-white rounded-lg text-xs font-medium text-[#1d2832] hover:bg-[#e3efff] transition-colors border border-[#c4c6cd]/20">
+                  📝 Listing Builder (Free)
+                </Link>
+                <Link href="/social" className="px-3 py-1.5 bg-white rounded-lg text-xs font-medium text-[#1d2832] hover:bg-[#e3efff] transition-colors border border-[#c4c6cd]/20">
+                  📱 Social Kit (Free)
+                </Link>
+              </div>
+            </div>
+            <button
+              onClick={() => window.history.replaceState({}, '', '/dashboard')}
+              className="text-[#43474c] hover:text-[#1d2832] text-sm"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Welcome */}
         <section className="mb-10">
           <h1 className="font-serif text-4xl md:text-5xl text-[#1d2832] mb-3 leading-tight">

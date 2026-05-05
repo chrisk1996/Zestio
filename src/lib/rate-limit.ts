@@ -1,108 +1,100 @@
 /**
- * Rate limiting module.
- * Uses Redis (ioredis) when REDIS_URL is available, falls back to in-memory Map.
- * In-memory resets on deploy; Redis persists across deploys.
+ * Simple in-memory rate limiter for API routes.
+ * Uses a sliding window counter per IP/user.
+ * 
+ * For production with multiple instances, use Redis-backed rate limiting.
+ * This is sufficient for single-instance Vercel deployments.
  */
-
-import Redis from 'ioredis';
-
-let redis: Redis | null = null;
-
-function getRedis(): Redis | null {
-  if (redis !== null) return redis;
-  try {
-    const url = process.env.REDIS_URL;
-    if (url) {
-      redis = new Redis(url, { lazyConnect: true, maxRetriesPerRequest: 1 });
-      return redis;
-    }
-  } catch {
-    // Redis not available
-  }
-  return null;
-}
 
 interface RateLimitEntry {
   count: number;
-  resetTime: number;
+  resetAt: number;
 }
 
-// In-memory fallback (resets on deploy)
-const memoryMap = new Map<string, RateLimitEntry>();
+const limits = new Map<string, RateLimitEntry>();
 
-export interface RateLimitOptions {
-  /** Max requests in the window */
-  limit: number;
-  /** Window duration in ms */
+// Clean up old entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of limits) {
+    if (now > entry.resetAt) {
+      limits.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
+
+export interface RateLimitConfig {
+  /** Max requests per window */
+  maxRequests: number;
+  /** Window duration in milliseconds */
   windowMs: number;
 }
 
-/**
- * Check rate limit for a key (IP, user ID, etc.).
- * Returns { allowed: boolean, remaining: number }
- */
-export async function checkRateLimit(
-  key: string,
-  options: RateLimitOptions
-): Promise<{ allowed: boolean; remaining: number }> {
-  const r = getRedis();
+export const RATE_LIMITS = {
+  /** Public endpoints (enhance, staging) */
+  public: { maxRequests: 10, windowMs: 60 * 60 * 1000 }, // 10/hour
+  /** Standard authenticated endpoints */
+  authenticated: { maxRequests: 100, windowMs: 60 * 60 * 1000 }, // 100/hour
+  /** Pro/Enterprise subscribers */
+  premium: { maxRequests: 500, windowMs: 60 * 60 * 1000 }, // 500/hour
+  /** Video/stitching (expensive operations) */
+  expensive: { maxRequests: 20, windowMs: 60 * 60 * 1000 }, // 20/hour
+  /** Webhook endpoints */
+  webhook: { maxRequests: 1000, windowMs: 60 * 60 * 1000 }, // 1000/hour
+} as const;
 
-  if (r) {
-    return redisRateLimit(r, key, options);
-  }
+export type RateLimitTier = keyof typeof RATE_LIMITS;
 
-  return memoryRateLimit(key, options);
+interface RateLimitResult {
+  allowed: boolean;
+  remaining: number;
+  resetAt: number;
 }
 
-async function redisRateLimit(
-  redis: Redis,
+export function checkRateLimit(
   key: string,
-  options: RateLimitOptions
-): Promise<{ allowed: boolean; remaining: number }> {
-  const redisKey = `ratelimit:${key}`;
+  config: RateLimitConfig
+): RateLimitResult {
   const now = Date.now();
-  const windowStart = now - options.windowMs;
+  const entry = limits.get(key);
 
-  // Use a Redis pipeline for atomicity
-  const pipeline = redis.pipeline();
-
-  // Remove old entries outside the window
-  pipeline.zremrangebyscore(redisKey, '-inf', windowStart);
-  // Add current request
-  pipeline.zadd(redisKey, now, `${now}-${Math.random()}`);
-  // Count entries in window
-  pipeline.zcard(redisKey);
-  // Set expiry on the key
-  pipeline.expire(redisKey, Math.ceil(options.windowMs / 1000));
-
-  const results = await pipeline.exec();
-  const count = (results?.[2]?.[1] as number) ?? 0;
-
-  if (count > options.limit) {
-    // Remove the entry we just added since it's over limit
-    await redis.zremrangebyscore(redisKey, now, now);
-    return { allowed: false, remaining: 0 };
+  // No entry or expired window → start fresh
+  if (!entry || now > entry.resetAt) {
+    limits.set(key, {
+      count: 1,
+      resetAt: now + config.windowMs,
+    });
+    return {
+      allowed: true,
+      remaining: config.maxRequests - 1,
+      resetAt: now + config.windowMs,
+    };
   }
 
-  return { allowed: true, remaining: options.limit - count };
-}
-
-function memoryRateLimit(
-  key: string,
-  options: RateLimitOptions
-): { allowed: boolean; remaining: number } {
-  const now = Date.now();
-  const entry = memoryMap.get(key);
-
-  if (!entry || now > entry.resetTime) {
-    memoryMap.set(key, { count: 1, resetTime: now + options.windowMs });
-    return { allowed: true, remaining: options.limit - 1 };
-  }
-
-  if (entry.count >= options.limit) {
-    return { allowed: false, remaining: 0 };
+  // Within window
+  if (entry.count >= config.maxRequests) {
+    return {
+      allowed: false,
+      remaining: 0,
+      resetAt: entry.resetAt,
+    };
   }
 
   entry.count++;
-  return { allowed: true, remaining: options.limit - entry.count };
+  return {
+    allowed: true,
+    remaining: config.maxRequests - entry.count,
+    resetAt: entry.resetAt,
+  };
+}
+
+/**
+ * Get rate limit headers for the response.
+ */
+export function getRateLimitHeaders(result: RateLimitResult): Record<string, string> {
+  return {
+    'X-RateLimit-Limit': String(result.remaining > 0 ? result.remaining + 1 : 0),
+    'X-RateLimit-Remaining': String(result.remaining),
+    'X-RateLimit-Reset': String(Math.ceil(result.resetAt / 1000)),
+  };
 }

@@ -14,11 +14,33 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Zestio - AI-Powered Real Estate",
-  description: "AI-powered property photo enhancement and 3D floor plans for real estate agents",
+  title: {
+    default: "Zestio — AI-Powered Real Estate Media Platform",
+    template: "%s | Zestio",
+  },
+  description: "Enhance property photos, create cinematic videos, generate listing descriptions, build floor plans, and more — all with AI. The all-in-one platform for real estate professionals.",
   icons: {
     icon: '/logo.png',
     apple: '/logo.png',
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: 'https://zestio.pro',
+    siteName: 'Zestio',
+    title: 'Zestio — AI-Powered Real Estate Media Platform',
+    description: 'Enhance photos, create videos, generate descriptions, build floor plans — all with AI.',
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'Zestio AI Real Estate Platform' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Zestio — AI Real Estate Tools',
+    description: 'Enhance photos, create videos, generate descriptions, build floor plans — all with AI.',
+    images: ['/og-image.png'],
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
 };
 

@@ -7,7 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { CREDIT_COSTS } from '@/lib/pricing';
 import { logCreditTransaction } from '@/lib/credit-transactions';
-import { detectPlatform } from '@/lib/video-pipeline-queue';
+import { detectPlatform } from '@/lib/video-pipeline-types';
+import { checkRateLimit, RATE_LIMITS, getRateLimitHeaders } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,15 @@ export async function POST(request: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Rate limit video creation (expensive operation)
+    const rateResult = checkRateLimit(`video:${user.id}`, RATE_LIMITS.expensive);
+    if (!rateResult.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Please wait before creating more videos.' },
+        { status: 429, headers: getRateLimitHeaders(rateResult) }
+      );
     }
 
     const body = await request.json();

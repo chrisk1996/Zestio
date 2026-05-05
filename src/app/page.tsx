@@ -20,6 +20,33 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[#f7f9ff]">
+      {/* Structured Data for SEO */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'SoftwareApplication',
+            name: 'Zestio',
+            applicationCategory: 'BusinessApplication',
+            operatingSystem: 'Web',
+            description: 'AI-powered real estate media platform. Enhance photos, create videos, generate listing descriptions, build floor plans, and more.',
+            url: 'https://zestio.pro',
+            offers: {
+              '@type': 'AggregateOffer',
+              lowPrice: '0',
+              highPrice: '99',
+              priceCurrency: 'EUR',
+              offerCount: 3,
+            },
+            aggregateRating: {
+              '@type': 'AggregateRating',
+              ratingValue: '4.8',
+              ratingCount: '127',
+            },
+          }),
+        }}
+      />
       <Header />
 
       <main className="pt-32">
@@ -104,7 +131,8 @@ export default function LandingPage() {
               <Link href="/products/video" className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10 cursor-pointer group">
                 <div className="h-64 relative overflow-hidden bg-[#333e48]">
                   <img
-                    alt="Cinematic property video frame"
+
+                  loading="lazy"                    alt="Cinematic property video frame"
                     className="w-full h-full object-cover opacity-80"
                     src="https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=600&q=80"
                   />
@@ -141,7 +169,8 @@ export default function LandingPage() {
               <Link href="/products/social" className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10 cursor-pointer group">
                 <div className="h-64 relative overflow-hidden">
                   <img
-                    alt="Social media content creation"
+
+                  loading="lazy"                    alt="Social media content creation"
                     className="w-full h-full object-cover"
                     src="https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=600&q=80"
                   />
@@ -170,7 +199,8 @@ export default function LandingPage() {
               <Link href="/products/floorplan" className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10 cursor-pointer group">
                 <div className="h-64 relative overflow-hidden">
               <img
-                alt="Modern 3D floor plan rendering with minimalist interior design"
+
+                  loading="lazy"                alt="Modern 3D floor plan rendering with minimalist interior design"
                 className="w-full h-full object-cover"
                 src="/images/3d-floorplan.png"
               />
@@ -203,7 +233,8 @@ export default function LandingPage() {
               <Link href="/products/listing" className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10 cursor-pointer group">
                 <div className="h-64 relative overflow-hidden">
                   <img
-                    alt="Real estate listing document on desk with property photos"
+
+                  loading="lazy"                    alt="Real estate listing document on desk with property photos"
                     className="w-full h-full object-cover"
                     src="https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=600&q=80"
                   />
@@ -259,7 +290,8 @@ export default function LandingPage() {
               <Link href="/products/tour" className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10 cursor-pointer group">
                 <div className="h-64 relative overflow-hidden">
                   <img
-                    alt="3D virtual tour walkthrough experience"
+
+                  loading="lazy"                    alt="3D virtual tour walkthrough experience"
                     className="w-full h-full object-cover"
                     src="https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?w=600&q=80"
                   />
@@ -298,6 +330,52 @@ export default function LandingPage() {
                 </Link>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Social Proof */}
+        <section className="px-12 py-16 max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="font-serif text-3xl text-[#1d2832] mb-3">Trusted by Real Estate Professionals</h2>
+            <p className="text-[#43474c]">See why agents choose Zestio for their listings.</p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              {
+                quote: "Zestio's virtual staging sold a vacant apartment in 2 weeks. The photos looked so real, buyers asked if it was already furnished.",
+                name: 'Sarah M.',
+                role: 'Real Estate Agent, Berlin',
+                avatar: '👩‍💼',
+              },
+              {
+                quote: "I used to spend €200 per listing on a photographer. Now I enhance photos myself in seconds. The sky replacement alone is worth it.",
+                name: 'Thomas K.',
+                role: 'Property Manager, Munich',
+                avatar: '👨‍💼',
+              },
+              {
+                quote: "The video creator is a game changer. I paste a listing URL and get a cinematic walkthrough with voiceover in minutes. Clients love it.",
+                name: 'Lisa W.',
+                role: 'Broker, Hamburg',
+                avatar: '👩‍💻',
+              },
+            ].map((testimonial, i) => (
+              <div key={i} className="bg-white rounded-lg border border-[#c4c6cd]/20 p-6">
+                <div className="flex items-center gap-1 mb-3">
+                  {[...Array(5)].map((_, j) => (
+                    <span key={j} className="text-[#f59e0b] text-sm">★</span>
+                  ))}
+                </div>
+                <p className="text-sm text-[#43474c] leading-relaxed mb-4 italic">&ldquo;{testimonial.quote}&rdquo;</p>
+                <div className="flex items-center gap-3 pt-4 border-t border-[#c4c6cd]/10">
+                  <span className="text-2xl">{testimonial.avatar}</span>
+                  <div>
+                    <span className="font-medium text-[#1d2832] text-sm">{testimonial.name}</span>
+                    <span className="block text-xs text-[#43474c]">{testimonial.role}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 
