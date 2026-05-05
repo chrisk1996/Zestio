@@ -163,6 +163,20 @@ export default function HelpPage() {
               </div>
               <div className="flex justify-between items-center py-3 border-b border-[#c4c6cd]/10">
                 <div>
+                  <h3 className="font-medium text-[#1d2832]">3D Tour Scanner</h3>
+                  <p className="text-xs text-[#43474c]">Upload photos → interactive 3D walkthrough</p>
+                </div>
+                <span className="font-manrope text-sm text-[#006c4d] font-medium">8 credits</span>
+              </div>
+              <div className="flex justify-between items-center py-3 border-b border-[#c4c6cd]/10">
+                <div>
+                  <h3 className="font-medium text-[#1d2832]">2D &amp; 3D Floor Plans</h3>
+                  <p className="text-xs text-[#43474c]">Unlimited projects with precision drafting</p>
+                </div>
+                <span className="font-manrope text-sm text-[#006c4d] font-medium">Free</span>
+              </div>
+              <div className="flex justify-between items-center py-3 border-b border-[#c4c6cd]/10">
+                <div>
                   <h3 className="font-medium text-[#1d2832]">AI Description Generator</h3>
                   <p className="text-xs text-[#43474c]">Listing descriptions in EN &amp; DE</p>
                 </div>

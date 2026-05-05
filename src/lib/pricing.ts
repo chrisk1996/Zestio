@@ -30,7 +30,6 @@ export const PLANS = {
       'freeFeature3',
       'freeFeature4',
       'freeFeature5',
-      'freeFeature6',
     ],
   },
   pro: {
@@ -49,7 +48,6 @@ export const PLANS = {
       'proFeature6',
       'proFeature7',
       'proFeature8',
-      'proFeature9',
     ],
     popular: true,
   },
@@ -81,8 +79,10 @@ export const CREDIT_BREAKDOWN = [
   { actionKey: 'breakdownBasic', cost: 1, noteKey: 'breakdownBasicNote' },
   { actionKey: 'breakdownPremium', cost: 2, noteKey: 'breakdownPremiumNote' },
   { actionKey: 'breakdownStaging', cost: 2, noteKey: 'breakdownStagingNote' },
+  { actionKey: 'breakdownUpscale', cost: 2, noteKey: 'breakdownUpscaleNote' },
   { actionKey: 'breakdownVideo', cost: 5, noteKey: 'breakdownVideoNote' },
+  { actionKey: 'breakdownTour', cost: 8, noteKey: 'breakdownTourNote' },
+  { actionKey: 'breakdownFloorplan', cost: 0, noteKey: 'breakdownFloorplanNote' },
   { actionKey: 'breakdownListing', cost: 0, noteKey: 'breakdownListingNote' },
   { actionKey: 'breakdownCaptions', cost: 0, noteKey: 'breakdownCaptionsNote' },
-  { actionKey: 'breakdownTour', cost: 8, noteKey: 'breakdownTourNote' },
 ] as const;
