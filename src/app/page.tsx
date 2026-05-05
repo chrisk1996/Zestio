@@ -70,7 +70,7 @@ export default function LandingPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {/* Image Studio */}
-              <Link href="/studio" className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10 cursor-pointer group">
+              <Link href="/products/studio" className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10 cursor-pointer group">
                 <div className="h-64 relative overflow-hidden">
                   <img
                     alt="Enhanced property photography"
@@ -101,7 +101,7 @@ export default function LandingPage() {
               </Link>
 
               {/* Video Creator */}
-              <Link href="/video" className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10 cursor-pointer group">
+              <Link href="/products/video" className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10 cursor-pointer group">
                 <div className="h-64 relative overflow-hidden bg-[#333e48]">
                   <img
                     alt="Cinematic property video frame"
@@ -138,7 +138,7 @@ export default function LandingPage() {
               </Link>
 
               {/* Social Media Kit */}
-              <Link href="/social" className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10 cursor-pointer group">
+              <Link href="/products/social" className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10 cursor-pointer group">
                 <div className="h-64 relative overflow-hidden">
                   <img
                     alt="Social media content creation"
@@ -167,7 +167,7 @@ export default function LandingPage() {
               </Link>
 
               {/* Floor Plans */}
-              <Link href="/floorplan" className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10 cursor-pointer group">
+              <Link href="/products/floorplan" className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10 cursor-pointer group">
                 <div className="h-64 relative overflow-hidden">
               <img
                 alt="Modern 3D floor plan rendering with minimalist interior design"
@@ -200,7 +200,7 @@ export default function LandingPage() {
               </Link>
 
               {/* Listing Builder */}
-              <Link href="/listing/new" className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10 cursor-pointer group">
+              <Link href="/products/listing" className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10 cursor-pointer group">
                 <div className="h-64 relative overflow-hidden">
                   <img
                     alt="Real estate listing document on desk with property photos"
@@ -229,7 +229,7 @@ export default function LandingPage() {
               </Link>
 
               {/* API Access */}
-              <Link href="/settings" className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10 cursor-pointer group">
+              <Link href="/products/api" className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10 cursor-pointer group">
                 <div className="h-64 relative overflow-hidden bg-[#1d2832] flex items-center justify-center">
                   <div className="text-center">
                     <span className="material-symbols-outlined text-white/20 text-[80px]">code</span>
@@ -251,6 +251,35 @@ export default function LandingPage() {
                     <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">REST API</span>
                     <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">API Keys</span>
                     <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">Full Docs</span>
+                  </div>
+                </div>
+              </Link>
+
+              {/* 3D Tour Scanner */}
+              <Link href="/products/tour" className="bg-white rounded-lg overflow-hidden flex flex-col card-hover-effect border border-[#c4c6cd]/10 cursor-pointer group">
+                <div className="h-64 relative overflow-hidden">
+                  <img
+                    alt="3D virtual tour walkthrough experience"
+                    className="w-full h-full object-cover"
+                    src="https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?w=600&q=80"
+                  />
+                  <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1.5 rounded-sm">
+                    <span className="font-manrope text-[10px] uppercase tracking-widest text-[#1d2832]">
+                      07 / Immersive
+                    </span>
+                  </div>
+                </div>
+                <div className="p-8 flex flex-col flex-grow">
+                  <h3 className="font-serif text-3xl text-[#1d2832] mb-2">3D Tour Scanner</h3>
+                  <p className="font-serif italic text-xl text-[#006c4d] mb-4">Walk. Scan. Share.</p>
+                  <p className="text-sm text-[#43474c] leading-relaxed mb-8 flex-grow">
+                    Upload phone photos and get an interactive 3D walkthrough. No special camera
+                    or Matterport subscription needed. Share via link or embed.
+                  </p>
+                  <div className="flex flex-wrap gap-2 pt-6 border-t border-[#c4c6cd]/10">
+                    <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">Phone Only</span>
+                    <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">Interactive</span>
+                    <span className="px-2 py-1 bg-[#e3efff] rounded-sm font-manrope text-[8px] uppercase tracking-widest text-[#1d2832]">Embeddable</span>
                   </div>
                 </div>
               </Link>
@@ -313,8 +342,8 @@ export default function LandingPage() {
           <div className="space-y-6">
             <h5 className="font-manrope text-xs uppercase tracking-[0.2em] font-bold text-[#1d2832]">Navigation</h5>
             <ul className="space-y-3">
-              <li><Link href="/studio" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">Image Studio</Link></li>
-              <li><Link href="/video" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">Video Creator</Link></li>
+              <li><Link href="/products/studio" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">Image Studio</Link></li>
+              <li><Link href="/products/video" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">Video Creator</Link></li>
               <li><Link href="/pricing" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">Pricing</Link></li>
               <li><Link href="/docs" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">API Docs</Link></li>
             </ul>
