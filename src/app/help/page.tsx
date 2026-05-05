@@ -44,12 +44,13 @@ export default function HelpPage() {
                 <h3 className="font-medium text-[#1d2832]">Video Creator</h3>
               </div>
               <p className="text-sm text-[#43474c]">
-                Turn property photos into cinematic videos. Upload 5+ images, pick a style,
-                and the AI auto-sorts rooms, stages interiors, and animates each shot into a video.
+                Turn property photos into cinematic videos with AI narration. Upload 5+ images or paste a listing URL, pick a music genre,
+                and the AI auto-sorts rooms, generates a voiceover script, applies twilight effects to exteriors, and animates each shot.
               </p>
               <div className="flex flex-wrap gap-1.5 mt-3">
                 <span className="px-1.5 py-0.5 bg-[#e3efff] text-[8px] font-manrope uppercase tracking-wider text-[#1d2832] rounded">Auto-Sort</span>
-                <span className="px-1.5 py-0.5 bg-[#e3efff] text-[8px] font-manrope uppercase tracking-wider text-[#1d2832] rounded">AI Staging</span>
+                <span className="px-1.5 py-0.5 bg-[#e3efff] text-[8px] font-manrope uppercase tracking-wider text-[#1d2832] rounded">AI Voiceover</span>
+                <span className="px-1.5 py-0.5 bg-[#e3efff] text-[8px] font-manrope uppercase tracking-wider text-[#1d2832] rounded">Twilight FX</span>
                 <span className="px-1.5 py-0.5 bg-[#e3efff] text-[8px] font-manrope uppercase tracking-wider text-[#1d2832] rounded">Animation</span>
               </div>
             </Link>
@@ -106,7 +107,7 @@ export default function HelpPage() {
                 <div className="w-8 h-8 rounded-full bg-[#006c4d] text-white flex items-center justify-center font-manrope text-xs font-bold shrink-0">2</div>
                 <div>
                   <h3 className="font-medium text-[#1d2832] mb-1">Choose your tool</h3>
-                  <p className="text-sm text-[#43474c]">Pick from 13 enhancement types, 8 staging styles, video generation, or caption creation.</p>
+                  <p className="text-sm text-[#43474c]">Pick from 13 image enhancement types, 8 renovation styles, video generation with AI voiceover, 3D floor plans, or caption creation.</p>
                 </div>
               </div>
               <div className="flex gap-4">
@@ -215,14 +216,29 @@ export default function HelpPage() {
             </details>
             <details className="bg-white rounded-lg border border-[#c4c6cd]/20 p-6 group">
               <summary className="font-medium text-[#1d2832] cursor-pointer list-none flex justify-between items-center">
-                What&apos;s the difference between staging models?
+                What renovation styles are available?
                 <span className="material-symbols-outlined text-[#43474c] text-sm group-open:rotate-180 transition-transform">expand_more</span>
               </summary>
               <div className="text-sm text-[#43474c] mt-3 space-y-2">
-                <p><strong>Interior Design</strong> (default) — Best value, fast, good for most rooms.</p>
-                <p><strong>FLUX Depth Pro</strong> — Higher quality, better at preserving room structure. Uses depth maps for more accurate furniture placement.</p>
-                <p><strong>Decor8</strong> — Premium staging via dedicated API. Best for high-end listings.</p>
+                <p><strong>Modern, Luxury, Minimalist</strong> — Clean contemporary styles for most properties.</p>
+                <p><strong>Scandinavian, Industrial, Coastal</strong> — Distinctive aesthetics for specific markets.</p>
+                <p><strong>Contemporary, Midcentury</strong> — Timeless designs that photograph well.</p>
+                <p className="text-xs text-[#43474c]/70 mt-2">For video generation, the renovation style is applied during the Enhance stage. For virtual staging, you can select the style per room.</p>
               </div>
+            </details>
+            <details className="bg-white rounded-lg border border-[#c4c6cd]/20 p-6 group">
+              <summary className="font-medium text-[#1d2832] cursor-pointer list-none flex justify-between items-center">
+                How does the AI voiceover work?
+                <span className="material-symbols-outlined text-[#43474c] text-sm group-open:rotate-180 transition-transform">expand_more</span>
+              </summary>
+              <p className="text-sm text-[#43474c] mt-3">Zestio auto-generates a professional narration script from your listing data. You can also write your own script. The voiceover is mixed with background music in the final video. Toggle voiceover on/off in the video creator settings.</p>
+            </details>
+            <details className="bg-white rounded-lg border border-[#c4c6cd]/20 p-6 group">
+              <summary className="font-medium text-[#1d2832] cursor-pointer list-none flex justify-between items-center">
+                What happens during video processing?
+                <span className="material-symbols-outlined text-[#43474c] text-sm group-open:rotate-180 transition-transform">expand_more</span>
+              </summary>
+              <p className="text-sm text-[#43474c] mt-3">The pipeline runs: <strong>Sort</strong> (AI classifies rooms) → <strong>Script</strong> (voiceover generation) → <strong>Twilight</strong> (exterior enhancement) → <strong>Upscale</strong> → <strong>Enhance</strong> (virtual renovation) → <strong>Animate</strong> (per-image video clips) → <strong>Finalize</strong> (stitch with music, voiceover, watermark). Each stage processes automatically with retry logic.</p>
             </details>
             <details className="bg-white rounded-lg border border-[#c4c6cd]/20 p-6 group">
               <summary className="font-medium text-[#1d2832] cursor-pointer list-none flex justify-between items-center">
@@ -243,7 +259,7 @@ export default function HelpPage() {
             </p>
             <div className="bg-[#1d2832] rounded-lg p-4 text-sm font-mono text-[#86f8c8] overflow-x-auto">
               <p className="text-[#43474c]"># Enhance an image</p>
-              <p>curl -X POST {process.env.NEXT_PUBLIC_URL || 'https://propertypix-pro.vercel.app'}/api/enhance \</p>
+              <p>curl -X POST https://zestio.pro/api/enhance \</p>
               <p className="pl-4">-H &quot;Authorization: Bearer zest_your_api_key&quot; \</p>
               <p className="pl-4">-H &quot;Content-Type: application/json&quot; \</p>
               <p className="pl-4">-d {`'{"image":"...","type":"sky"}'`}</p>
@@ -265,8 +281,8 @@ export default function HelpPage() {
               <h2 className="font-serif text-xl text-[#1d2832] mb-1">Still need help?</h2>
               <p className="text-sm text-[#43474c]">
                 Reach us at{' '}
-                <a href="mailto:support@zestio.pro" className="text-[#006c4d] underline">
-                  support@zestio.pro
+                <a href="mailto:zestioai1@gmail.com" className="text-[#006c4d] underline">
+                  zestioai1@gmail.com
                 </a>
               </p>
             </div>

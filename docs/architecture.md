@@ -18,7 +18,8 @@
 - **Authentication:** Supabase Auth
 - **File Storage:** Supabase Storage
 - **AI Processing:**
-  - Replicate API (FLUX, SDXL, Ideogram models)
+  - Replicate API (FLUX, SDXL, Ideogram, MiniMax TTS models)
+  - Kling API (video animation v2.1)
   - Decor8 AI (virtual staging)
   - KIRI Engine API (3D Gaussian Splat generation)
 
@@ -154,13 +155,33 @@
 6. Thumbnail generated from 3D view
 
 ### Video Generation Flow
-1. User provides images or listing URL
-2. Script generated based on mode
-3. Images processed and sequenced
-4. Video rendered with transitions
-5. Output saved to Storage
+1. User provides images (manual upload or listing URL scrape)
+2. Images sorted by room type (AI classification)
+3. Optional AI voiceover script generated from listing data (MiniMax TTS)
+4. Twilight effect applied to exterior shots
+5. Images upscaled 2× (ESRGAN)
+6. Rooms virtually renovated (selected style)
+7. Each image animated via Kling v2.1 (16:9 normalized)
+8. Clips stitched with background music, voiceover, watermark, and outro card
+9. Final video uploaded to Supabase Storage
+
+**Pipeline stages:** scrape → sort → script (TTS) → twilight → upscale → enhance (renovate) → animate → finalize (stitch)
 
 ---
+
+## Billing System
+
+### Paddle Integration
+- Subscription management via Paddle Billing API
+- Plan switching with proration (PATCH /subscriptions/{id}/preview → confirm → PATCH update)
+- Credits preserved on tier change and cancellation
+- Webhook handling for subscription lifecycle events
+- Duplicate subscription guard on checkout
+
+### Proration Preview Flow
+1. User selects new plan → `/api/paddle/preview-update` calls Paddle Preview API
+2. Modal shows exact proration: immediate charge, next renewal, credit breakdown
+3. User confirms → `/api/paddle/update-subscription` applies the plan change
 
 ## Floor Planner V2 Architecture
 
@@ -247,22 +268,40 @@ interface FloorPlanState {
 ## Credit System
 
 ### Cost-Based Pricing
-| Feature | Credits | API Cost | Margin |
-|---------|---------|----------|--------|
-| Photo Enhancement (SDXL) | 1 | $0.005 | 50% |
-| Photo Enhancement (Flux) | 2 | $0.02 | 25% |
-| Virtual Staging (Budget) | 2 | $0.02 | 25% |
-| Virtual Staging (Premium) | 3 | $0.20 | 50% |
-| Video Generation | 5 | $0.10 | 20% |
+| Feature | Credits | API Cost |
+|---------|---------|----------|
+| Photo Enhancement (SDXL) | 1 | $0.005 |
+| Photo Enhancement (Flux) | 2 | $0.02 |
+| Virtual Staging (Standalone) | 2 | $0.02 |
+| Video Generation (5+ images) | 5 | Kling v2.1 $0.28/movie |
+| AI Listing Generator | Free | $0.001 |
+| AI Voiceover (Video, included) | — | MiniMax TTS |
+| Smart Captions & Social Kit | Free | — |
 
 ### Credit Tracking
 - `zestio_users` table: `credits`, `used_credits`
-- Each API call deducts appropriate credits
-- Real-time balance updates
+- Credits preserved on subscription downgrade/cancellation
+- Real-time balance updates via Supabase RLS
 
 ---
 
-## Recent Updates (April 2026)
+## Recent Updates (May 2026)
+
+### May 5, 2026
+- Paddle proration preview for plan switching (Preview → confirm → update)
+- Cookie consent banner (EU-compliant)
+- Updated docs and help page with current features
+
+### May 3-4, 2026
+- AI voiceover with MiniMax TTS (auto-script + custom script)
+- Twilight effect expanded (exteriors, balconies, gardens, pools)
+- Image normalization to 16:9 for consistent Kling animation
+- Outro CTA card appended to every video
+- ffmpeg binary bundling for Vercel serverless
+- concat-first video stitching (fixes OOM issues)
+- Billing: plan switching via Paddle update API, credit preservation, duplicate-sub guard
+
+### April 2026
 
 ### April 10, 2026
 - ✅ Proper depth conditioning for FLUX Depth Pro

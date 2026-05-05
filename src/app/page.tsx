@@ -324,7 +324,7 @@ export default function LandingPage() {
             <ul className="space-y-3">
               <li><Link href="https://twitter.com/zestio" target="_blank" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">Twitter</Link></li>
               <li><Link href="https://linkedin.com/company/zestio" target="_blank" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">LinkedIn</Link></li>
-              <li><Link href="mailto:hello@zestio.ai" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">Contact Us</Link></li>
+              <li><Link href="mailto:zestioai1@gmail.com" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">Contact Us</Link></li>
             </ul>
           </div>
           <div className="space-y-6">

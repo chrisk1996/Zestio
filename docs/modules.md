@@ -260,9 +260,12 @@ Subscription plans and credit purchases.
 
 ### Technical Details
 
-- Stripe integration for payments
-- Subscription status in `users` table
-- Credit tracking in `credits` table
+- Paddle integration for subscriptions and payments
+- Plan switching with proration preview (PATCH preview → confirm → update)
+- Subscription status in `zestio_users` table
+- Credit tracking in `zestio_users` table (`credits`, `used_credits`)
+- Credits preserved on downgrade/cancellation
+- Webhook handling for subscription lifecycle events
 
 ---
 
@@ -327,4 +330,4 @@ Upload property photos and AI generates an interactive 3D Gaussian Splat tour th
 
 ---
 
-*Last updated: May 2026*
+*Last updated: May 5, 2026*

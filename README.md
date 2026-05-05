@@ -231,8 +231,8 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 ## Support
 
-- **Issues:** [GitHub Issues](https://github.com/chrisk1996/zestio-pro/issues)
-- **Email:** support@zestio.ai
+- **Issues:** [GitHub Issues](https://github.com/chrisk1996/Zestio/issues)
+- **Email:** zestioai1@gmail.com
 
 ---
 

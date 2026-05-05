@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PaddleProvider } from "@/components/PaddleProvider";
+import { CookieConsent } from "@/components/CookieConsent";
 import { GlobalErrorTelemetry } from "@/components/GlobalErrorTelemetry";
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
@@ -66,6 +67,7 @@ export default async function RootLayout({
             <ErrorBoundary>
               {children}
             </ErrorBoundary>
+            <CookieConsent />
           </PaddleProvider>
         </NextIntlClientProvider>
         <Toaster

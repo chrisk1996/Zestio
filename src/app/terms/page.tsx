@@ -61,8 +61,8 @@ export default function TermsPage() {
             <h2 className="text-xl font-semibold text-gray-900 mb-3">7. Contact</h2>
             <p className="text-gray-600">
               Questions? Contact us at{' '}
-              <a href="mailto:legal@zestio.pro" className="text-indigo-600 hover:text-indigo-700">
-                legal@zestio.pro
+              <a href="mailto:zestioai1@gmail.com" className="text-indigo-600 hover:text-indigo-700">
+                zestioai1@gmail.com
               </a>
             </p>
           </section>

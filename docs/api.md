@@ -173,22 +173,70 @@ Extract walls and rooms from a floor plan image.
 
 ### Video Generation
 
-#### `POST /api/video`
+#### `POST /api/video-jobs`
 
-Generate property video from images.
+Create a new video generation job.
 
 **Request:**
 ```json
 {
   "images": ["url1", "url2", "url3"],
   "mode": "property_renovation",
-  "transition": "fade"
+  "musicGenre": "cinematic",
+  "renovationStyle": "modern",
+  "voiceoverEnabled": true,
+  "customScript": ""
 }
 ```
 
-**Modes:**
-- `property_renovation` — Renovation progress video
-- `property_tour` — Walkthrough video
+**Response:**
+```json
+{
+  "job": {
+    "id": "job_123",
+    "status": "queued"
+  }
+}
+```
+
+**Pipeline stages:** scrape → sort → script (TTS) → twilight → upscale → enhance (renovate) → animate → finalize (stitch)
+
+#### `GET /api/video-jobs/[id]`
+Get job status and results.
+
+#### `PATCH /api/video-jobs/[id]`
+Update job (retry failed jobs, update metadata).
+
+#### `POST /api/video-jobs/[id]/process`
+Trigger processing for a queued job.
+
+### Billing
+
+#### `POST /api/paddle/checkout`
+Create checkout session for a new subscription.
+
+#### `POST /api/paddle/preview-update`
+Preview a plan change with proration details before applying.
+
+**Request:**
+```json
+{ "priceId": "pri_xxx", "plan": "pro" }
+```
+
+**Response:**
+```json
+{
+  "immediateCharge": { "amount": "9.52", "currency": "EUR" },
+  "nextCharge": { "amount": "29.00", "date": "2026-06-01T00:00:00Z" },
+  "proration": { "credit": "4.48", "charge": "14.00" }
+}
+```
+
+#### `POST /api/paddle/update-subscription`
+Apply a plan change (after preview &amp; confirmation).
+
+#### `POST /api/paddle/webhook`
+Handle Paddle subscription lifecycle events.
 
 ---
 
@@ -336,10 +384,10 @@ Get current user profile.
 |---------|---------|----------|
 | Photo Enhancement (SDXL) | 1 | ~$0.005 |
 | Photo Enhancement (Flux) | 2 | ~$0.02 |
-| Virtual Staging (Budget) | 2 | ~$0.02 |
-| Virtual Staging (Premium) | 3 | $0.20 |
-| 3D Floor Plan | 0 | Free |
-| Video Generation | 5 | ~$0.10 |
+| Virtual Staging | 2 | ~$0.02 |
+| Video Generation (5+ images) | 5 | ~$0.28 (Kling) |
+| AI Listing Generator | 0 | Free |
+| AI Voiceover | included | MiniMax TTS |
 
 ---
 
@@ -403,4 +451,4 @@ NODE_ENV=
 
 ---
 
-*Last updated: April 10, 2026*
+*Last updated: May 5, 2026*

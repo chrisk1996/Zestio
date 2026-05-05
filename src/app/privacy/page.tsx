@@ -46,7 +46,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-xl font-semibold text-gray-900 mb-3">5. Your Rights</h2>
             <p className="text-gray-600">
-              You can request deletion of your data at any time by contacting us at privacy@zestio.ai
+              You can request deletion of your data at any time by contacting us at zestioai1@gmail.com
             </p>
           </section>
 
@@ -54,8 +54,8 @@ export default function PrivacyPage() {
             <h2 className="text-xl font-semibold text-gray-900 mb-3">6. Contact</h2>
             <p className="text-gray-600">
               For privacy questions, contact us at{' '}
-              <a href="mailto:privacy@zestio.ai" className="text-indigo-600 hover:text-indigo-700">
-                privacy@zestio.ai
+              <a href="mailto:zestioai1@gmail.com" className="text-indigo-600 hover:text-indigo-700">
+                zestioai1@gmail.com
               </a>
             </p>
           </section>
