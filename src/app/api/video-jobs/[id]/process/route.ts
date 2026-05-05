@@ -865,22 +865,25 @@ async function handleStitching(supabase: Awaited<ReturnType<typeof createClient>
     // Get watermark
     watermarkPath = await downloadToTemp(WATERMARK_LOGO_URL, tmpDir, 'watermark.png');
 
-    // Run single-pass: concat + crossfade + watermark + music
+    // Stitch: try fast concat first, fallback to crossfade
     try {
-      await stitchWithCrossfade(clipPaths, path.join(tmpDir, 'stitched.mp4'), tmpDir);
-      const stitchedPath = path.join(tmpDir, 'stitched.mp4');
-
-      // Add watermark + music in one pass
-      await addWatermarkAndMusic(stitchedPath, outputPath, watermarkPath, musicPath);
-    } catch (xfadeErr) {
-      console.warn('[Stitch] Crossfade failed, trying simple concat:', xfadeErr);
-      // Simple concat via fluent-ffmpeg
+      // Simple concat is fast — single ffmpeg pass
       const concatListPath = path.join(tmpDir, 'concat.txt');
       const concatContent = clipPaths.map(p => `file '${p}'`).join('\n');
       await fs.writeFile(concatListPath, concatContent);
       const concatPath = path.join(tmpDir, 'concat.mp4');
       await stitchWithFFmpegConcat(concatListPath, concatPath);
+
+      // Add watermark + music in one pass
       await addWatermarkAndMusic(concatPath, outputPath, watermarkPath, musicPath);
+    } catch (concatErr) {
+      console.warn('[Stitch] Simple concat failed, trying crossfade:', concatErr);
+      try {
+        await stitchWithCrossfade(clipPaths, path.join(tmpDir, 'stitched.mp4'), tmpDir);
+        await addWatermarkAndMusic(path.join(tmpDir, 'stitched.mp4'), outputPath, watermarkPath, musicPath);
+      } catch (xfadeErr) {
+        throw new Error(`Both concat and crossfade failed. Concat: ${concatErr instanceof Error ? concatErr.message : concatErr}. Xfade: ${xfadeErr instanceof Error ? xfadeErr.message : xfadeErr}`);
+      }
     }
 
     const finalBuffer = await fs.readFile(outputPath);
@@ -962,8 +965,9 @@ async function downloadFFmpeg(): Promise<string | null> {
   // but require('ffmpeg-static') returns /ROOT/... (build-time placeholder)
   // Resolve the actual runtime path from the package location
   try {
-    const staticModulePath = require.resolve('ffmpeg-static');
-    console.log('[FFmpeg] require.resolve returned:', staticModulePath);
+    const resolved = require.resolve('ffmpeg-static');
+    console.log('[FFmpeg] require.resolve returned:', resolved, typeof resolved);
+    const staticModulePath = typeof resolved === 'string' ? resolved : null;
     if (staticModulePath && !staticModulePath.startsWith('/ROOT/')) {
       // Path is valid at runtime
       await fs.copyFile(staticModulePath, targetPath);
