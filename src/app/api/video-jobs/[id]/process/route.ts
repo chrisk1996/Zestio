@@ -891,16 +891,32 @@ async function handleStitching(supabase: Awaited<ReturnType<typeof createClient>
     return NextResponse.json({ status: 'done', message: `Video complete! ${clipPaths.length} clips.`, outputUrl, hasVideo: true });
   } catch (err) {
     console.error('[Stitch] Stitching failed:', err);
-    // Don't mark as done — keep at 'stitching' so user can retry
-    // Store clip URLs so retry doesn't need to regenerate clips
     const errMsg = err instanceof Error ? err.message : 'Stitching failed';
+    const stitchAttempts = ((metadata.stitchAttempts as number) || 0) + 1;
+    const maxStitchAttempts = 3;
+
+    if (stitchAttempts >= maxStitchAttempts) {
+      // Max retries reached — mark as failed so the loop stops
+      console.error(`[Stitch] Max attempts (${maxStitchAttempts}) reached, marking job as failed`);
+      await supabase.from('video_jobs').update({
+        status: 'failed',
+        metadata: { ...metadata, allClipUrls: clips, stitchError: errMsg, stitchAttempts, failedAt: 'stitching' },
+      }).eq('id', job.id);
+      return NextResponse.json({
+        status: 'failed',
+        message: `Stitching failed after ${maxStitchAttempts} attempts: ${errMsg}`,
+        error: errMsg,
+      });
+    }
+
+    // Store clip URLs and retry count so retry doesn't need to regenerate clips
     await supabase.from('video_jobs').update({
       status: 'stitching',
-      metadata: { ...metadata, allClipUrls: clips, stitchError: errMsg, needsStitchRetry: true },
+      metadata: { ...metadata, allClipUrls: clips, stitchError: errMsg, needsStitchRetry: true, stitchAttempts },
     }).eq('id', job.id);
     return NextResponse.json({
       status: 'stitching',
-      message: `Stitching failed: ${errMsg}. Clips are saved — retry from stitch stage.`,
+      message: `Stitching failed (attempt ${stitchAttempts}/${maxStitchAttempts}): ${errMsg}`,
       error: errMsg,
       clipsReady: clips.length,
     });
@@ -1126,15 +1142,43 @@ function addWatermarkAndMusic(videoPath: string, outputPath: string, watermarkPa
 }
 
 function getFFmpegPath(): string | null {
-  // ffmpeg-static returns the resolved path to the binary
-  // On Vercel Fluid compute, it's bundled via outputFileTracingIncludes
+  const { existsSync } = require('fs');
+  const path = require('path');
+
+  // 1. Try ffmpeg-static npm package
   try {
     const p = require('ffmpeg-static') as string;
-    if (p) return p;
+    if (p && existsSync(p)) return p;
+    // ffmpeg-static may return a /ROOT/... path on Vercel — resolve relative to node_modules
+    if (p && p.startsWith('/ROOT/')) {
+      const relPath = p.replace('/ROOT/', '');
+      // Try resolving from the project root
+      for (const base of [process.cwd(), path.dirname(require.resolve('ffmpeg-static/package.json'))]) {
+        const candidate = path.resolve(base, relPath.replace('node_modules/', ''));
+        if (existsSync(candidate)) return candidate;
+      }
+      // Try the package directory directly
+      try {
+        const pkgDir = path.dirname(require.resolve('ffmpeg-static/package.json'));
+        const binaryName = path.basename(p);
+        const candidate = path.join(pkgDir, binaryName);
+        if (existsSync(candidate)) return candidate;
+      } catch {}
+    }
   } catch {}
-  // System fallback (local dev)
-  const { existsSync } = require('fs');
-  for (const p of ['/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/bin/ffmpeg', '/opt/bin/ffmpeg']) {
+
+  // 2. Try resolving ffmpeg-static binary directly from the package
+  try {
+    const pkgDir = path.dirname(require.resolve('ffmpeg-static/package.json'));
+    // ffmpeg-static puts the binary at the root of its package dir
+    for (const name of ['ffmpeg', 'ffmpeg-linux-x64', 'ffmpeg-darwin-x64']) {
+      const candidate = path.join(pkgDir, name);
+      if (existsSync(candidate)) return candidate;
+    }
+  } catch {}
+
+  // 3. System fallback
+  for (const p of ['/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/bin/ffmpeg', '/opt/bin/ffmpeg', '/opt/homebrew/bin/ffmpeg']) {
     if (existsSync(p)) return p;
   }
   return null;

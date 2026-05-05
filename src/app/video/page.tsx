@@ -104,6 +104,11 @@ export default function VideoPage() {
     const activeStatuses = ['scraping', 'sorting', 'twilighting', 'enhancing', 'renovating', 'animating', 'stitching'];
     if (!activeStatuses.includes(activeJob.status)) return;
 
+    // Safety: stop polling if stitch errors keep repeating (server should fail after 3, but double-guard)
+    const metadata = activeJob.metadata as Record<string, unknown> | undefined;
+    const stitchAttempts = (metadata?.stitchAttempts as number) || 0;
+    if (activeJob.status === 'stitching' && stitchAttempts >= 3) return;
+
     const poll = async () => {
       try {
         await fetch(`/api/video-jobs/${activeJob.id}/process`, { method: 'POST' });
@@ -115,11 +120,11 @@ export default function VideoPage() {
       refetchJobs();
     };
 
-    // Poll every 5 seconds while active
+    // Poll every 15 seconds while active
     poll();
     const interval = setInterval(poll, 15000);
     return () => clearInterval(interval);
-  }, [activeJob?.id, activeJob?.status, refetchActiveJob, refetchJobs]);
+  }, [activeJob?.id, activeJob?.status, (activeJob?.metadata as Record<string, unknown>)?.stitchAttempts, refetchActiveJob, refetchJobs]);
   
   useEffect(() => {
     async function fetchCredits() {

@@ -50,6 +50,25 @@ export async function POST(request: NextRequest) {
           { status: 400 },
         );
       }
+
+      // Guard: reject new subscriptions if user already has an active one
+      const { data: subCheck } = await supabase
+        .from('zestio_users')
+        .select('subscription_tier, subscription_status, paddle_subscription_id')
+        .eq('id', user.id)
+        .single();
+
+      if (subCheck?.paddle_subscription_id && subCheck.subscription_status !== 'canceled' && subCheck.subscription_status !== 'expired') {
+        return NextResponse.json(
+          {
+            error: 'You already have an active subscription. Use the update endpoint to change plans.',
+            code: 'SUBSCRIPTION_EXISTS',
+            currentPlan: subCheck.subscription_tier,
+          },
+          { status: 409 },
+        );
+      }
+
       priceId = PADDLE_PRICES[plan];
       customDataType = 'subscription';
     } else {

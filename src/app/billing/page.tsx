@@ -173,20 +173,27 @@ export default function BillingPage() {
   };
 
   const handleSubscribe = async (plan: string) => {
-    // If user already has a subscription, redirect to portal for upgrade
+    // If user already has a subscription, update it (plan change with proration)
     if (user?.plan !== 'free' && user?.paddle_customer_id) {
       setCheckoutLoading(plan);
       try {
-        const response = await fetch('/api/paddle/portal', { method: 'POST' });
+        const response = await fetch('/api/paddle/update-subscription', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan }),
+        });
         const data = await response.json();
-        if (data.url) {
-          window.location.href = data.url;
-        } else {
-          setError(data.error || t('portalFailed'));
+
+        if (!response.ok) {
+          setError(data.error || 'Failed to update subscription');
+          return;
         }
+
+        // Poll for subscription update to take effect
+        startPolling();
       } catch (err) {
-        console.error('Portal error:', err);
-        setError(t('portalFailed'));
+        console.error('Update subscription error:', err);
+        setError('Failed to update subscription. Please try again.');
       } finally {
         setCheckoutLoading(null);
       }
@@ -445,38 +452,46 @@ export default function BillingPage() {
                     ))}
                   </ul>
 
-                  {/* Subscribe Button */}
-                  {plan.id !== 'free' && !isCurrent && (
-                    <button
-                      onClick={() => handleSubscribe(plan.id)}
-                      disabled={checkoutLoading === plan.id}
-                      className={`mt-4 w-full py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors ${
-                        plan.popular
-                          ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-900'
-                      } disabled:opacity-50`}
-                    >
-                      {checkoutLoading === plan.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <>
-                          {user?.plan !== 'free' ? t('switchPlan') : t('subscribe')}
-                          <ArrowUpRight className="w-4 h-4" />
-                        </>
-                      )}
-                    </button>
-                  )}
+                  {/* Subscribe / Upgrade / Downgrade Button */}
+                  {plan.id !== 'free' && !isCurrent && (() => {
+                    const planOrder = ['free', 'pro', 'enterprise'];
+                    const isUpgrade = planOrder.indexOf(plan.id) > planOrder.indexOf(user?.plan || 'free');
+                    return (
+                      <button
+                        onClick={() => handleSubscribe(plan.id)}
+                        disabled={checkoutLoading === plan.id}
+                        className={`mt-4 w-full py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors ${
+                          isUpgrade
+                            ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                            : 'bg-gray-100 hover:bg-gray-200 text-gray-900'
+                        } disabled:opacity-50`}
+                      >
+                        {checkoutLoading === plan.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            {user?.plan === 'free'
+                              ? t('subscribe')
+                              : isUpgrade
+                                ? t('upgrade') || 'Upgrade'
+                                : t('downgrade') || 'Downgrade'}
+                            <ArrowUpRight className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+                    );
+                  })()}
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Upgrade Info for existing subscribers */}
+        {/* Plan Change Info for existing subscribers */}
         {user?.plan !== 'free' && user?.paddle_customer_id && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 mt-6">
             <p className="text-blue-800 text-sm">
-              {t('upgradingInfo')}
+              {t('planChangeInfo') || 'Switching plans takes effect immediately. You\'ll only be charged the prorated difference for the remaining billing period. Your top-up credits are always preserved.'}
             </p>
           </div>
         )}

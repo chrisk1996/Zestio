@@ -36,34 +36,34 @@ function calculateProgress(status: VideoJobStatus): number {
 
 export function useVideoJob(options: UseVideoJobOptions = {}): UseVideoJobReturn {
   const { jobId, autoSubscribe = true } = options;
-  
+
   const [job, setJob] = useState<VideoJob | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null);
   const supabase = createClient();
-  
+
   // Calculate derived values
   const status = job?.status ?? null;
   const progress = status ? calculateProgress(status) : 0;
-  
+
   // Fetch job by ID
   const fetchJob = useCallback(async (id: string) => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const { data, error: fetchError } = await supabase
         .from('video_jobs')
         .select('*')
         .eq('id', id)
         .single();
-      
+
       if (fetchError) {
         throw new Error(fetchError.message);
       }
-      
+
       setJob(data as VideoJob);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch job';
@@ -73,14 +73,14 @@ export function useVideoJob(options: UseVideoJobOptions = {}): UseVideoJobReturn
       setIsLoading(false);
     }
   }, [supabase]);
-  
+
   // Subscribe to realtime updates
   const subscribe = useCallback((id: string) => {
     // Unsubscribe from existing channel
     if (channelRef.current) {
       channelRef.current.unsubscribe();
     }
-    
+
     // Create new channel subscription
     const channel = supabase
       .channel(`video-job-${id}`)
@@ -95,7 +95,7 @@ export function useVideoJob(options: UseVideoJobOptions = {}): UseVideoJobReturn
         (payload) => {
           console.log('[useVideoJob] Realtime update:', payload);
           setJob(payload.new as VideoJob);
-          
+
           // Auto-unsubscribe when job is done or failed
           if (payload.new.status === 'done' || payload.new.status === 'failed') {
             channel.unsubscribe();
@@ -105,10 +105,10 @@ export function useVideoJob(options: UseVideoJobOptions = {}): UseVideoJobReturn
       .subscribe((status) => {
         console.log('[useVideoJob] Subscription status:', status);
       });
-    
+
     channelRef.current = channel;
   }, [supabase]);
-  
+
   // Unsubscribe from realtime
   const unsubscribe = useCallback(() => {
     if (channelRef.current) {
@@ -116,14 +116,14 @@ export function useVideoJob(options: UseVideoJobOptions = {}): UseVideoJobReturn
       channelRef.current = null;
     }
   }, []);
-  
+
   // Refetch job data
   const refetch = useCallback(async () => {
     if (jobId) {
       await fetchJob(jobId);
     }
   }, [jobId, fetchJob]);
-  
+
   // Initial fetch and subscribe
   useEffect(() => {
     if (jobId) {
@@ -131,14 +131,18 @@ export function useVideoJob(options: UseVideoJobOptions = {}): UseVideoJobReturn
       if (autoSubscribe) {
         subscribe(jobId);
       }
+    } else {
+      // Clear job state when jobId is removed (e.g. "Create Another")
+      setJob(null);
+      unsubscribe();
     }
-    
+
     // Cleanup on unmount
     return () => {
       unsubscribe();
     };
   }, [jobId, autoSubscribe, fetchJob, subscribe, unsubscribe]);
-  
+
   return {
     job,
     isLoading,
@@ -166,44 +170,44 @@ interface UseVideoJobsReturn {
 
 export function useVideoJobs(options: UseVideoJobsOptions = {}): UseVideoJobsReturn {
   const { limit = 10, status } = options;
-  
+
   const [jobs, setJobs] = useState<VideoJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const supabase = createClient();
-  
+
   const fetchJobs = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const {
         data: { user },
         error: authError,
       } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         throw new Error('Not authenticated');
       }
-      
+
       let query = supabase
         .from('video_jobs')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(limit);
-      
+
       if (status) {
         query = query.eq('status', status);
       }
-      
+
       const { data, error: fetchError } = await query;
-      
+
       if (fetchError) {
         throw new Error(fetchError.message);
       }
-      
+
       setJobs((data as VideoJob[]) ?? []);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch jobs';
@@ -213,11 +217,11 @@ export function useVideoJobs(options: UseVideoJobsOptions = {}): UseVideoJobsRet
       setIsLoading(false);
     }
   }, [supabase, limit, status]);
-  
+
   useEffect(() => {
     fetchJobs();
   }, [fetchJobs]);
-  
+
   return {
     jobs,
     isLoading,

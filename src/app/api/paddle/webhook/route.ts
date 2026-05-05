@@ -7,6 +7,7 @@ import { logCreditTransaction } from '@/lib/credit-transactions';
 import { getPlanCredits } from '@/lib/credits-shared';
 import {
   isPaddleConfigured,
+  getPaddle,
   getPlanFromPriceId,
   getTopupCreditsFromPriceId,
   unmarshal,
@@ -229,11 +230,22 @@ export async function POST(request: NextRequest) {
 
         const { data: user } = await admin
           .from('zestio_users')
-          .select('id')
+          .select('id, paddle_subscription_id')
           .eq('paddle_customerId', customerId)
           .single();
 
         if (user) {
+          // Cancel any previous subscription to prevent duplicates
+          if (user.paddle_subscription_id && user.paddle_subscription_id !== data.id) {
+            try {
+              const paddle = await getPaddle();
+              await paddle.subscriptions.cancel(user.paddle_subscription_id);
+              console.log(`[Paddle] Canceled previous subscription: ${user.paddle_subscription_id}`);
+            } catch (cancelErr) {
+              console.warn(`[Paddle] Failed to cancel previous subscription ${user.paddle_subscription_id}:`, cancelErr);
+            }
+          }
+
           await admin
             .from('zestio_users')
             .update({
@@ -253,35 +265,76 @@ export async function POST(request: NextRequest) {
       case 'subscription.updated': {
         const customerId = data.customerId;
         const priceId = data.items?.[0]?.price?.id;
-        const plan = priceId ? getPlanFromPriceId(priceId) : 'pro';
+        const newPlan = priceId ? getPlanFromPriceId(priceId) : 'pro';
         const status = data.status;
         const scheduledChange = data.scheduledChange;
+
         const effectivePlan =
-          status === 'canceled' || status === 'expired' ? 'free' : plan;
+          status === 'canceled' || status === 'expired' ? 'free' : newPlan;
         const effectiveStatus =
           scheduledChange?.action === 'cancel' ? 'cancel_at_period_end' : status;
 
         const { data: user } = await admin
           .from('zestio_users')
-          .select('id')
+          .select('id, subscription_tier, credits, used_credits')
           .eq('paddle_customerId', customerId)
           .single();
 
         if (user) {
-          await admin
-            .from('zestio_users')
-            .update({
-              subscription_tier: effectivePlan,
-              subscription_status: effectiveStatus,
-              credits:
-                effectivePlan === 'free'
-                  ? getPlanCredits('free')
-                  : getPlanCredits(plan),
-              ...(scheduledChange?.action === 'cancel' && {
-                subscription_cancel_at: scheduledChange.effective_at,
-              }),
-            })
-            .eq('id', user.id);
+          const previousPlan = user.subscription_tier || 'free';
+
+          if (effectivePlan === 'free') {
+            // Subscription canceled/expired — keep credits (user already paid)
+            await admin
+              .from('zestio_users')
+              .update({
+                subscription_tier: 'free',
+                subscription_status: effectiveStatus,
+                paddle_subscription_id: status === 'expired' ? null : data.id,
+                ...(scheduledChange?.action === 'cancel' && {
+                  subscription_cancel_at: scheduledChange.effective_at,
+                }),
+              })
+              .eq('id', user.id);
+          } else if (previousPlan !== effectivePlan) {
+            // Plan change — grant new plan credits, preserve any top-up credits
+            const previousPlanCredits = getPlanCredits(previousPlan);
+            const extraCredits = Math.max(0, (user.credits || 0) - previousPlanCredits);
+            const newPlanCredits = getPlanCredits(effectivePlan);
+            const totalCredits = newPlanCredits + extraCredits;
+
+            await admin
+              .from('zestio_users')
+              .update({
+                subscription_tier: effectivePlan,
+                subscription_status: effectiveStatus,
+                credits: totalCredits,
+                used_credits: 0,
+                ...(scheduledChange?.action === 'cancel' && {
+                  subscription_cancel_at: scheduledChange.effective_at,
+                }),
+              })
+              .eq('id', user.id);
+
+            logCreditTransaction({
+              userId: user.id,
+              type: 'reset',
+              amount: newPlanCredits,
+              description: `Plan changed ${previousPlan} → ${effectivePlan}. ${newPlanCredits} plan credits + ${extraCredits} preserved top-up credits = ${totalCredits} total.`,
+              paymentReference: data.id,
+            });
+          } else {
+            // Same plan, just status update
+            await admin
+              .from('zestio_users')
+              .update({
+                subscription_status: effectiveStatus,
+                ...(scheduledChange?.action === 'cancel' && {
+                  subscription_cancel_at: scheduledChange.effective_at,
+                }),
+              })
+              .eq('id', user.id);
+          }
 
           console.log(
             `[Paddle] Subscription updated: ${data.id} for user ${user.id}, plan: ${effectivePlan}, status: ${effectiveStatus}`,
@@ -295,17 +348,17 @@ export async function POST(request: NextRequest) {
 
         const { data: user } = await admin
           .from('zestio_users')
-          .select('id, subscription_tier')
+          .select('id, subscription_tier, credits')
           .eq('paddle_customerId', customerId)
           .single();
 
         if (user) {
+          // Keep credits — user already paid for them
           await admin
             .from('zestio_users')
             .update({
               subscription_tier: 'free',
               subscription_status: 'canceled',
-              credits: getPlanCredits('free'),
               paddle_subscription_id: null,
               subscription_cancel_at: null,
               subscription_canceled_at: new Date().toISOString(),
@@ -313,7 +366,7 @@ export async function POST(request: NextRequest) {
             .eq('id', user.id);
 
           console.log(
-            `[Paddle] Subscription canceled for user ${user.id}, was: ${user.subscription_tier}`,
+            `[Paddle] Subscription canceled for user ${user.id}, was: ${user.subscription_tier}. Credits preserved: ${user.credits}`,
           );
         }
         break;

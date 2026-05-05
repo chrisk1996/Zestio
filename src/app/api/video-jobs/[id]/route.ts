@@ -209,10 +209,13 @@ export async function PATCH(
 
     // Determine which stage failed from metadata and retry from there
     const metadata = (job.metadata as Record<string, unknown>) || {};
+    const failedAt = metadata.failedAt as string | undefined;
     const metaError = metadata.error as string | undefined;
     let retryStatus = 'renovating'; // default retry from renovating
 
-    if (metaError) {
+    if (failedAt) {
+      retryStatus = failedAt;
+    } else if (metaError) {
       const failedStage = metaError.split(':')[0].trim();
       if (failedStage === 'animating') {
         retryStatus = 'animating';
@@ -227,6 +230,10 @@ export async function PATCH(
     // Reset status but keep progress (clips, renovated images)
     const cleanMetadata = { ...metadata };
     delete cleanMetadata.error;
+    delete cleanMetadata.failedAt;
+    delete cleanMetadata.stitchError;
+    delete cleanMetadata.needsStitchRetry;
+    delete cleanMetadata.stitchAttempts;
     // For animating retry, preserve clips but reset animate prediction
     if (retryStatus === 'animating') {
       delete cleanMetadata.animatePredictionId;
