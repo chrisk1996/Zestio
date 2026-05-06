@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import type { SceneGraph } from '@pascal-app/core/clone-scene-graph'
-import type { AnyNodeId } from '@pascal-app/core/schema'
+import type { SceneGraph } from '@pascal-app/core'
+import type { AnyNodeId } from '@pascal-app/core'
 import { applyMutation, mulberry32 } from './mutations'
 
 function makeBaseGraph(): SceneGraph {

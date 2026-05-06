@@ -7,7 +7,7 @@
  *
  * This file installs a no-op-if-already-defined polyfill that works both in
  * Node and in the browser. It MUST be imported FIRST from any module that
- * transitively loads `@pascal-app/core/store`, otherwise the core module will
+ * transitively loads `@pascal-app/core`, otherwise the core module will
  * throw at import time.
  *
  * Side-effectful on import: there is no exported API — just import this file.

@@ -1,7 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js'
-import type { SceneGraph } from '@pascal-app/core/clone-scene-graph'
-import type { AnyNodeId, AnyNode as AnyNodeT } from '@pascal-app/core/schema'
+import type { SceneGraph } from '@pascal-app/core'
+import type { AnyNodeId, AnyNode as AnyNodeT } from '@pascal-app/core'
 import {
   AnyNode,
   BuildingNode,
@@ -9,7 +9,7 @@ import {
   SiteNode,
   WallNode,
   ZoneNode,
-} from '@pascal-app/core/schema'
+} from '@pascal-app/core'
 import { z } from 'zod'
 import type { SceneOperations } from '../../operations'
 import { appendLiveSceneEvent } from '../live-sync'

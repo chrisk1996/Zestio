@@ -1,5 +1,5 @@
-import { cloneLevelSubtree } from '@pascal-app/core/clone-scene-graph'
-import type { AnyNode, AnyNodeId, LevelNode } from '@pascal-app/core/schema'
+import { cloneLevelSubtree } from '@pascal-app/core'
+import type { AnyNode, AnyNodeId, LevelNode } from '@pascal-app/core'
 
 export type LevelDuplicatePreset =
   | 'everything'

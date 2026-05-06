@@ -7,7 +7,7 @@ import {
   SiteNode,
   WallNode,
   ZoneNode,
-} from '@pascal-app/core/schema'
+} from '@pascal-app/core'
 import { SceneBridge } from './scene-bridge'
 
 function tick() {

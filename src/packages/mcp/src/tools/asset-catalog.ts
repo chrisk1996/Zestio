@@ -1,4 +1,4 @@
-import type { AssetInput } from '@pascal-app/core/schema'
+import type { AssetInput } from '@pascal-app/core'
 
 /**
  * Small built-in catalog for standalone/headless MCP use.

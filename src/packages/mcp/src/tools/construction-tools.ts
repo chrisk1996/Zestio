@@ -1,5 +1,5 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import type { AnyNode, AnyNodeId } from '@pascal-app/core/schema'
+import type { AnyNode, AnyNodeId } from '@pascal-app/core'
 import {
   CeilingNode,
   LevelNode,
@@ -9,7 +9,7 @@ import {
   StairNode,
   StairSegmentNode,
   WallNode,
-} from '@pascal-app/core/schema'
+} from '@pascal-app/core'
 import { z } from 'zod'
 import type { SceneOperations } from '../operations'
 import { publishLiveSceneSnapshot } from './live-sync'

@@ -1,5 +1,5 @@
-import type { SceneGraph } from '@pascal-app/core/clone-scene-graph'
-import type { AnyNode, AnyNodeId } from '@pascal-app/core/schema'
+import type { SceneGraph } from '@pascal-app/core'
+import type { AnyNode, AnyNodeId } from '@pascal-app/core'
 
 /**
  * 40 m² studio apartment — a single open room with one window, one front door

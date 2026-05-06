@@ -1,7 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js'
-import type { AnyNode, SlabNode, WallNode } from '@pascal-app/core/schema'
-import { getWallPlanFootprint } from '@pascal-app/core/wall'
+import type { AnyNode, SlabNode, WallNode } from '@pascal-app/core'
+import { getWallPlanFootprint } from '@pascal-app/core'
 import type { SceneOperations } from '../operations'
 
 type WallFootprint = {

@@ -1,6 +1,6 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { forkSceneGraph, SceneGraph } from '@pascal-app/core/clone-scene-graph'
-import { AnyNode, AnyNode as AnyNodeSchema } from '@pascal-app/core/schema'
+import { forkSceneGraph, SceneGraph } from '@pascal-app/core'
+import { AnyNode, AnyNode as AnyNodeSchema } from '@pascal-app/core'
 import { z } from 'zod'
 import type { SceneOperations } from '../../operations'
 import { ErrorCode, throwMcpError } from '../errors'

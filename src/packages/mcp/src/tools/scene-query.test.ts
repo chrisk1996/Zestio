@@ -13,7 +13,7 @@ import {
   WallNode,
   WindowNode,
   ZoneNode,
-} from '@pascal-app/core/schema'
+} from '@pascal-app/core'
 import { SceneBridge } from '../bridge/scene-bridge'
 import { registerSceneQueryTools } from './scene-query'
 

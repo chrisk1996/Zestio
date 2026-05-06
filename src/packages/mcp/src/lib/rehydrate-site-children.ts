@@ -1,5 +1,5 @@
-import type { SceneGraph } from '@pascal-app/core/clone-scene-graph'
-import type { AnyNode } from '@pascal-app/core/schema'
+import type { SceneGraph } from '@pascal-app/core'
+import type { AnyNode } from '@pascal-app/core'
 
 /**
  * `cloneSceneGraph` normalises `SiteNode.children` to an array of node IDs,

@@ -1,11 +1,11 @@
 // Side-effect import MUST come first: installs RAF polyfill before core loads.
 import './node-shims'
 
-import type { SceneGraph } from '@pascal-app/core/clone-scene-graph'
-import type { AnyNode } from '@pascal-app/core/schema'
-import { AnyNodeId, AnyNode as AnyNodeSchema, AnyNodeType } from '@pascal-app/core/schema'
-// Per PLAN §0.6: `useScene` is the DEFAULT export from `@pascal-app/core/store`.
-import useScene from '@pascal-app/core/store'
+import type { SceneGraph } from '@pascal-app/core'
+import type { AnyNode } from '@pascal-app/core'
+import { AnyNodeId, AnyNode as AnyNodeSchema, AnyNodeType } from '@pascal-app/core'
+// Per PLAN §0.6: `useScene` is the DEFAULT export from `@pascal-app/core`.
+import useScene from '@pascal-app/core'
 import type { SceneMeta } from '../storage/types'
 
 export type ValidationError = { nodeId: string; path: string; message: string }
