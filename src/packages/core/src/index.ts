@@ -37,9 +37,10 @@ export { loadAssetUrl, saveAsset } from './lib/asset-storage'
 export { getRenderableSlabPolygon } from './lib/slab-polygon'
 export {
   detectSpacesForLevel,
-  initSpaceDetectionSync, Space,
+  initSpaceDetectionSync,
   wallTouchesOthers,
 } from './lib/space-detection'
+export type { Space } from './lib/space-detection'
 export {
   getCatalogMaterialById,
   getLibraryMaterialIdFromRef,
@@ -47,9 +48,10 @@ export {
   getMaterialsForCategory,
   LIBRARY_MATERIAL_REF_PREFIX,
   MATERIAL_CATALOG,
-  MATERIAL_CATEGORIES, MaterialCatalogItem, MaterialCategory,
+  MATERIAL_CATEGORIES,
   toLibraryMaterialRef,
 } from './material-library'
+export type { MaterialCatalogItem, MaterialCategory } from './material-library'
 export * from './schema'
 export {
   getSceneHistoryPauseDepth,
@@ -57,10 +59,8 @@ export {
   resetSceneHistoryPauseDepth,
   resumeSceneHistory,
 } from './store/history-control'
-export {
-  ControlValue, ItemInteractiveState,
-  useInteractive,
-} from './store/use-interactive'
+export { useInteractive } from './store/use-interactive'
+export type { ControlValue, ItemInteractiveState } from './store/use-interactive'
 export { default as useLiveTransforms } from './store/use-live-transforms'
 export type { LiveTransform } from './store/use-live-transforms'
 export { clearSceneHistory, default as useScene } from './store/use-scene'

@@ -34,12 +34,13 @@ export {
   ColumnCarvingPlacement,
   ColumnCrossSection,
   ColumnNode,
-  ColumnPanelShape, ColumnPresetId,
+  ColumnPanelShape,
   ColumnRingPlacement,
   ColumnShaftDetail,
   ColumnShaftProfile,
   ColumnStyle,
 } from './nodes/column'
+export type { ColumnPresetId } from './nodes/column'
 export { DoorNode, DoorSegment } from './nodes/door'
 export { FenceBaseStyle, FenceNode, FenceStyle } from './nodes/fence'
 export { GuideNode, GuideScaleReference } from './nodes/guide'
