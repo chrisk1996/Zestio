@@ -406,51 +406,7 @@ export default function LandingPage() {
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="w-full bg-[#edf4ff] border-t border-[#c4c6cd]/15">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 px-8 md:px-20 py-16">
-          <div className="space-y-6">
-            <div className="text-xl font-serif italic text-[#1d2832]">Zestio</div>
-            <p className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 leading-relaxed">
-              AI-Powered Real Estate Media.
-              <br />
-              Enhance, stage, animate, list — all from one platform.
-            </p>
-          </div>
-          <div className="space-y-6">
-            <h5 className="font-manrope text-xs uppercase tracking-[0.2em] font-bold text-[#1d2832]">Navigation</h5>
-            <ul className="space-y-3">
-              <li><Link href="/products/studio" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">Image Studio</Link></li>
-              <li><Link href="/products/video" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">Video Creator</Link></li>
-              <li><Link href="/pricing" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">Pricing</Link></li>
-              <li><Link href="/docs" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">API Docs</Link></li>
-            </ul>
-          </div>
-          <div className="space-y-6">
-            <h5 className="font-manrope text-xs uppercase tracking-[0.2em] font-bold text-[#1d2832]">Connect</h5>
-            <ul className="space-y-3">
-              <li><Link href="https://twitter.com/zestio" target="_blank" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">Twitter</Link></li>
-              <li><Link href="https://linkedin.com/company/zestio" target="_blank" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">LinkedIn</Link></li>
-              <li><Link href="mailto:zestioai1@gmail.com" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">Contact Us</Link></li>
-            </ul>
-          </div>
-          <div className="space-y-6">
-            <h5 className="font-manrope text-xs uppercase tracking-[0.2em] font-bold text-[#1d2832]">Legal</h5>
-            <ul className="space-y-3">
-              <li><Link href="/privacy" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">Privacy Policy</Link></li>
-              <li><Link href="/terms" className="font-manrope text-xs uppercase tracking-widest text-[#1d2832]/60 hover:text-[#006c4d] transition-colors">Terms of Service</Link></li>
-            </ul>
-          </div>
-        </div>
-        <div className="px-8 md:px-20 py-8 border-t border-[#c4c6cd]/10 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="font-manrope text-[9px] uppercase tracking-[0.2em] text-[#1d2832]/40">
-            © 2026 Zestio. AI-Powered Real Estate Media. All rights reserved.
-          </p>
-          <div className="flex gap-4">
-            <span className="text-[#006c4d] font-bold text-[9px] uppercase tracking-widest">Powered by AI</span>
-          </div>
-        </div>
-      </footer>
+
     </div>
   );
 }
