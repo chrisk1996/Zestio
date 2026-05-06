@@ -1,4 +1,4 @@
-import { type AnyNodeId, sceneRegistry, useScene, type WindowNode } from '@pascal-app/core'
+import { AnyNodeId, sceneRegistry, useScene, WindowNode } from '@pascal-app/core'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { baseMaterial, glassMaterial } from '../../lib/materials'

@@ -1,7 +1,5 @@
 import {
-  getEffectiveRoofSurfaceMaterial,
-  type RoofNode,
-  type RoofSegmentNode,
+  getEffectiveRoofSurfaceMaterial, RoofNode, RoofSegmentNode,
 } from '@pascal-app/core'
 import * as THREE from 'three'
 import { createMaterial, createMaterialFromPresetRef } from '../../lib/materials'

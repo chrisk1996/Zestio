@@ -3,7 +3,7 @@ import {
   getWallCurveFrameAt,
   isCurvedWall,
 } from '../systems/wall/wall-curve'
-import { CeilingNode, SlabNode, type CeilingNode as CeilingNodeType, type SlabNode as SlabNodeType, type WallNode } from '../schema'
+import { CeilingNode, SlabNode, CeilingNode as CeilingNodeType, SlabNode as SlabNodeType, WallNode } from '../schema'
 import {
   getSceneHistoryPauseDepth,
   pauseSceneHistory,

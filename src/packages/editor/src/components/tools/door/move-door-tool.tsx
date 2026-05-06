@@ -1,17 +1,16 @@
 import {
-  type AnyNodeId,
+  AnyNodeId,
   DoorNode,
   emitter,
   isCurvedWall,
   sceneRegistry,
   spatialGridManager,
   useLiveTransforms,
-  useScene,
-  type WallEvent,
+  useScene, WallEvent,
 } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { BoxGeometry, EdgesGeometry, type Group } from 'three'
+import { BoxGeometry, EdgesGeometry, Group } from 'three'
 import { LineBasicNodeMaterial } from 'three/webgpu'
 import { EDITOR_LAYER } from '../../../lib/constants'
 import { sfxEmitter } from '../../../lib/sfx-bus'

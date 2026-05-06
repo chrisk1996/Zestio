@@ -1,6 +1,6 @@
 'use client'
 
-import { type AnyNodeId, emitter, useScene, type ZoneNode } from '@pascal-app/core'
+import { AnyNodeId, emitter, useScene, ZoneNode } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { Check, Pencil } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'

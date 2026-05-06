@@ -1,4 +1,4 @@
-import { emitter, useScene, type ZoneNode } from '@pascal-app/core'
+import { emitter, useScene, ZoneNode } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { Camera, Hexagon, Trash2 } from 'lucide-react'
 import { useState } from 'react'

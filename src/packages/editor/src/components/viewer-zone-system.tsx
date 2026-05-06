@@ -1,6 +1,6 @@
 'use client'
 
-import { sceneRegistry, useScene, type ZoneNode } from '@pascal-app/core'
+import { sceneRegistry, useScene, ZoneNode } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { useFrame } from '@react-three/fiber'
 import type { Mesh } from 'three'

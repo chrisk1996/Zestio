@@ -37,8 +37,7 @@ export { loadAssetUrl, saveAsset } from './lib/asset-storage'
 export { getRenderableSlabPolygon } from './lib/slab-polygon'
 export {
   detectSpacesForLevel,
-  initSpaceDetectionSync,
-  type Space,
+  initSpaceDetectionSync, Space,
   wallTouchesOthers,
 } from './lib/space-detection'
 export {
@@ -48,9 +47,7 @@ export {
   getMaterialsForCategory,
   LIBRARY_MATERIAL_REF_PREFIX,
   MATERIAL_CATALOG,
-  MATERIAL_CATEGORIES,
-  type MaterialCatalogItem,
-  type MaterialCategory,
+  MATERIAL_CATEGORIES, MaterialCatalogItem, MaterialCategory,
   toLibraryMaterialRef,
 } from './material-library'
 export * from './schema'
@@ -61,8 +58,7 @@ export {
   resumeSceneHistory,
 } from './store/history-control'
 export {
-  type ControlValue,
-  type ItemInteractiveState,
+  ControlValue, ItemInteractiveState,
   useInteractive,
 } from './store/use-interactive'
 export { default as useLiveTransforms } from './store/use-live-transforms'

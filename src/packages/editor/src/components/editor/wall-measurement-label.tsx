@@ -1,23 +1,19 @@
 'use client'
 
 import {
-  type AnyNodeId,
+  AnyNodeId,
   calculateLevelMiters,
   DEFAULT_WALL_HEIGHT,
   getScaledDimensions,
   getWallCurveLength,
   getWallMiterBoundaryPoints,
   getWallPlanFootprint,
-  getWallSurfacePolygon,
-  type ItemNode,
-  isCurvedWall,
-  type Point2D,
+  getWallSurfacePolygon, ItemNode,
+  isCurvedWall, Point2D,
   pointToKey,
   sampleWallCenterline,
   sceneRegistry,
-  useScene,
-  type WallMiterData,
-  type WallNode,
+  useScene, WallMiterData, WallNode,
 } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { Html } from '@react-three/drei'

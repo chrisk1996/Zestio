@@ -7,8 +7,7 @@ import { registerListScenes } from './list-scenes'
 import {
   createTestSceneOperations,
   InMemorySceneStore,
-  parseToolText,
-  type StoredTextContent,
+  parseToolText, StoredTextContent,
 } from './test-utils'
 
 const emptyGraph: SceneGraph = { nodes: {}, rootNodeIds: [] }

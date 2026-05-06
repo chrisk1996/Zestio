@@ -1,4 +1,4 @@
-import { type CeilingNode, resolveLevelId, useScene } from '@pascal-app/core'
+import { CeilingNode, resolveLevelId, useScene } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { useCallback } from 'react'
 import { PolygonEditor } from '../shared/polygon-editor'

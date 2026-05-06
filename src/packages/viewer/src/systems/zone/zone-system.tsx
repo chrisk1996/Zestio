@@ -1,7 +1,7 @@
 import { sceneRegistry, useScene } from '@pascal-app/core'
 import { useFrame } from '@react-three/fiber'
 import { useRef } from 'react'
-import { type Group, MathUtils, type Mesh } from 'three'
+import { Group, MathUtils, Mesh } from 'three'
 import type { MeshBasicNodeMaterial } from 'three/webgpu'
 import useViewer from '../../store/use-viewer'
 

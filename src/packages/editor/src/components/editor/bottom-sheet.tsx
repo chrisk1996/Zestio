@@ -2,8 +2,7 @@
 
 import { animate, motion, useMotionValue } from 'motion/react'
 import {
-  forwardRef,
-  type ReactNode,
+  forwardRef, ReactNode,
   useCallback,
   useEffect,
   useImperativeHandle,

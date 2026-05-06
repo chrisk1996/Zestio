@@ -4,7 +4,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { SceneBridge } from '../bridge/scene-bridge'
 import { createPascalMcpServer } from '../server'
-import { connectHttp, type HttpTransportHandle } from './http'
+import { connectHttp, HttpTransportHandle } from './http'
 
 let bridge: SceneBridge
 let server: McpServer

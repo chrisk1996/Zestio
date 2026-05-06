@@ -1,7 +1,5 @@
 import {
-  type AnyNodeId,
-  type RoofNode,
-  type RoofSegmentNode,
+  AnyNodeId, RoofNode, RoofSegmentNode,
   useRegistry,
   useScene,
 } from '@pascal-app/core'

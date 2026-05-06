@@ -1,11 +1,8 @@
 import '../../../three-types'
 
 import {
-  emitter,
-  type GridEvent,
-  type LevelNode,
-  SpawnNode,
-  type SpawnNode as SpawnNodeType,
+  emitter, GridEvent, LevelNode,
+  SpawnNode, SpawnNode as SpawnNodeType,
   sceneRegistry,
   useScene,
 } from '@pascal-app/core'

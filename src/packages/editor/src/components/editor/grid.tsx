@@ -1,10 +1,10 @@
 'use client'
 
-import { emitter, type GridEvent, sceneRegistry } from '@pascal-app/core'
+import { emitter, GridEvent, sceneRegistry } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { MathUtils, type Mesh, Vector2 } from 'three'
+import { MathUtils, Mesh, Vector2 } from 'three'
 import { color, float, fract, fwidth, mix, positionLocal, uniform } from 'three/tsl'
 import { MeshBasicNodeMaterial } from 'three/webgpu'
 import { useGridEvents } from '../../hooks/use-grid-events'

@@ -1,14 +1,9 @@
 'use client'
 
 import {
-  type AnyNodeId,
-  emitter,
-  type FenceNode,
-  type GridEvent,
-  type LevelNode,
-  type SlabNode,
-  useScene,
-  type WallNode,
+  AnyNodeId,
+  emitter, FenceNode, GridEvent, LevelNode, SlabNode,
+  useScene, WallNode,
 } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { useCallback, useEffect, useRef, useState } from 'react'

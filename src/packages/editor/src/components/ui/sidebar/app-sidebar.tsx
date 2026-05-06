@@ -1,9 +1,8 @@
 'use client'
 
-import { type ReactNode, useEffect } from 'react'
+import { ReactNode, useEffect } from 'react'
 import {
-  CommandPalette,
-  type CommandPaletteEmptyAction,
+  CommandPalette, CommandPaletteEmptyAction,
 } from './../../../components/ui/command-palette'
 import { EditorCommands } from './../../../components/ui/command-palette/editor-commands'
 import {
@@ -13,9 +12,9 @@ import {
 } from './../../../components/ui/primitives/sidebar'
 import { cn } from './../../../lib/utils'
 import useEditor from './../../../store/use-editor'
-import { type ExtraPanel, IconRail } from './icon-rail'
-import { SettingsPanel, type SettingsPanelProps } from './panels/settings-panel'
-import { SitePanel, type SitePanelProps } from './panels/site-panel'
+import { ExtraPanel, IconRail } from './icon-rail'
+import { SettingsPanel, SettingsPanelProps } from './panels/settings-panel'
+import { SitePanel, SitePanelProps } from './panels/site-panel'
 
 interface AppSidebarProps {
   appMenuButton?: ReactNode

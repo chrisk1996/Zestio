@@ -5,9 +5,7 @@ import { useContextualTools } from '../../../hooks/use-contextual-tools'
 
 import { cn } from '../../../lib/utils'
 import useEditor, {
-  type CatalogCategory,
-  type StructureTool,
-  type Tool,
+  CatalogCategory, StructureTool, Tool,
 } from '../../../store/use-editor'
 import { ActionButton } from './action-button'
 

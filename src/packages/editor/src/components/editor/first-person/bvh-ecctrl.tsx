@@ -1,6 +1,6 @@
 import '../../../three-types'
 import { TransformControls, useKeyboardControls } from '@react-three/drei'
-import { useFrame, useThree, type ThreeElements } from '@react-three/fiber'
+import { useFrame, useThree, ThreeElements } from '@react-three/fiber'
 import {
   Suspense,
   forwardRef,

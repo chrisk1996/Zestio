@@ -1,5 +1,4 @@
 export {
-  type CreateSceneOperationsOptions,
-  createSceneOperations,
-  type SceneOperations,
+  CreateSceneOperationsOptions,
+  createSceneOperations, SceneOperations,
 } from './scene-operations'

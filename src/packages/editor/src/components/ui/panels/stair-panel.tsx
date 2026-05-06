@@ -1,15 +1,7 @@
 'use client'
 
 import {
-  type AnyNode,
-  type AnyNodeId,
-  type LevelNode,
-  type StairNode,
-  type StairRailingMode,
-  type StairSlabOpeningMode,
-  type StairTopLandingMode,
-  type StairType,
-  type StairSegmentNode,
+  AnyNode, AnyNodeId, LevelNode, StairNode, StairRailingMode, StairSlabOpeningMode, StairTopLandingMode, StairType, StairSegmentNode,
   StairSegmentNode as StairSegmentNodeSchema,
   useScene,
 } from '@pascal-app/core'

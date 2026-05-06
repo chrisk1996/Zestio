@@ -1,8 +1,5 @@
 import {
-  type MaterialMapProperties,
-  type MaterialPresetPayload,
-  type MaterialProperties,
-  type MaterialSchema,
+  MaterialMapProperties, MaterialPresetPayload, MaterialProperties, MaterialSchema,
   getMaterialPresetByRef,
   resolveMaterial,
 } from '@pascal-app/core'

@@ -16,7 +16,7 @@
  *   - Only secondary   → skip primary mask/edge/blur
  */
 
-import { DepthTexture, FloatType, type Object3D, RenderTarget, Vector2 } from 'three'
+import { DepthTexture, FloatType, Object3D, RenderTarget, Vector2 } from 'three'
 import {
   color,
   exp,

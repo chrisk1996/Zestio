@@ -1,20 +1,16 @@
 'use client'
 
 import {
-  type AnyNodeId,
-  type Control,
-  type ControlValue,
-  type ItemNode,
+  AnyNodeId, Control, ControlValue, ItemNode,
   pointInPolygon,
   sceneRegistry,
   useInteractive,
-  useScene,
-  type ZoneNode,
+  useScene, ZoneNode,
 } from '@pascal-app/core'
 import { Html } from '@react-three/drei'
 import { createPortal, useFrame } from '@react-three/fiber'
 import { useState } from 'react'
-import { type Object3D, Vector3 } from 'three'
+import { Object3D, Vector3 } from 'three'
 import { useShallow } from 'zustand/react/shallow'
 import useViewer from '../../store/use-viewer'
 

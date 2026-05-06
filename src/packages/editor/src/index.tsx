@@ -9,9 +9,8 @@ export { Slider } from './components/ui/primitives/slider'
 export { SceneLoader } from './components/ui/scene-loader'
 export type { ExtraPanel } from './components/ui/sidebar/icon-rail'
 export {
-  type ProjectVisibility,
-  SettingsPanel,
-  type SettingsPanelProps,
+  ProjectVisibility,
+  SettingsPanel, SettingsPanelProps,
 } from './components/ui/sidebar/panels/settings-panel'
 export type { SitePanelProps } from './components/ui/sidebar/panels/site-panel'
 export type { SidebarTab } from './components/ui/sidebar/tab-bar'
@@ -28,8 +27,7 @@ export type { CommandAction } from './store/use-command-registry'
 export type { FloorplanSelectionTool, SplitOrientation, ViewMode } from './store/use-editor'
 export { default as useEditor } from './store/use-editor'
 export {
-  type PaletteView,
-  type PaletteViewProps,
+  PaletteView, PaletteViewProps,
   usePaletteViewRegistry,
 } from './store/use-palette-view-registry'
 export { useUploadStore } from './store/use-upload'

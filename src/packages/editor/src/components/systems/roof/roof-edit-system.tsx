@@ -1,4 +1,4 @@
-import { type AnyNodeId, type RoofNode, sceneRegistry, useScene } from '@pascal-app/core'
+import { AnyNodeId, RoofNode, sceneRegistry, useScene } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { useEffect, useRef } from 'react'
 

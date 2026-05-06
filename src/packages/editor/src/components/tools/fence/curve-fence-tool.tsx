@@ -1,10 +1,8 @@
 'use client'
 
 import {
-  type AnyNodeId,
-  emitter,
-  type FenceNode,
-  type GridEvent,
+  AnyNodeId,
+  emitter, FenceNode, GridEvent,
   getClampedWallCurveOffset,
   getMaxWallCurveOffset,
   getWallChordFrame,

@@ -1,7 +1,6 @@
 import { useFrame } from '@react-three/fiber'
 import {
-  type AnyNodeId,
-  type FenceNode,
+  AnyNodeId, FenceNode,
   getWallCurveFrameAt,
   getWallCurveLength,
   sceneRegistry,

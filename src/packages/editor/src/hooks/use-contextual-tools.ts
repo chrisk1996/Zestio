@@ -1,8 +1,8 @@
-import { type AnyNodeId, useScene } from '@pascal-app/core'
+import { AnyNodeId, useScene } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import useEditor, { type StructureTool } from '../store/use-editor'
+import useEditor, { StructureTool } from '../store/use-editor'
 
 export function useContextualTools() {
   const selection = useViewer((s) => s.selection)

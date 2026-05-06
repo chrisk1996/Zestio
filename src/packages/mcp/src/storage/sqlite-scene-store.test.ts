@@ -6,8 +6,7 @@ import * as path from 'node:path'
 import type { SceneGraph } from '@pascal-app/core/clone-scene-graph'
 import {
   resolveDefaultDatabasePath,
-  SqliteSceneStore,
-  type SqliteSceneStoreOptions,
+  SqliteSceneStore, SqliteSceneStoreOptions,
 } from './sqlite-scene-store'
 import { SceneInvalidError, SceneTooLargeError, SceneVersionConflictError } from './types'
 

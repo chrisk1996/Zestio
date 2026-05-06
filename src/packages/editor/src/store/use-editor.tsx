@@ -1,39 +1,17 @@
 'use client'
 
 import {
-  type AnyNodeId,
-  type AssetInput,
-  type BuildingNode,
-  type CeilingNode,
-  type ColumnNode,
-  type DoorNode,
-  type FenceNode,
-  type ItemNode,
-  type LevelNode,
-  type RoofNode,
-  type RoofSegmentNode,
-  type RoofSurfaceMaterialRole,
-  type SlabNode,
-  type Space,
-  type SpawnNode,
-  type StairNode,
-  type StairSegmentNode,
-  type StairSurfaceMaterialRole,
-  useScene,
-  type WallNode,
-  type WallSurfaceSide,
-  type WindowNode,
+  AnyNodeId, AssetInput, BuildingNode, CeilingNode, ColumnNode, DoorNode, FenceNode, ItemNode, LevelNode, RoofNode, RoofSegmentNode, RoofSurfaceMaterialRole, SlabNode, Space, SpawnNode, StairNode, StairSegmentNode, StairSurfaceMaterialRole,
+  useScene, WallNode, WallSurfaceSide, WindowNode,
 } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getDefaultCatalogItem } from '../components/ui/item-catalog/catalog-items'
 import {
-  type ActivePaintMaterial,
-  type PaintableMaterialTarget,
+  ActivePaintMaterial, PaintableMaterialTarget,
   resolveActivePaintMaterialFromSelection,
-  resolvePaintTargetFromSelection,
-  type SingleSurfaceMaterialRole,
+  resolvePaintTargetFromSelection, SingleSurfaceMaterialRole,
 } from '../lib/material-paint'
 
 const DEFAULT_ACTIVE_SIDEBAR_PANEL = 'site'

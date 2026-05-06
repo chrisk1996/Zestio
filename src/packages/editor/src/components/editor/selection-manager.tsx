@@ -1,29 +1,11 @@
 import {
-  type AnyNode,
-  type AnyNodeId,
-  type BuildingNode,
-  type CeilingNode,
-  type ColumnNode,
-  emitter,
-  type FenceNode,
-  getMaterialPresetByRef,
-  type ItemNode,
-  type NodeEvent,
-  type RoofEvent,
-  type RoofNode,
-  type RoofSegmentEvent,
+  AnyNode, AnyNodeId, BuildingNode, CeilingNode, ColumnNode,
+  emitter, FenceNode,
+  getMaterialPresetByRef, ItemNode, NodeEvent, RoofEvent, RoofNode, RoofSegmentEvent,
   resolveLevelId,
-  resolveMaterial,
-  type SlabNode,
-  type StairEvent,
-  type StairNode,
-  type StairSegmentEvent,
-  type StairSurfaceMaterialRole,
+  resolveMaterial, SlabNode, StairEvent, StairNode, StairSegmentEvent, StairSurfaceMaterialRole,
   sceneRegistry,
-  useScene,
-  type WallEvent,
-  type WallNode,
-  type WallSurfaceSide,
+  useScene, WallEvent, WallNode, WallSurfaceSide,
 } from '@pascal-app/core'
 
 import {
@@ -37,9 +19,9 @@ import {
   useViewer,
 } from '@pascal-app/viewer'
 import { useCallback, useEffect, useRef } from 'react'
-import { type BufferGeometry, Color, type Material, type Mesh, type Object3D } from 'three'
+import { BufferGeometry, Color, Material, Mesh, Object3D } from 'three'
 import {
-  type ActivePaintMaterial,
+  ActivePaintMaterial,
   buildRoofSurfaceMaterialPatch,
   buildSingleSurfaceMaterialPatch,
   buildStairSurfaceMaterialPatch,
@@ -49,9 +31,7 @@ import {
 } from '../../lib/material-paint'
 import { sfxEmitter } from '../../lib/sfx-bus'
 import useEditor, {
-  type MaterialTargetRole,
-  type Phase,
-  type StructureLayer,
+  MaterialTargetRole, Phase, StructureLayer,
 } from './../../store/use-editor'
 import { boxSelectHandled } from '../tools/select/box-select-tool'
 

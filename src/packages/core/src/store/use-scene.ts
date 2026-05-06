@@ -2,7 +2,7 @@
 
 import type { TemporalState } from 'zundo'
 import { temporal } from 'zundo'
-import { create, type StoreApi, type UseBoundStore } from 'zustand'
+import { create, StoreApi, UseBoundStore } from 'zustand'
 import { BuildingNode } from '../schema'
 import type { Collection, CollectionId } from '../schema/collections'
 import { generateCollectionId } from '../schema/collections'

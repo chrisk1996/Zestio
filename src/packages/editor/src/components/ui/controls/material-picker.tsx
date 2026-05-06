@@ -5,8 +5,7 @@ import {
   getLibraryMaterialIdFromRef,
   getMaterialsForCategory,
   MATERIAL_CATEGORIES,
-  toLibraryMaterialRef,
-  type MaterialSchema,
+  toLibraryMaterialRef, MaterialSchema,
 } from '@pascal-app/core'
 import { useEffect, useRef, useState } from 'react'
 import useEditor from '../../../store/use-editor'

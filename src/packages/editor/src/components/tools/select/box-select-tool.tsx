@@ -1,16 +1,9 @@
 import { Icon } from '@iconify/react'
 import {
-  type AnyNodeId,
-  type CeilingNode,
-  emitter,
-  type GridEvent,
-  type ItemNode,
-  type LevelNode,
-  type SlabNode,
+  AnyNodeId, CeilingNode,
+  emitter, GridEvent, ItemNode, LevelNode, SlabNode,
   sceneRegistry,
-  useScene,
-  type WallNode,
-  type ZoneNode,
+  useScene, WallNode, ZoneNode,
 } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { useThree } from '@react-three/fiber'
@@ -19,11 +12,9 @@ import {
   Box3,
   BufferAttribute,
   BufferGeometry,
-  DoubleSide,
-  type Group,
+  DoubleSide, Group,
   LineBasicMaterial,
-  LineSegments,
-  type Mesh,
+  LineSegments, Mesh,
   Plane,
   Raycaster,
   Vector2,

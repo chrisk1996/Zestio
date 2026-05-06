@@ -1,7 +1,7 @@
 'use client'
 
 import '../../three-types'
-import { type AnyNodeId, sceneRegistry, useScene } from '@pascal-app/core'
+import { AnyNodeId, sceneRegistry, useScene } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { KeyboardControls } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -11,9 +11,7 @@ import useEditor from '../../store/use-editor'
 import {
   buildFirstPersonColliderWorldFromRegistry,
   deriveFirstPersonSpawn,
-  FIRST_PERSON_SPAWN_EYE_HEIGHT,
-  type FirstPersonColliderWorld,
-  type FirstPersonSpawn,
+  FIRST_PERSON_SPAWN_EYE_HEIGHT, FirstPersonColliderWorld, FirstPersonSpawn,
 } from './first-person/build-collider-world'
 import type { BVHEcctrlApi } from './first-person/bvh-ecctrl'
 import BVHEcctrl from './first-person/bvh-ecctrl'

@@ -1,16 +1,13 @@
 'use client'
 
 import {
-  type AnyNode,
-  type AnyNodeId,
-  type CeilingNode,
+  AnyNode, AnyNodeId, CeilingNode,
   ColumnNode,
   DoorNode,
   FenceNode,
   generateId,
   ItemNode,
-  RoofSegmentNode,
-  type SlabNode,
+  RoofSegmentNode, SlabNode,
   SpawnNode,
   StairNode,
   StairSegmentNode,

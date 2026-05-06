@@ -1,13 +1,11 @@
 'use client'
 
 import {
-  type AnyNodeId,
-  emitter,
-  type GridEvent,
+  AnyNodeId,
+  emitter, GridEvent,
   pauseSceneHistory,
   resumeSceneHistory,
-  useScene,
-  type WallNode,
+  useScene, WallNode,
 } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { useCallback, useEffect, useRef, useState } from 'react'

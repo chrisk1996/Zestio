@@ -16,8 +16,6 @@ export {
 } from './generate-variants'
 export {
   applyMutation,
-  describeVariant,
-  type MutationKind,
-  mulberry32,
-  type Rng,
+  describeVariant, MutationKind,
+  mulberry32, Rng,
 } from './mutations'

@@ -1,7 +1,5 @@
 import {
-  getEffectiveStairSurfaceMaterial,
-  type StairNode,
-  type StairSegmentNode,
+  getEffectiveStairSurfaceMaterial, StairNode, StairSegmentNode,
 } from '@pascal-app/core'
 import type * as THREE from 'three'
 import {

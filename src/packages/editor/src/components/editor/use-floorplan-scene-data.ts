@@ -1,20 +1,8 @@
 'use client'
 
 import {
-  type AnyNode,
-  type BuildingNode,
-  type CeilingNode,
-  type DoorNode,
-  type FenceNode,
-  type GuideNode,
-  type LevelNode,
-  type RoofNode,
-  type SiteNode,
-  type SlabNode,
-  useScene,
-  type WallNode,
-  type WindowNode,
-  type ZoneNode as ZoneNodeType,
+  AnyNode, BuildingNode, CeilingNode, DoorNode, FenceNode, GuideNode, LevelNode, RoofNode, SiteNode, SlabNode,
+  useScene, WallNode, WindowNode, ZoneNode as ZoneNodeType,
 } from '@pascal-app/core'
 import { useShallow } from 'zustand/react/shallow'
 import { collectLevelDescendants } from '../../lib/floorplan'

@@ -1,4 +1,4 @@
-import { type LevelNode, useScene } from '@pascal-app/core'
+import { LevelNode, useScene } from '@pascal-app/core'
 import polygonClipping from 'polygon-clipping'
 import { useMemo } from 'react'
 import * as THREE from 'three'

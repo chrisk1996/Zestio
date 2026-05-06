@@ -1,19 +1,14 @@
 import type { AssetInput } from '@pascal-app/core'
 import {
-  type AnyNodeId,
-  type CeilingEvent,
-  emitter,
-  type GridEvent,
-  getScaledDimensions,
-  type ItemEvent,
+  AnyNodeId, CeilingEvent,
+  emitter, GridEvent,
+  getScaledDimensions, ItemEvent,
   resolveLevelId,
   sceneRegistry,
   spatialGridManager,
   useLiveTransforms,
   useScene,
-  useSpatialQuery,
-  type WallEvent,
-  type WallNode,
+  useSpatialQuery, WallEvent, WallNode,
 } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { Html } from '@react-three/drei'
@@ -25,12 +20,8 @@ import {
   BufferGeometry,
   EdgesGeometry,
   Euler,
-  Float32BufferAttribute,
-  type Group,
-  type LineSegments,
-  Matrix4,
-  type Mesh,
-  type Object3D,
+  Float32BufferAttribute, Group, LineSegments,
+  Matrix4, Mesh, Object3D,
   PlaneGeometry,
   Quaternion,
   Vector3,

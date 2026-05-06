@@ -1,9 +1,5 @@
 import {
-  type AnimationEffect,
-  type AnyNodeId,
-  type Interactive,
-  type ItemNode,
-  type LightEffect,
+  AnimationEffect, AnyNodeId, Interactive, ItemNode, LightEffect,
   useInteractive,
   useRegistry,
   useScene,

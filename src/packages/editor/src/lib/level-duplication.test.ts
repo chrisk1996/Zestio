@@ -2,8 +2,7 @@
 // depend on @types/bun so the import type is unresolved at compile time.
 import { describe, expect, test } from 'bun:test'
 import {
-  type AnyNode,
-  type AnyNodeId,
+  AnyNode, AnyNodeId,
   BuildingNode,
   LevelNode,
   SpawnNode,

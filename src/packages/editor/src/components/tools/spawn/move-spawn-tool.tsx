@@ -1,9 +1,7 @@
 import '../../../three-types'
 
 import {
-  emitter,
-  type GridEvent,
-  type SpawnNode,
+  emitter, GridEvent, SpawnNode,
   sceneRegistry,
   useLiveTransforms,
   useScene,

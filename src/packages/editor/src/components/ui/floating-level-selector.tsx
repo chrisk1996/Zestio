@@ -2,9 +2,7 @@
 
 import {
   closestCenter,
-  DndContext,
-  type DragEndEvent,
-  type DragStartEvent,
+  DndContext, DragEndEvent, DragStartEvent,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -19,17 +17,14 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
-  type AnyNode,
-  type AnyNodeId,
-  type BuildingNode,
+  AnyNode, AnyNodeId, BuildingNode,
   LevelNode,
   useScene,
 } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { Copy, GripVertical, MoreVertical, Plus, Trash2 } from 'lucide-react'
 import {
-  type ButtonHTMLAttributes,
-  type CSSProperties,
+  ButtonHTMLAttributes, CSSProperties,
   useCallback,
   useEffect,
   useRef,
@@ -37,8 +32,7 @@ import {
 } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import {
-  buildLevelDuplicateCreateOps,
-  type LevelDuplicatePreset,
+  buildLevelDuplicateCreateOps, LevelDuplicatePreset,
 } from '../../lib/level-duplication'
 import { deleteLevelWithFallbackSelection } from '../../lib/level-selection'
 import { cn } from '../../lib/utils'

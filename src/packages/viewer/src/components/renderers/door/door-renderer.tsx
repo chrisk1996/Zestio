@@ -1,6 +1,6 @@
-import { type DoorNode, useRegistry, useScene } from '@pascal-app/core'
+import { DoorNode, useRegistry, useScene } from '@pascal-app/core'
 import { useLayoutEffect, useRef } from 'react'
-import { MeshBasicMaterial, type Mesh } from 'three'
+import { MeshBasicMaterial, Mesh } from 'three'
 import { useNodeEvents } from '../../../hooks/use-node-events'
 
 const doorHitboxMaterial = new MeshBasicMaterial({ visible: false })

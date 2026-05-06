@@ -4,21 +4,13 @@ import * as path from 'node:path'
 import type { SceneGraph } from '@pascal-app/core/clone-scene-graph'
 import { z } from 'zod'
 import { generateSlug, isValidSlug, sanitizeSlug } from './slug'
-import { openSqliteDatabase, type SqliteDatabase } from './sqlite-driver'
+import { openSqliteDatabase, SqliteDatabase } from './sqlite-driver'
 import {
-  type SceneEvent,
-  type SceneEventAppendOptions,
-  type SceneEventListOptions,
-  SceneInvalidError,
-  type SceneListOptions,
-  type SceneMeta,
-  type SceneMutateOptions,
-  SceneNotFoundError,
-  type SceneSaveOptions,
-  type SceneStore,
+  SceneEvent, SceneEventAppendOptions, SceneEventListOptions,
+  SceneInvalidError, SceneListOptions, SceneMeta, SceneMutateOptions,
+  SceneNotFoundError, SceneSaveOptions, SceneStore,
   SceneTooLargeError,
-  SceneVersionConflictError,
-  type SceneWithGraph,
+  SceneVersionConflictError, SceneWithGraph,
 } from './types'
 
 const DEFAULT_MAX_SCENE_BYTES = 10 * 1024 * 1024

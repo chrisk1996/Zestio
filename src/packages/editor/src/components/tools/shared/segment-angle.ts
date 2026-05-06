@@ -1,9 +1,8 @@
 import {
-  type FenceNode,
+  FenceNode,
   getWallCurveFrameAt,
   getWallCurveLength,
-  isCurvedWall,
-  type WallNode,
+  isCurvedWall, WallNode,
 } from '@pascal-app/core'
 
 export type PlanPoint = [number, number]

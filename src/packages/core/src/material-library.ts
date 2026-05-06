@@ -1,5 +1,5 @@
 import {
-  type MaterialPresetPayload,
+  MaterialPresetPayload,
 } from './schema/material'
 
 export type MaterialCatalogItem = {

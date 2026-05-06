@@ -1,12 +1,9 @@
 import {
-  type AnyNodeId,
-  type BuildingNode,
-  type CeilingNode,
-  type SlabNode,
+  AnyNodeId, BuildingNode, CeilingNode, SlabNode,
   useScene,
 } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
-import useEditor, { type Phase, type Tool } from '../../store/use-editor'
+import useEditor, { Phase, Tool } from '../../store/use-editor'
 import { CeilingBoundaryEditor } from './ceiling/ceiling-boundary-editor'
 import { CeilingHoleEditor } from './ceiling/ceiling-hole-editor'
 import { CeilingTool } from './ceiling/ceiling-tool'

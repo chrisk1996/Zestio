@@ -1,4 +1,4 @@
-import { type AssetInput, isObject } from '@pascal-app/core'
+import { AssetInput, isObject } from '@pascal-app/core'
 import useEditor from '../../../store/use-editor'
 
 function getGridSnapStep(): number {

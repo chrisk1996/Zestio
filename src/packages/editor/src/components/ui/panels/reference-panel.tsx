@@ -1,11 +1,9 @@
 'use client'
 
 import {
-  type AnyNode,
-  type GuideNode,
+  AnyNode, GuideNode,
   loadAssetUrl,
-  saveAsset,
-  type ScanNode,
+  saveAsset, ScanNode,
   useScene,
 } from '@pascal-app/core'
 import { Eye, EyeOff, LocateFixed, Lock, RotateCcw, Ruler, Trash2, Unlock, Upload } from 'lucide-react'

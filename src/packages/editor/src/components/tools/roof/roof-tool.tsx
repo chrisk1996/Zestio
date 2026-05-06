@@ -1,9 +1,6 @@
 import {
-  type AnyNode,
-  type AnyNodeId,
-  emitter,
-  type GridEvent,
-  type LevelNode,
+  AnyNode, AnyNodeId,
+  emitter, GridEvent, LevelNode,
   RoofNode,
   RoofSegmentNode,
   sceneRegistry,
@@ -12,7 +9,7 @@ import {
 import { useViewer } from '@pascal-app/viewer'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
-import { BufferGeometry, DoubleSide, type Group, type Line, Vector3 } from 'three'
+import { BufferGeometry, DoubleSide, Group, Line, Vector3 } from 'three'
 import { markToolCancelConsumed } from '../../../hooks/use-keyboard'
 import { EDITOR_LAYER } from '../../../lib/constants'
 import { sfxEmitter } from '../../../lib/sfx-bus'

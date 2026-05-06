@@ -1,4 +1,4 @@
-import { type AnyNodeId, type DoorNode, sceneRegistry, useScene } from '@pascal-app/core'
+import { AnyNodeId, DoorNode, sceneRegistry, useScene } from '@pascal-app/core'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { acceleratedRaycast, computeBoundsTree, disposeBoundsTree } from 'three-mesh-bvh'

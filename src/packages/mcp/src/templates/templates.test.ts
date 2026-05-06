@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { AnyNode } from '@pascal-app/core/schema'
-import { TEMPLATES, type TemplateId } from './index'
+import { TEMPLATES, TemplateId } from './index'
 
 describe('scene templates', () => {
   const ids: TemplateId[] = Object.keys(TEMPLATES) as TemplateId[]

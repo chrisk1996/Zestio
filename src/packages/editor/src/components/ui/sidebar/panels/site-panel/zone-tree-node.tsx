@@ -1,4 +1,4 @@
-import { useScene, type ZoneNode } from '@pascal-app/core'
+import { useScene, ZoneNode } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { memo, useCallback, useState } from 'react'
 import { ColorDot } from './../../../../../components/ui/primitives/color-dot'

@@ -6,8 +6,7 @@ import {
   distance2D,
   pointInPolygon,
   polygonArea,
-  polygonContainsPolygon,
-  type Vec2,
+  polygonContainsPolygon, Vec2,
   wallLength,
 } from './geometry'
 import { NodeIdSchema } from './schemas'

@@ -2,9 +2,7 @@
 
 import type { Point2D, StairNode, StairSegmentNode } from '@pascal-app/core'
 import {
-  memo,
-  type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent,
+  memo, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent,
 } from 'react'
 import {
   buildSvgAnnularSectorPath,

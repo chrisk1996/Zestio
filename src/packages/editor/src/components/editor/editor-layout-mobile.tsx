@@ -1,11 +1,11 @@
 'use client'
 
 import { useViewer } from '@pascal-app/viewer'
-import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import useEditor from '../../store/use-editor'
 import { MobileTabBar } from '../ui/sidebar/mobile-tab-bar'
 import type { SidebarTab } from '../ui/sidebar/tab-bar'
-import { BottomSheet, type BottomSheetHandle } from './bottom-sheet'
+import { BottomSheet, BottomSheetHandle } from './bottom-sheet'
 
 const MIN_SNAP = 0
 const MAX_SNAP = 1

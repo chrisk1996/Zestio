@@ -23,7 +23,7 @@ import {
   sample,
   vec4,
 } from 'three/tsl'
-import { RenderPipeline, RenderTarget, type WebGPURenderer } from 'three/webgpu'
+import { RenderPipeline, RenderTarget, WebGPURenderer } from 'three/webgpu'
 import { EDITOR_LAYER } from '../../lib/constants'
 
 const THUMBNAIL_WIDTH = 1920

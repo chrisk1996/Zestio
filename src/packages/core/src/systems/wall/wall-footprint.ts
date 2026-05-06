@@ -1,10 +1,8 @@
 import type { WallNode } from '../../schema'
 import { getWallSurfacePolygon, isCurvedWall } from './wall-curve'
 import {
-  getWallMiterBoundaryPoints,
-  type Point2D,
-  pointToKey,
-  type WallMiterData,
+  getWallMiterBoundaryPoints, Point2D,
+  pointToKey, WallMiterData,
 } from './wall-mitering'
 
 export const DEFAULT_WALL_THICKNESS = 0.1

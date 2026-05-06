@@ -1,8 +1,6 @@
 import {
-  type AnyNodeId,
-  type EventSuffix,
-  emitter,
-  type GridEvent,
+  AnyNodeId, EventSuffix,
+  emitter, GridEvent,
   sceneRegistry,
 } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'

@@ -1,4 +1,4 @@
-import { type AnyNodeId, type StairNode, type StairSegmentNode, useScene } from '@pascal-app/core'
+import { AnyNodeId, StairNode, StairSegmentNode, useScene } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { AnimatePresence } from 'motion/react'
 import Image from 'next/image'

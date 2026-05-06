@@ -16,8 +16,7 @@ import { ErrorCode, throwMcpError } from './errors'
 import {
   pointInBoundsWithPadding,
   polygonArea,
-  polygonBounds,
-  type Vec2,
+  polygonBounds, Vec2,
   wallLength,
   wallLocalXFromT,
 } from './geometry'

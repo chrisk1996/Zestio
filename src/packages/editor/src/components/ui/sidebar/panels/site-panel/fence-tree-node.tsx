@@ -1,4 +1,4 @@
-import { type AnyNodeId, type FenceNode, useScene } from '@pascal-app/core'
+import { AnyNodeId, FenceNode, useScene } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import Image from 'next/image'
 import { memo, useState } from 'react'

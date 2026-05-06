@@ -7,8 +7,7 @@ import { registerSaveScene } from './save-scene'
 import {
   createTestSceneOperations,
   InMemorySceneStore,
-  parseToolText,
-  type StoredTextContent,
+  parseToolText, StoredTextContent,
 } from './test-utils'
 
 describe('save_scene', () => {

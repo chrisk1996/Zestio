@@ -1,7 +1,6 @@
 import {
-  type AnyNodeId,
-  GuideNode,
-  type GuideNode as GuideNodeType,
+  AnyNodeId,
+  GuideNode, GuideNode as GuideNodeType,
   saveAsset,
 } from '@pascal-app/core'
 

@@ -1,12 +1,9 @@
 import { useFrame } from '@react-three/fiber'
 import {
-  type AnyNode,
-  type AnyNodeId,
+  AnyNode, AnyNodeId,
   resolveLevelId,
   sceneRegistry,
-  spatialGridManager,
-  type StairNode,
-  type StairSegmentNode,
+  spatialGridManager, StairNode, StairSegmentNode,
   syncAutoStairOpenings,
   useScene,
 } from '@pascal-app/core'

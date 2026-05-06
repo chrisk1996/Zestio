@@ -2,52 +2,34 @@
 
 import { Icon } from '@iconify/react'
 import {
-  type AnyNode,
-  type AnyNodeId,
-  type BuildingNode,
-  type CeilingNode,
+  AnyNode, AnyNodeId, BuildingNode, CeilingNode,
   calculateLevelMiters,
   DoorNode,
-  emitter,
-  type FenceNode,
-  type GridEvent,
-  type GuideNode,
+  emitter, FenceNode, GridEvent, GuideNode,
   getRenderableSlabPolygon,
   getWallChordFrame,
   getWallCurveFrameAt,
   getWallCurveLength,
   getWallMidpointHandlePoint,
-  getWallPlanFootprint,
-  type ItemNode,
+  getWallPlanFootprint, ItemNode,
   ItemNode as ItemNodeSchema,
-  isCurvedWall,
-  type LevelNode,
+  isCurvedWall, LevelNode,
   loadAssetUrl,
-  normalizeWallCurveOffset,
-  type Point2D,
-  type RoofNode,
-  type RoofSegmentNode,
-  type SiteNode,
-  SlabNode,
-  type StairNode,
-  StairNode as StairNodeSchema,
-  type StairSegmentNode,
+  normalizeWallCurveOffset, Point2D, RoofNode, RoofSegmentNode, SiteNode,
+  SlabNode, StairNode,
+  StairNode as StairNodeSchema, StairSegmentNode,
   StairSegmentNode as StairSegmentNodeSchema,
   sampleWallCenterline,
   sceneRegistry,
   useLiveTransforms,
-  useScene,
-  type WallNode,
+  useScene, WallNode,
   WindowNode,
-  ZoneNode as ZoneNodeSchema,
-  type ZoneNode as ZoneNodeType,
+  ZoneNode as ZoneNodeSchema, ZoneNode as ZoneNodeType,
 } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { Command, Ruler } from 'lucide-react'
 import {
-  memo,
-  type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent,
+  memo, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -61,8 +43,7 @@ import {
   buildFloorplanStairEntry as buildSharedFloorplanStairEntry,
   collectLevelDescendants,
   getFloorplanWall as getSharedFloorplanWall,
-  rotatePlanVector as rotateSharedPlanVector,
-  type FloorplanNodeTransform as SharedFloorplanNodeTransform,
+  rotatePlanVector as rotateSharedPlanVector, FloorplanNodeTransform as SharedFloorplanNodeTransform,
 } from '../../lib/floorplan'
 import { guideEmitter } from '../../lib/guide-events'
 import { duplicateRoofSubtree } from '../../lib/roof-duplication'
@@ -80,8 +61,7 @@ import {
 import { FloorplanDraftLayer } from '../editor-2d/renderers/floorplan-draft-layer'
 import { FloorplanMarqueeLayer } from '../editor-2d/renderers/floorplan-marquee-layer'
 import {
-  FloorplanMeasurementsLayer,
-  type LinearMeasurementOverlay,
+  FloorplanMeasurementsLayer, LinearMeasurementOverlay,
 } from '../editor-2d/renderers/floorplan-measurements-layer'
 import { FloorplanRoofLayer } from '../editor-2d/renderers/floorplan-roof-layer'
 import { FloorplanStairLayer } from '../editor-2d/renderers/floorplan-stair-layer'
@@ -101,8 +81,7 @@ import {
   createWallOnCurrentLevel,
   isWallLongEnough,
   snapWallDraftPoint,
-  WALL_GRID_STEP,
-  type WallPlanPoint,
+  WALL_GRID_STEP, WallPlanPoint,
 } from '../tools/wall/wall-drafting'
 
 import { PALETTE_COLORS } from '../ui/primitives/color-dot'

@@ -1,6 +1,6 @@
 'use client'
 
-import { type AnyNode, useScene } from '@pascal-app/core'
+import { AnyNode, useScene } from '@pascal-app/core'
 import { BuildingRenderer } from './building/building-renderer'
 import { CeilingRenderer } from './ceiling/ceiling-renderer'
 import { ColumnRenderer } from './column/column-renderer'

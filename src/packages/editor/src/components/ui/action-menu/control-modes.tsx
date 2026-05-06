@@ -1,9 +1,9 @@
 'use client'
 
 import { Icon } from '@iconify/react'
-import { type LevelNode, useScene } from '@pascal-app/core'
+import { LevelNode, useScene } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
-import { type LucideIcon, Trash2 } from 'lucide-react'
+import { LucideIcon, Trash2 } from 'lucide-react'
 import Image from 'next/image'
 import { cn } from './../../../lib/utils'
 import useEditor from './../../../store/use-editor'

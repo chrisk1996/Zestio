@@ -1,4 +1,4 @@
-import { type LevelNode, useRegistry } from '@pascal-app/core'
+import { LevelNode, useRegistry } from '@pascal-app/core'
 import { useRef } from 'react'
 import type { Group } from 'three'
 import { useNodeEvents } from '../../../hooks/use-node-events'

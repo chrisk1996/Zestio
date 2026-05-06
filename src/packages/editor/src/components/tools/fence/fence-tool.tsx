@@ -1,15 +1,11 @@
 import {
-  emitter,
-  type FenceNode,
-  type GridEvent,
-  type LevelNode,
-  useScene,
-  type WallNode,
+  emitter, FenceNode, GridEvent, LevelNode,
+  useScene, WallNode,
 } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { Html } from '@react-three/drei'
 import { useEffect, useRef, useState } from 'react'
-import { DoubleSide, type Group, type Mesh, Shape, ShapeGeometry, Vector3 } from 'three'
+import { DoubleSide, Group, Mesh, Shape, ShapeGeometry, Vector3 } from 'three'
 import { markToolCancelConsumed } from '../../../hooks/use-keyboard'
 import { EDITOR_LAYER } from '../../../lib/constants'
 import { sfxEmitter } from '../../../lib/sfx-bus'
@@ -20,8 +16,7 @@ import {
   getSegmentAngleReferenceAtPoint,
 } from '../shared/segment-angle'
 import {
-  createFenceOnCurrentLevel,
-  type FencePlanPoint,
+  createFenceOnCurrentLevel, FencePlanPoint,
   snapFenceDraftPoint,
 } from './fence-drafting'
 

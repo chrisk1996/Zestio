@@ -1,12 +1,8 @@
 'use client'
 
 import {
-  type AnyNode,
-  type AnyNodeId,
-  type AttachmentSide,
-  type StairSegmentNode,
-  StairSegmentNode as StairSegmentNodeSchema,
-  type StairSegmentType,
+  AnyNode, AnyNodeId, AttachmentSide, StairSegmentNode,
+  StairSegmentNode as StairSegmentNodeSchema, StairSegmentType,
   useScene,
 } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'

@@ -10,9 +10,7 @@ import useScene from '../../store/use-scene'
 import { DEFAULT_WALL_HEIGHT, getWallPlanFootprint, getWallThickness } from './wall-footprint'
 import {
   calculateLevelMiters,
-  getAdjacentWallIds,
-  type Point2D,
-  type WallMiterData,
+  getAdjacentWallIds, Point2D, WallMiterData,
 } from './wall-mitering'
 
 // Reusable CSG evaluator for better performance

@@ -1,6 +1,5 @@
 import {
-  BoxGeometry,
-  type BufferGeometry,
+  BoxGeometry, BufferGeometry,
   CylinderGeometry,
   Float32BufferAttribute,
   SphereGeometry,

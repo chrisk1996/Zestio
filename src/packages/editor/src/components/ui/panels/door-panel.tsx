@@ -1,8 +1,7 @@
 'use client'
 
 import {
-  type AnyNode,
-  type AnyNodeId,
+  AnyNode, AnyNodeId,
   DoorNode,
   emitter,
   useScene,

@@ -7,8 +7,7 @@ import { registerRenameScene } from './rename-scene'
 import {
   createTestSceneOperations,
   InMemorySceneStore,
-  parseToolText,
-  type StoredTextContent,
+  parseToolText, StoredTextContent,
 } from './test-utils'
 
 const emptyGraph: SceneGraph = { nodes: {}, rootNodeIds: [] }

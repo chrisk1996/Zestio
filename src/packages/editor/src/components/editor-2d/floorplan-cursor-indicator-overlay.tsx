@@ -2,7 +2,7 @@
 
 import { Icon } from '@iconify/react'
 import { memo, useMemo } from 'react'
-import useEditor, { type FloorplanSelectionTool } from '../../store/use-editor'
+import useEditor, { FloorplanSelectionTool } from '../../store/use-editor'
 import { furnishTools } from '../ui/action-menu/furnish-tools'
 import { tools as structureTools } from '../ui/action-menu/structure-tools'
 

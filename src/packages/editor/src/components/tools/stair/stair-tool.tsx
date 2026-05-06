@@ -1,8 +1,6 @@
 import {
-  type AnyNode,
-  emitter,
-  type GridEvent,
-  type LevelNode,
+  AnyNode,
+  emitter, GridEvent, LevelNode,
   StairNode,
   StairSegmentNode,
   useScene,

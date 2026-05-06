@@ -7,10 +7,9 @@ import {
   spatialGridManager,
   useScene,
 } from '@pascal-app/core'
-import { type HoverStyles, InteractiveSystem, useViewer, Viewer } from '@pascal-app/viewer'
+import { HoverStyles, InteractiveSystem, useViewer, Viewer } from '@pascal-app/viewer'
 import {
-  memo,
-  type ReactNode,
+  memo, ReactNode,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -19,13 +18,12 @@ import {
 } from 'react'
 import { ViewerOverlay } from '../../components/viewer-overlay'
 import { ViewerZoneSystem } from '../../components/viewer-zone-system'
-import { type PresetsAdapter, PresetsProvider } from '../../contexts/presets-context'
-import { type SaveStatus, useAutoSave } from '../../hooks/use-auto-save'
+import { PresetsAdapter, PresetsProvider } from '../../contexts/presets-context'
+import { SaveStatus, useAutoSave } from '../../hooks/use-auto-save'
 import { useKeyboard } from '../../hooks/use-keyboard'
 import {
   applySceneGraphToEditor,
-  loadSceneFromLocalStorage,
-  type SceneGraph,
+  loadSceneFromLocalStorage, SceneGraph,
   writePersistedSelection,
 } from '../../lib/scene'
 import { initSFXBus } from '../../lib/sfx-bus'
@@ -39,7 +37,7 @@ import { ZoneSystem } from '../systems/zone/zone-system'
 import { BoxSelectTool } from '../tools/select/box-select-tool'
 import { ToolManager } from '../tools/tool-manager'
 import { ActionMenu } from '../ui/action-menu'
-import { CommandPalette, type CommandPaletteEmptyAction } from '../ui/command-palette'
+import { CommandPalette, CommandPaletteEmptyAction } from '../ui/command-palette'
 import { EditorCommands } from '../ui/command-palette/editor-commands'
 import { FloatingLevelSelector } from '../ui/floating-level-selector'
 import { HelperManager } from '../ui/helpers/helper-manager'
@@ -50,8 +48,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/primitives/toolti
 import { SceneLoader } from '../ui/scene-loader'
 import { AppSidebar } from '../ui/sidebar/app-sidebar'
 import type { ExtraPanel } from '../ui/sidebar/icon-rail'
-import { SettingsPanel, type SettingsPanelProps } from '../ui/sidebar/panels/settings-panel'
-import { SitePanel, type SitePanelProps } from '../ui/sidebar/panels/site-panel'
+import { SettingsPanel, SettingsPanelProps } from '../ui/sidebar/panels/settings-panel'
+import { SitePanel, SitePanelProps } from '../ui/sidebar/panels/site-panel'
 import type { SidebarTab } from '../ui/sidebar/tab-bar'
 import { CustomCameraControls } from './custom-camera-controls'
 import { EditorLayoutV2 } from './editor-layout-v2'
@@ -64,7 +62,7 @@ import { Grid } from './grid'
 import { PresetThumbnailGenerator } from './preset-thumbnail-generator'
 import { SelectionManager } from './selection-manager'
 import { SiteEdgeLabels } from './site-edge-labels'
-import { type SnapshotCameraData, ThumbnailGenerator } from './thumbnail-generator'
+import { SnapshotCameraData, ThumbnailGenerator } from './thumbnail-generator'
 import { WallMeasurementLabel } from './wall-measurement-label'
 
 const CAMERA_CONTROLS_HINT_DISMISSED_STORAGE_KEY = 'editor-camera-controls-hint-dismissed:v1'

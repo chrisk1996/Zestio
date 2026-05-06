@@ -1,9 +1,8 @@
 import { useFrame } from '@react-three/fiber'
 import {
-  type AnyNodeId,
+  AnyNodeId,
   getRenderableSlabPolygon,
-  sceneRegistry,
-  type SlabNode,
+  sceneRegistry, SlabNode,
   useScene,
 } from '@pascal-app/core'
 import * as THREE from 'three'

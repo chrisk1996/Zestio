@@ -1,9 +1,8 @@
 'use client'
 
 import {
-  type BuildingNode,
-  emitter,
-  type GridEvent,
+  BuildingNode,
+  emitter, GridEvent,
   sceneRegistry,
   useScene,
 } from '@pascal-app/core'

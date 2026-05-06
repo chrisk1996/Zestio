@@ -4,8 +4,7 @@ import { resolveLevelId, sceneRegistry, useScene } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import useEditor, {
   hasCustomPersistedEditorUiState,
-  normalizePersistedEditorUiState,
-  type PersistedEditorUiState,
+  normalizePersistedEditorUiState, PersistedEditorUiState,
 } from '../store/use-editor'
 
 export type SceneGraph = {

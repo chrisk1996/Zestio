@@ -1,8 +1,8 @@
-import { emitter, type GridEvent, type LevelNode, useScene, type WallNode } from '@pascal-app/core'
+import { emitter, GridEvent, LevelNode, useScene, WallNode } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { Html } from '@react-three/drei'
 import { useEffect, useRef, useState } from 'react'
-import { DoubleSide, type Group, type Mesh, Shape, ShapeGeometry, Vector3 } from 'three'
+import { DoubleSide, Group, Mesh, Shape, ShapeGeometry, Vector3 } from 'three'
 import { markToolCancelConsumed } from '../../../hooks/use-keyboard'
 import { EDITOR_LAYER } from '../../../lib/constants'
 import { sfxEmitter } from '../../../lib/sfx-bus'
@@ -12,7 +12,7 @@ import {
   getAngleToSegmentReference,
   getSegmentAngleReferenceAtPoint,
 } from '../shared/segment-angle'
-import { createWallOnCurrentLevel, snapWallDraftPoint, type WallPlanPoint } from './wall-drafting'
+import { createWallOnCurrentLevel, snapWallDraftPoint, WallPlanPoint } from './wall-drafting'
 
 const WALL_HEIGHT = 2.5
 const DRAFT_LABEL_Y = WALL_HEIGHT + 0.22

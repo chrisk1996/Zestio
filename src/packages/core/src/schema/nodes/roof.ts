@@ -1,7 +1,7 @@
 import dedent from 'dedent'
 import { z } from 'zod'
 import { BaseNode, nodeType, objectId } from '../base'
-import { type MaterialSchema, MaterialSchema as MaterialSchemaSchema } from '../material'
+import { MaterialSchema, MaterialSchema as MaterialSchemaSchema } from '../material'
 import { RoofSegmentNode } from './roof-segment'
 
 export type RoofSurfaceMaterialRole = 'top' | 'edge' | 'wall'

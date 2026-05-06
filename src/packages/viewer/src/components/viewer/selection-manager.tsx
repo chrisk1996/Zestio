@@ -1,19 +1,11 @@
 'use client'
 
 import {
-  type AnyNode,
-  type AnyNodeId,
-  type BuildingNode,
-  type ColumnNode,
-  emitter,
-  type ItemNode,
-  type LevelNode,
-  type NodeEvent,
+  AnyNode, AnyNodeId, BuildingNode, ColumnNode,
+  emitter, ItemNode, LevelNode, NodeEvent,
   pointInPolygon,
   sceneRegistry,
-  useScene,
-  type WallNode,
-  type ZoneNode,
+  useScene, WallNode, ZoneNode,
 } from '@pascal-app/core'
 import { useThree } from '@react-three/fiber'
 import { useEffect, useRef } from 'react'

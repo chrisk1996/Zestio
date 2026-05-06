@@ -1,11 +1,9 @@
 import '../../../three-types'
 
 import {
-  type AnyNodeId,
-  ColumnNode,
-  type ColumnNode as ColumnNodeType,
-  emitter,
-  type GridEvent,
+  AnyNodeId,
+  ColumnNode, ColumnNode as ColumnNodeType,
+  emitter, GridEvent,
   sceneRegistry,
   useLiveTransforms,
   useScene,

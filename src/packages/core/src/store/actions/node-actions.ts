@@ -1,9 +1,7 @@
 import {
-  type AnyNode,
-  type AnyNodeId,
+  AnyNode, AnyNodeId,
   getEffectiveWallSurfaceMaterial,
-  getWallSurfaceMaterialSignature,
-  type WallNode,
+  getWallSurfaceMaterialSignature, WallNode,
 } from '../../schema'
 import type { CollectionId } from '../../schema/collections'
 import type { SceneState } from '../use-scene'

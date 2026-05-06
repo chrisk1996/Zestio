@@ -1,22 +1,8 @@
 'use client'
 
 import {
-  type AnyNode,
-  type AnyNodeId,
-  type BuildingNode,
-  type CeilingNode,
-  type ColumnNode,
-  type DoorNode,
-  type FenceNode,
-  type ItemNode,
-  type RoofNode,
-  type RoofSegmentNode,
-  type SlabNode,
-  type StairNode,
-  type StairSegmentNode,
-  useScene,
-  type WallNode,
-  type WindowNode,
+  AnyNode, AnyNodeId, BuildingNode, CeilingNode, ColumnNode, DoorNode, FenceNode, ItemNode, RoofNode, RoofSegmentNode, SlabNode, StairNode, StairSegmentNode,
+  useScene, WallNode, WindowNode,
 } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { useCallback, useEffect, useState } from 'react'

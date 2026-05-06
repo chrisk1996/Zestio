@@ -4,7 +4,7 @@ import type { AnyNode, AnyNodeId } from '@pascal-app/core/schema'
 import { z } from 'zod'
 import { rehydrateSiteChildren } from '../../lib/rehydrate-site-children'
 import type { SceneOperations } from '../../operations'
-import { isTemplateId, TEMPLATES, type TemplateId } from '../../templates'
+import { isTemplateId, TEMPLATES, TemplateId } from '../../templates'
 import { ErrorCode, throwMcpError } from '../errors'
 import { appendLiveSceneEvent } from '../live-sync'
 

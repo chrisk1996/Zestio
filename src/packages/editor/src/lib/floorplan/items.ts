@@ -1,9 +1,6 @@
 import {
-  type AnyNode,
-  type AnyNodeId,
-  getScaledDimensions,
-  type ItemNode,
-  type LevelNode,
+  AnyNode, AnyNodeId,
+  getScaledDimensions, ItemNode, LevelNode,
   useLiveTransforms,
 } from '@pascal-app/core'
 import { getRotatedRectanglePolygon, rotatePlanVector } from './geometry'

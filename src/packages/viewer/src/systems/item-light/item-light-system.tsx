@@ -2,7 +2,7 @@ import type { AnyNodeId, LevelNode } from '@pascal-app/core'
 import { sceneRegistry, useInteractive, useScene } from '@pascal-app/core'
 import { useFrame } from '@react-three/fiber'
 import { useRef } from 'react'
-import { MathUtils, type PointLight, Vector3 } from 'three'
+import { MathUtils, PointLight, Vector3 } from 'three'
 import { useItemLightPool } from '../../store/use-item-light-pool'
 import useViewer from '../../store/use-viewer'
 

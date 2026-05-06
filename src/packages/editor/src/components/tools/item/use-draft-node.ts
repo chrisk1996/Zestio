@@ -1,6 +1,5 @@
 import {
-  type AnyNodeId,
-  type AssetInput,
+  AnyNodeId, AssetInput,
   ItemNode,
   sceneRegistry,
   useScene,

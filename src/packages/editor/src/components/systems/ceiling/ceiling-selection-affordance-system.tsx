@@ -1,14 +1,14 @@
 'use client'
 
 import {
-  type CeilingNode,
+  CeilingNode,
   emitter,
   resolveLevelId,
   sceneRegistry,
   useScene,
 } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
-import { createPortal, type ThreeEvent } from '@react-three/fiber'
+import { createPortal, ThreeEvent } from '@react-three/fiber'
 import { useEffect, useMemo, useState } from 'react'
 import type { Object3D } from 'three'
 import { useShallow } from 'zustand/react/shallow'

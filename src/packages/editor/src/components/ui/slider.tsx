@@ -1,5 +1,5 @@
 import * as SliderPrimitive from '@radix-ui/react-slider'
-import { cva, type VariantProps } from 'class-variance-authority'
+import { cva, VariantProps } from 'class-variance-authority'
 import type * as React from 'react'
 
 import { cn } from './../../lib/utils'

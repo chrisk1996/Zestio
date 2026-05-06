@@ -1,7 +1,7 @@
 import dedent from 'dedent'
 import { z } from 'zod'
 import { BaseNode, nodeType, objectId } from '../base'
-import { type MaterialSchema, MaterialSchema as MaterialSchemaSchema } from '../material'
+import { MaterialSchema, MaterialSchema as MaterialSchemaSchema } from '../material'
 import { StairSegmentNode } from './stair-segment'
 
 export const StairRailingMode = z.enum(['none', 'left', 'right', 'both'])

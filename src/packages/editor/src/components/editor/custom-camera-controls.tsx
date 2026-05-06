@@ -1,7 +1,6 @@
 'use client'
 import {
-  type CameraControlEvent,
-  type CameraControlFitSceneEvent,
+  CameraControlEvent, CameraControlFitSceneEvent,
   emitter,
   sceneRegistry,
   useScene,

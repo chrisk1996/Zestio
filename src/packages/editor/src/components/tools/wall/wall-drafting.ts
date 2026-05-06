@@ -1,16 +1,11 @@
 import {
-  type AnyNode,
-  type AnyNodeId,
-  type DoorNode,
+  AnyNode, AnyNodeId, DoorNode,
   getScaledDimensions,
   getWallCurveFrameAt,
-  getWallCurveLength,
-  type ItemNode,
+  getWallCurveLength, ItemNode,
   isCurvedWall,
-  useScene,
-  type WallNode,
-  WallNode as WallSchema,
-  type WindowNode,
+  useScene, WallNode,
+  WallNode as WallSchema, WindowNode,
 } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { sfxEmitter } from '../../../lib/sfx-bus'

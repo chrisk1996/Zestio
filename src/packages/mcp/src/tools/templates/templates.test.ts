@@ -6,8 +6,7 @@ import { SceneBridge } from '../../bridge/scene-bridge'
 import { createSceneOperations } from '../../operations'
 import {
   InMemorySceneStore,
-  parseToolText,
-  type StoredTextContent,
+  parseToolText, StoredTextContent,
 } from '../scene-lifecycle/test-utils'
 import { registerCreateFromTemplate } from './create-from-template'
 import { registerListTemplates } from './list-templates'

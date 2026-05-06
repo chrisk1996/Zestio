@@ -1,11 +1,8 @@
 'use client'
 
 import {
-  type AnyNode,
-  type AnyNodeId,
-  type RoofSegmentNode,
-  RoofSegmentNode as RoofSegmentNodeSchema,
-  type RoofType,
+  AnyNode, AnyNodeId, RoofSegmentNode,
+  RoofSegmentNode as RoofSegmentNodeSchema, RoofType,
   useScene,
 } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'

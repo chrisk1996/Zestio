@@ -2,13 +2,9 @@
 
 import { Icon } from '@iconify/react'
 import {
-  type AnyNode,
-  type AnyNodeId,
-  type BuildingNode,
-  emitter,
-  type LevelNode,
-  useScene,
-  type ZoneNode,
+  AnyNode, AnyNodeId, BuildingNode,
+  emitter, LevelNode,
+  useScene, ZoneNode,
 } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { ArrowLeft, Camera, ChevronRight, Diamond, Layers, Moon, Sun } from 'lucide-react'

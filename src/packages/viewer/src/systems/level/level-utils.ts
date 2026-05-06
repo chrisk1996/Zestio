@@ -1,9 +1,7 @@
 import {
-  type CeilingNode,
-  type LevelNode,
+  CeilingNode, LevelNode,
   sceneRegistry,
-  useScene,
-  type WallNode,
+  useScene, WallNode,
 } from '@pascal-app/core'
 
 export const DEFAULT_LEVEL_HEIGHT = 2.5

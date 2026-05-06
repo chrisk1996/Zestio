@@ -1,6 +1,6 @@
 'use client'
 
-import { type AnyNode, type SpawnNode, useLiveTransforms, useScene } from '@pascal-app/core'
+import { AnyNode, SpawnNode, useLiveTransforms, useScene } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { Move, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'

@@ -1,8 +1,8 @@
-import { type AnyNodeId, emitter, sceneRegistry, useScene, type WallNode } from '@pascal-app/core'
+import { AnyNodeId, emitter, sceneRegistry, useScene, WallNode } from '@pascal-app/core'
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useRef } from 'react'
 import type { Material } from 'three'
-import { type Mesh, Vector3 } from 'three/webgpu'
+import { Mesh, Vector3 } from 'three/webgpu'
 import useViewer from '../../store/use-viewer'
 import { getMaterialsForWall } from './wall-materials'
 

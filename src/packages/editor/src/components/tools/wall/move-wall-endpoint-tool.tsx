@@ -1,27 +1,25 @@
 'use client'
 
 import {
-  type AnyNodeId,
-  emitter,
-  type GridEvent,
+  AnyNodeId,
+  emitter, GridEvent,
   pauseSceneHistory,
   resumeSceneHistory,
-  useScene,
-  type WallNode,
+  useScene, WallNode,
 } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { Html } from '@react-three/drei'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { markToolCancelConsumed } from '../../../hooks/use-keyboard'
 import { sfxEmitter } from '../../../lib/sfx-bus'
-import useEditor, { type MovingWallEndpoint } from '../../../store/use-editor'
+import useEditor, { MovingWallEndpoint } from '../../../store/use-editor'
 import { CursorSphere } from '../shared/cursor-sphere'
 import {
   formatAngleRadians,
   getAngleToSegmentReference,
   getSegmentAngleReferenceAtPoint,
 } from '../shared/segment-angle'
-import { isWallLongEnough, snapWallDraftPoint, type WallPlanPoint } from './wall-drafting'
+import { isWallLongEnough, snapWallDraftPoint, WallPlanPoint } from './wall-drafting'
 
 function samePoint(a: WallPlanPoint, b: WallPlanPoint) {
   return a[0] === b[0] && a[1] === b[1]

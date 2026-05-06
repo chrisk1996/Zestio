@@ -2,12 +2,8 @@ import '../../../three-types'
 
 import {
   COLUMN_PRESETS,
-  ColumnNode,
-  type ColumnNode as ColumnNodeType,
-  type ColumnPresetId,
-  emitter,
-  type GridEvent,
-  type LevelNode,
+  ColumnNode, ColumnNode as ColumnNodeType, ColumnPresetId,
+  emitter, GridEvent, LevelNode,
   useScene,
 } from '@pascal-app/core'
 import { useEffect, useRef, useState } from 'react'

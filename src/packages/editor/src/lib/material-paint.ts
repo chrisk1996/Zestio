@@ -1,23 +1,12 @@
 'use client'
 
 import {
-  type CeilingNode,
-  type ColumnNode,
-  type FenceNode,
+  CeilingNode, ColumnNode, FenceNode,
   getCatalogMaterialById,
   getEffectiveRoofSurfaceMaterial,
   getEffectiveStairSurfaceMaterial,
   getEffectiveWallSurfaceMaterial,
-  getLibraryMaterialIdFromRef,
-  type MaterialSchema,
-  type MaterialTarget,
-  type RoofNode,
-  type RoofSurfaceMaterialRole,
-  type SlabNode,
-  type StairNode,
-  type StairSurfaceMaterialRole,
-  type WallNode,
-  type WallSurfaceSide,
+  getLibraryMaterialIdFromRef, MaterialSchema, MaterialTarget, RoofNode, RoofSurfaceMaterialRole, SlabNode, StairNode, StairSurfaceMaterialRole, WallNode, WallSurfaceSide,
 } from '@pascal-app/core'
 
 export type PaintableMaterialTarget = Extract<

@@ -1,7 +1,7 @@
 'use client'
 
-import { emitter, type FenceNode, isCurvedWall, type WallNode } from '@pascal-app/core'
-import { type MouseEvent as ReactMouseEvent, useCallback } from 'react'
+import { emitter, FenceNode, isCurvedWall, WallNode } from '@pascal-app/core'
+import { MouseEvent as ReactMouseEvent, useCallback } from 'react'
 import { getPlanPointDistance } from '../../lib/floorplan'
 import { snapFenceDraftPoint } from '../tools/fence/fence-drafting'
 import type { WallPlanPoint } from '../tools/wall/wall-drafting'

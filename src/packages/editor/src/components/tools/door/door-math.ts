@@ -1,11 +1,7 @@
 import {
-  type AnyNodeId,
-  type DoorNode,
-  getScaledDimensions,
-  type ItemNode,
-  useScene,
-  type WallNode,
-  type WindowNode,
+  AnyNodeId, DoorNode,
+  getScaledDimensions, ItemNode,
+  useScene, WallNode, WindowNode,
 } from '@pascal-app/core'
 
 /**

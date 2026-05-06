@@ -1,4 +1,4 @@
-import { useRegistry, useScene, type WindowNode } from '@pascal-app/core'
+import { useRegistry, useScene, WindowNode } from '@pascal-app/core'
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import type { Mesh } from 'three'
 import { useNodeEvents } from '../../../hooks/use-node-events'

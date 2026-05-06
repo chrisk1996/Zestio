@@ -1,4 +1,4 @@
-import { type AnyNodeId, emitter, useScene } from '@pascal-app/core'
+import { AnyNodeId, emitter, useScene } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { useEffect } from 'react'
 import { runRedo, runUndo } from '../lib/history'

@@ -2,13 +2,10 @@
 
 
 import {
-  type AnyNode,
-  type AnyNodeId,
-  type FenceNode,
+  AnyNode, AnyNodeId, FenceNode,
   getClampedWallCurveOffset,
   getMaxWallCurveOffset,
-  getWallCurveLength,
-  type MaterialSchema,
+  getWallCurveLength, MaterialSchema,
   normalizeWallCurveOffset,
   useScene,
 } from '@pascal-app/core'

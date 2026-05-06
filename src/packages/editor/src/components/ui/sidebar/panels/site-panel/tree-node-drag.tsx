@@ -1,10 +1,9 @@
 'use client'
 
-import { type AnyNode, type AnyNodeId, useScene } from '@pascal-app/core'
+import { AnyNode, AnyNodeId, useScene } from '@pascal-app/core'
 import { motion } from 'motion/react'
 import {
-  createContext,
-  type ReactNode,
+  createContext, ReactNode,
   useCallback,
   useContext,
   useEffect,

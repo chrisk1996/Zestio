@@ -1,8 +1,8 @@
 'use client'
 
 import { useScene } from '@pascal-app/core'
-import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
-import { type SceneGraph, saveSceneToLocalStorage } from '../lib/scene'
+import { MutableRefObject, useCallback, useEffect, useRef } from 'react'
+import { SceneGraph, saveSceneToLocalStorage } from '../lib/scene'
 
 const AUTOSAVE_DEBOUNCE_MS = 1000
 

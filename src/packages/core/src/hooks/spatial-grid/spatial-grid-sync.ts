@@ -1,10 +1,6 @@
 import {
-  type AnyNode,
-  type AnyNodeId,
-  getScaledDimensions,
-  type ItemNode,
-  type SlabNode,
-  type WallNode,
+  AnyNode, AnyNodeId,
+  getScaledDimensions, ItemNode, SlabNode, WallNode,
 } from '../../schema'
 import useScene from '../../store/use-scene'
 import {

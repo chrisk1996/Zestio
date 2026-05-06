@@ -1,14 +1,10 @@
 import {
-  type AnyNode,
-  type AnyNodeId,
-  type BuildingNode,
+  AnyNode, AnyNodeId, BuildingNode,
   emitter,
   GuideNode,
   LevelNode,
-  ScanNode,
-  type SiteNode,
-  useScene,
-  type ZoneNode,
+  ScanNode, SiteNode,
+  useScene, ZoneNode,
 } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import {
@@ -36,8 +32,7 @@ import { deleteLevelWithFallbackSelection } from './../../../../../lib/level-sel
 import { createLocalGuideImage } from './../../../../../lib/local-guide-image'
 
 import {
-  buildLevelDuplicateCreateOps,
-  type LevelDuplicatePreset,
+  buildLevelDuplicateCreateOps, LevelDuplicatePreset,
 } from './../../../../../lib/level-duplication'
 
 import { cn } from './../../../../../lib/utils'

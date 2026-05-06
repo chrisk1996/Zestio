@@ -1,14 +1,9 @@
 import { SceneBridge } from '../../bridge/scene-bridge'
-import { createSceneOperations, type SceneOperations } from '../../operations'
+import { createSceneOperations, SceneOperations } from '../../operations'
 import {
-  type SceneListOptions,
-  type SceneMeta,
-  type SceneMutateOptions,
-  SceneNotFoundError,
-  type SceneSaveOptions,
-  type SceneStore,
-  SceneVersionConflictError,
-  type SceneWithGraph,
+  SceneListOptions, SceneMeta, SceneMutateOptions,
+  SceneNotFoundError, SceneSaveOptions, SceneStore,
+  SceneVersionConflictError, SceneWithGraph,
 } from '../../storage/types'
 
 export type StoredTextContent = { type: string; text: string }

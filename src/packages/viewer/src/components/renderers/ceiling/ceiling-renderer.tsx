@@ -1,12 +1,12 @@
 import {
-  type CeilingNode,
+  CeilingNode,
   getMaterialPresetByRef,
   resolveMaterial,
   useRegistry,
 } from '@pascal-app/core'
 import { useMemo, useRef } from 'react'
 import { float, mix, positionWorld, smoothstep } from 'three/tsl'
-import { BackSide, FrontSide, type Mesh, MeshBasicNodeMaterial } from 'three/webgpu'
+import { BackSide, FrontSide, Mesh, MeshBasicNodeMaterial } from 'three/webgpu'
 import { useNodeEvents } from '../../../hooks/use-node-events'
 import { NodeRenderer } from '../node-renderer'
 

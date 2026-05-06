@@ -1,6 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { SceneBridge } from './bridge/scene-bridge'
-import { createSceneOperations, type SceneOperations } from './operations'
+import { createSceneOperations, SceneOperations } from './operations'
 import { registerPrompts } from './prompts'
 import { registerResources } from './resources'
 import { createSceneStore } from './storage'

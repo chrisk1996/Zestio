@@ -1,10 +1,8 @@
 'use client'
 
 import {
-  type AnyNode,
-  COLUMN_PRESETS,
-  type ColumnNode,
-  type ColumnPresetId,
+  AnyNode,
+  COLUMN_PRESETS, ColumnNode, ColumnPresetId,
   useScene,
 } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'

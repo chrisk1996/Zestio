@@ -1,11 +1,7 @@
 'use client'
 
 import {
-  type AnyNodeId,
-  type BuildingNode,
-  type GuideNode,
-  type LevelNode,
-  type ScanNode,
+  AnyNodeId, BuildingNode, GuideNode, LevelNode, ScanNode,
   useScene,
 } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
@@ -14,7 +10,7 @@ import { useCallback, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { createLocalGuideImage } from '../../../lib/local-guide-image'
 import { cn } from '../../../lib/utils'
-import useEditor, { type GridSnapStep } from '../../../store/use-editor'
+import useEditor, { GridSnapStep } from '../../../store/use-editor'
 import { useUploadStore } from '../../../store/use-upload'
 import { SliderControl } from '../controls/slider-control'
 import { Popover, PopoverContent, PopoverTrigger } from '../primitives/popover'

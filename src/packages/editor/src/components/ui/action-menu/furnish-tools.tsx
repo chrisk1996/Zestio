@@ -2,7 +2,7 @@
 
 import NextImage from 'next/image'
 import { cn } from './../../../lib/utils'
-import useEditor, { type CatalogCategory } from './../../../store/use-editor'
+import useEditor, { CatalogCategory } from './../../../store/use-editor'
 import { ActionButton } from './action-button'
 
 export type FurnishToolConfig = {

@@ -1,14 +1,12 @@
 'use client'
 
 import {
-  type AnyNode,
-  type AnyNodeId,
+  AnyNode, AnyNodeId,
   getClampedWallCurveOffset,
   getMaxWallCurveOffset,
   getWallCurveLength,
   normalizeWallCurveOffset,
-  useScene,
-  type WallNode,
+  useScene, WallNode,
 } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { Move, Spline } from 'lucide-react'

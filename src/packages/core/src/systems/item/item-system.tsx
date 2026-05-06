@@ -3,7 +3,7 @@ import type * as THREE from 'three'
 import { sceneRegistry } from '../../hooks/scene-registry/scene-registry'
 import { spatialGridManager } from '../../hooks/spatial-grid/spatial-grid-manager'
 import { resolveLevelId } from '../../hooks/spatial-grid/spatial-grid-sync'
-import { type AnyNodeId, getScaledDimensions, type ItemNode, type WallNode } from '../../schema'
+import { AnyNodeId, getScaledDimensions, ItemNode, WallNode } from '../../schema'
 import useScene from '../../store/use-scene'
 
 // ============================================================================

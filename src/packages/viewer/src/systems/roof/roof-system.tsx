@@ -1,10 +1,6 @@
 import { useFrame } from '@react-three/fiber'
 import {
-  type AnyNode,
-  type AnyNodeId,
-  type RoofNode,
-  type RoofSegmentNode,
-  type RoofType,
+  AnyNode, AnyNodeId, RoofNode, RoofSegmentNode, RoofType,
   sceneRegistry,
   useScene,
 } from '@pascal-app/core'

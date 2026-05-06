@@ -2,11 +2,9 @@ import {
   getEffectiveWallSurfaceMaterial,
   getMaterialPresetByRef,
   getWallSurfaceMaterialSignature,
-  resolveMaterial,
-  type WallNode,
-  type WallSurfaceMaterialSpec,
+  resolveMaterial, WallNode, WallSurfaceMaterialSpec,
 } from '@pascal-app/core'
-import { Color, type Material } from 'three'
+import { Color, Material } from 'three'
 import { Fn, float, fract, length, mix, positionLocal, smoothstep, step, vec2 } from 'three/tsl'
 import { MeshStandardNodeMaterial } from 'three/webgpu'
 import { baseMaterial, createMaterial, createMaterialFromPresetRef } from '../../lib/materials'

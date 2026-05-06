@@ -1,11 +1,9 @@
 'use client'
 
 import {
-  type AnyNodeId,
-  generateId,
-  type RoofNode,
-  RoofNode as RoofNodeSchema,
-  type RoofSegmentNode,
+  AnyNodeId,
+  generateId, RoofNode,
+  RoofNode as RoofNodeSchema, RoofSegmentNode,
   RoofSegmentNode as RoofSegmentNodeSchema,
   sceneRegistry,
   useScene,
