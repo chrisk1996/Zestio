@@ -3,7 +3,6 @@
 import {
   type AnyNode,
   type AnyNodeId,
-  type MaterialSchema,
   type RoofSegmentNode,
   RoofSegmentNode as RoofSegmentNodeSchema,
   type RoofType,
@@ -15,8 +14,6 @@ import { useCallback } from 'react'
 import { sfxEmitter } from '../../../lib/sfx-bus'
 import useEditor from '../../../store/use-editor'
 import { ActionButton, ActionGroup } from '../controls/action-button'
-import { MaterialPicker } from '../controls/material-picker'
-import { MetricControl } from '../controls/metric-control'
 import { PanelSection } from '../controls/panel-section'
 import { SegmentedControl } from '../controls/segmented-control'
 import { SliderControl } from '../controls/slider-control'
@@ -36,16 +33,14 @@ const ROOF_TYPE_OPTIONS_2: { label: string; value: RoofType }[] = [
 ]
 
 export function RoofSegmentPanel() {
-  const selectedIds = useViewer((s) => s.selection.selectedIds)
+  const selectedId = useViewer((s) => s.selection.selectedIds[0])
   const setSelection = useViewer((s) => s.setSelection)
-  const nodes = useScene((s) => s.nodes)
   const updateNode = useScene((s) => s.updateNode)
   const setMovingNode = useEditor((s) => s.setMovingNode)
 
-  const selectedId = selectedIds[0]
-  const node = selectedId
-    ? (nodes[selectedId as AnyNode['id']] as RoofSegmentNode | undefined)
-    : undefined
+  const node = useScene((s) =>
+    selectedId ? (s.nodes[selectedId as AnyNode['id']] as RoofSegmentNode | undefined) : undefined,
+  )
 
   const handleUpdate = useCallback(
     (updates: Partial<RoofSegmentNode>) => {
@@ -69,7 +64,7 @@ export function RoofSegmentPanel() {
     if (!node?.parentId) return
     sfxEmitter.emit('sfx:item-pick')
 
-    const duplicateInfo = structuredClone(node) as any
+    let duplicateInfo = structuredClone(node) as any
     delete duplicateInfo.id
     duplicateInfo.metadata = { ...duplicateInfo.metadata, isNew: true }
     // Offset slightly so it's visible
@@ -110,11 +105,7 @@ export function RoofSegmentPanel() {
     }
   }, [selectedId, node, setSelection])
 
-  const handleMaterialChange = useCallback((material: MaterialSchema) => {
-    handleUpdate({ material })
-  }, [handleUpdate])
-
-  if (!node || node.type !== 'roof-segment' || selectedIds.length !== 1) return null
+  if (!(node && node.type === 'roof-segment' && selectedId)) return null
 
   return (
     <PanelWrapper
@@ -227,7 +218,7 @@ export function RoofSegmentPanel() {
       </PanelSection>
 
       <PanelSection title="Position">
-        <MetricControl
+        <SliderControl
           label="X"
           max={50}
           min={-50}
@@ -241,7 +232,7 @@ export function RoofSegmentPanel() {
           unit="m"
           value={Math.round(node.position[0] * 100) / 100}
         />
-        <MetricControl
+        <SliderControl
           label="Y"
           max={50}
           min={-50}
@@ -255,7 +246,7 @@ export function RoofSegmentPanel() {
           unit="m"
           value={Math.round(node.position[1] * 100) / 100}
         />
-        <MetricControl
+        <SliderControl
           label="Z"
           max={50}
           min={-50}
@@ -297,13 +288,6 @@ export function RoofSegmentPanel() {
             }}
           />
         </div>
-      </PanelSection>
-
-      <PanelSection title="Material">
-        <MaterialPicker
-          onChange={handleMaterialChange}
-          value={node.material}
-        />
       </PanelSection>
 
       <PanelSection title="Actions">

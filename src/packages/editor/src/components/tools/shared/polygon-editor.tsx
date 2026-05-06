@@ -1,16 +1,19 @@
 import { emitter, type GridEvent, sceneRegistry } from '@pascal-app/core'
 import { createPortal } from '@react-three/fiber'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { BufferGeometry, Float32BufferAttribute, type Line } from 'three'
+import { BufferGeometry, Float32BufferAttribute, type Line, type Object3D } from 'three'
 import { EDITOR_LAYER } from '../../../lib/constants'
 import { sfxEmitter } from '../../../lib/sfx-bus'
+import { snapToHalf } from '../item/placement-math'
 
 const Y_OFFSET = 0.02
 
 type DragState = {
   isDragging: boolean
-  vertexIndex: number
+  mode: 'vertex' | 'polygon'
+  vertexIndex: number | null
   initialPosition: [number, number]
+  initialPolygon: Array<[number, number]>
   pointerId: number
 }
 
@@ -23,6 +26,8 @@ export interface PolygonEditorProps {
   levelId?: string
   /** Height of the surface being edited (e.g. slab elevation). Handles adapt to this. */
   surfaceHeight?: number
+  /** Whether to show the center handle that moves the entire polygon. */
+  allowPolygonMove?: boolean
 }
 
 /**
@@ -38,9 +43,42 @@ export const PolygonEditor: React.FC<PolygonEditorProps> = ({
   minVertices = 3,
   levelId,
   surfaceHeight = 0,
+  allowPolygonMove = false,
 }) => {
-  // Get level node from registry if levelId is provided
-  const levelNode = levelId ? sceneRegistry.nodes.get(levelId) : null
+  const [levelNode, setLevelNode] = useState<Object3D | null>(() =>
+    levelId ? (sceneRegistry.nodes.get(levelId) ?? null) : null,
+  )
+
+  useEffect(() => {
+    if (!levelId) {
+      setLevelNode(null)
+      return
+    }
+
+    let frameId = 0
+
+    const resolveLevelNode = () => {
+      const nextLevelNode = sceneRegistry.nodes.get(levelId) ?? null
+      setLevelNode((currentLevelNode) => {
+        if (currentLevelNode === nextLevelNode) {
+          return currentLevelNode
+        }
+        return nextLevelNode
+      })
+
+      if (!nextLevelNode) {
+        frameId = window.requestAnimationFrame(resolveLevelNode)
+      }
+    }
+
+    resolveLevelNode()
+
+    return () => {
+      if (frameId) {
+        window.cancelAnimationFrame(frameId)
+      }
+    }
+  }, [levelId])
 
   // When using portal, edit at Y_OFFSET (local to level)
   // When not using portal, edit at world origin
@@ -74,6 +112,17 @@ export const PolygonEditor: React.FC<PolygonEditorProps> = ({
 
   // The polygon to display (preview during drag, or actual polygon)
   const displayPolygon = previewPolygon ?? polygon
+
+  const polygonCenter = useMemo(() => {
+    if (displayPolygon.length === 0) return [0, 0] as [number, number]
+    let sumX = 0
+    let sumZ = 0
+    for (const [x, z] of displayPolygon) {
+      sumX += x
+      sumZ += z
+    }
+    return [sumX / displayPolygon.length, sumZ / displayPolygon.length] as [number, number]
+  }, [displayPolygon])
 
   // Calculate midpoints for adding new vertices
   const midpoints = useMemo(() => {
@@ -139,8 +188,8 @@ export const PolygonEditor: React.FC<PolygonEditorProps> = ({
   // Listen to grid:move events to track cursor position
   useEffect(() => {
     const onGridMove = (event: GridEvent) => {
-      const gridX = Math.round(event.position[0] * 2) / 2
-      const gridZ = Math.round(event.position[2] * 2) / 2
+      const gridX = snapToHalf(event.localPosition[0])
+      const gridZ = snapToHalf(event.localPosition[2])
       const newPosition: [number, number] = [gridX, gridZ]
 
       // Play snap sound when cursor moves to a new grid cell during drag
@@ -158,7 +207,15 @@ export const PolygonEditor: React.FC<PolygonEditorProps> = ({
 
       // Update vertex position during drag
       if (dragState?.isDragging) {
-        handleVertexDrag(dragState.vertexIndex, newPosition)
+        if (dragState.mode === 'vertex' && dragState.vertexIndex !== null) {
+          handleVertexDrag(dragState.vertexIndex, newPosition)
+        } else if (dragState.mode === 'polygon') {
+          const deltaX = newPosition[0] - dragState.initialPosition[0]
+          const deltaZ = newPosition[1] - dragState.initialPosition[1]
+          setPreviewPolygon(
+            dragState.initialPolygon.map(([x, z]) => [x + deltaX, z + deltaZ] as [number, number]),
+          )
+        }
       }
     }
 
@@ -257,7 +314,7 @@ export const PolygonEditor: React.FC<PolygonEditorProps> = ({
       {/* Vertex handles - blue cylinders that match surface height */}
       {displayPolygon.map(([x, z], index) => {
         const isHovered = hoveredVertex === index
-        const isDragging = dragState?.vertexIndex === index
+        const isDragging = dragState?.mode === 'vertex' && dragState.vertexIndex === index
         const radius = 0.1
         const height = Math.max(MIN_HANDLE_HEIGHT, surfaceHeight + 0.02)
 
@@ -282,8 +339,10 @@ export const PolygonEditor: React.FC<PolygonEditorProps> = ({
               e.stopPropagation()
               setDragState({
                 isDragging: true,
+                mode: 'vertex',
                 vertexIndex: index,
                 initialPosition: [x!, z!],
+                initialPolygon: displayPolygon.map(([px, pz]) => [px, pz] as [number, number]),
                 pointerId: e.pointerId,
               })
             }}
@@ -304,6 +363,37 @@ export const PolygonEditor: React.FC<PolygonEditorProps> = ({
           </mesh>
         )
       })}
+
+      {allowPolygonMove && (
+        <mesh
+          castShadow
+          layers={EDITOR_LAYER}
+          onClick={(e) => {
+            if (e.button !== 0) return
+            e.stopPropagation()
+          }}
+          onPointerDown={(e) => {
+            if (e.button !== 0) return
+            e.stopPropagation()
+            setDragState({
+              isDragging: true,
+              mode: 'polygon',
+              vertexIndex: null,
+              initialPosition: polygonCenter,
+              initialPolygon: displayPolygon.map(([px, pz]) => [px, pz] as [number, number]),
+              pointerId: e.pointerId,
+            })
+          }}
+          position={[
+            polygonCenter[0],
+            editY + Math.max(MIN_HANDLE_HEIGHT, surfaceHeight + 0.02) + 0.08,
+            polygonCenter[1],
+          ]}
+        >
+          <sphereGeometry args={[0.09, 20, 20]} />
+          <meshStandardMaterial color={dragState?.mode === 'polygon' ? '#22c55e' : '#f59e0b'} />
+        </mesh>
+      )}
 
       {/* Midpoint handles - smaller green cylinders for adding vertices (hidden while dragging) */}
       {!dragState &&

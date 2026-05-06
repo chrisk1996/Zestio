@@ -8,31 +8,73 @@ interface SliderControlProps {
   label: React.ReactNode
   value: number
   onChange: (value: number) => void
+  onCommit?: (value: number) => void
   min?: number
   max?: number
   precision?: number
   step?: number
   className?: string
   unit?: string
+  restoreOnCommit?: boolean
+}
+
+function stepPrecision(s: number): number {
+  if (s <= 0) return 0
+  return Math.max(0, Math.ceil(-Math.log10(s)))
+}
+
+function getStepMultiplier(modifiers: {
+  shiftKey?: boolean
+  metaKey?: boolean
+  ctrlKey?: boolean
+  altKey?: boolean
+}): number {
+  if (modifiers.shiftKey) return 10
+  if (modifiers.metaKey || modifiers.ctrlKey || modifiers.altKey) return 0.1
+  return 1
+}
+
+function getAdjustedStep(
+  baseStep: number,
+  modifiers: {
+    shiftKey?: boolean
+    metaKey?: boolean
+    ctrlKey?: boolean
+    altKey?: boolean
+  },
+): number {
+  return baseStep * getStepMultiplier(modifiers)
 }
 
 export function SliderControl({
   label,
   value,
   onChange,
+  onCommit,
   min = Number.NEGATIVE_INFINITY,
   max = Number.POSITIVE_INFINITY,
   precision = 0,
   step = 1,
   className,
   unit = '',
+  restoreOnCommit = true,
 }: SliderControlProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const [inputValue, setInputValue] = useState(value.toFixed(precision))
 
-  const dragRef = useRef<{ accumulatedDx: number; startValue: number } | null>(null)
+  const dragRef = useRef<{
+    // Original value at drag start — preserved across modifier re-anchors so
+    // undo/redo rolls back to the pre-drag state, not to a mid-drag anchor.
+    originValue: number
+    // Anchor pointer position and value — updated whenever modifier keys
+    // change so the delta calculation continues smoothly from the current
+    // position at the new step size.
+    anchorX: number
+    anchorValue: number
+    stepMultiplier: number
+  } | null>(null)
   const labelRef = useRef<HTMLDivElement>(null)
   const valueRef = useRef(value)
   valueRef.current = value
@@ -53,16 +95,15 @@ export function SliderControl({
       if (isEditing) return
       e.preventDefault()
       const direction = e.deltaY < 0 ? 1 : -1
-      let s = step
-      if (e.shiftKey) s = step * 10
-      else if (e.altKey) s = step * 0.1
+      const s = getAdjustedStep(step, e)
       const newValue = clamp(valueRef.current + direction * s)
-      const final = Number.parseFloat(newValue.toFixed(precision))
+      const final = Number.parseFloat(newValue.toFixed(stepPrecision(s)))
       if (final !== valueRef.current) onChange(final)
+      onCommit?.(final)
     }
     el.addEventListener('wheel', handleWheel, { passive: false })
     return () => el.removeEventListener('wheel', handleWheel)
-  }, [isEditing, step, clamp, onChange, precision])
+  }, [isEditing, step, clamp, onChange, onCommit])
 
   // Arrow key support while hovered
   useEffect(() => {
@@ -73,31 +114,28 @@ export function SliderControl({
       else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') direction = -1
       if (direction !== 0) {
         e.preventDefault()
-        let s = step
-        if (e.shiftKey) s = step * 10
-        else if (e.metaKey || e.ctrlKey) s = step * 0.1
+        const s = getAdjustedStep(step, e)
         const newValue = clamp(valueRef.current + direction * s)
-        const final = Number.parseFloat(newValue.toFixed(precision))
+        const final = Number.parseFloat(newValue.toFixed(stepPrecision(s)))
         if (final !== valueRef.current) onChange(final)
+        onCommit?.(final)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isHovered, isEditing, step, clamp, onChange, precision])
+  }, [isHovered, isEditing, step, clamp, onChange, onCommit])
 
   const handleLabelPointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (isEditing) return
       e.preventDefault()
-      // Use PointerLock for infinite dragging (Unity3D-style).
-      // Falls back to pointer capture if lock is denied.
-      const el = e.currentTarget
-      if (el.requestPointerLock) {
-        el.requestPointerLock()
-      } else {
-        el.setPointerCapture(e.pointerId)
+      e.currentTarget.setPointerCapture(e.pointerId)
+      dragRef.current = {
+        originValue: valueRef.current,
+        anchorX: e.clientX,
+        anchorValue: valueRef.current,
+        stepMultiplier: getStepMultiplier(e),
       }
-      dragRef.current = { accumulatedDx: 0, startValue: valueRef.current }
       setIsDragging(true)
       useScene.temporal.getState().pause()
     },
@@ -107,66 +145,53 @@ export function SliderControl({
   const handleLabelPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (!dragRef.current) return
-      // Accumulate movementX for infinite dragging. movementX gives the
-      // delta since the last event, independent of screen bounds.
-      dragRef.current.accumulatedDx += e.movementX
-      const { accumulatedDx, startValue } = dragRef.current
-      let s = step
-      if (e.shiftKey) s = step * 10
-      else if (e.metaKey || e.ctrlKey) s = step * 0.1
+      const multiplier = getStepMultiplier(e)
+      // If modifier keys changed mid-drag, re-anchor from the current pointer
+      // position and value — otherwise the accumulated dx would be applied
+      // with a new step size and jump the value (e.g. pressing Cmd while
+      // already far from the starting point would snap back toward it).
+      if (multiplier !== dragRef.current.stepMultiplier) {
+        dragRef.current.anchorX = e.clientX
+        dragRef.current.anchorValue = valueRef.current
+        dragRef.current.stepMultiplier = multiplier
+        return
+      }
+      const { anchorX, anchorValue } = dragRef.current
+      const dx = e.clientX - anchorX
+      const s = step * multiplier
       // 4 px per step at default sensitivity
-      const newValue = clamp(Number.parseFloat((startValue + (accumulatedDx / 4) * s).toFixed(precision)))
-      onChange(newValue)
+      const newValue = clamp(
+        Number.parseFloat((anchorValue + (dx / 4) * s).toFixed(stepPrecision(s))),
+      )
+      if (newValue !== valueRef.current) {
+        valueRef.current = newValue
+        onChange(newValue)
+      }
     },
-    [step, precision, clamp, onChange],
+    [step, clamp, onChange],
   )
 
   const handleLabelPointerUp = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (!dragRef.current) return
-      const { startValue } = dragRef.current
+      const { originValue } = dragRef.current
       const finalVal = valueRef.current
       dragRef.current = null
       setIsDragging(false)
+      e.currentTarget.releasePointerCapture(e.pointerId)
 
-      if (document.pointerLockElement) {
-        document.exitPointerLock()
-      } else {
-        e.currentTarget.releasePointerCapture(e.pointerId)
-      }
-
-      if (startValue !== finalVal) {
-        onChange(startValue)
+      if (originValue !== finalVal && restoreOnCommit) {
+        onChange(originValue)
         useScene.temporal.getState().resume()
         onChange(finalVal)
+        onCommit?.(finalVal)
       } else {
         useScene.temporal.getState().resume()
+        onCommit?.(finalVal)
       }
     },
-    [onChange],
+    [onChange, onCommit, restoreOnCommit],
   )
-
-  // Clean up drag state if pointer lock is lost unexpectedly (e.g. Escape key)
-  useEffect(() => {
-    const handlePointerLockChange = () => {
-      if (!document.pointerLockElement && dragRef.current) {
-        const { startValue } = dragRef.current
-        const finalVal = valueRef.current
-        dragRef.current = null
-        setIsDragging(false)
-
-        if (startValue !== finalVal) {
-          onChange(startValue)
-          useScene.temporal.getState().resume()
-          onChange(finalVal)
-        } else {
-          useScene.temporal.getState().resume()
-        }
-      }
-    }
-    document.addEventListener('pointerlockchange', handlePointerLockChange)
-    return () => document.removeEventListener('pointerlockchange', handlePointerLockChange)
-  }, [onChange])
 
   const handleValueClick = useCallback(() => {
     setIsEditing(true)
@@ -178,10 +203,12 @@ export function SliderControl({
     if (Number.isNaN(numValue)) {
       setInputValue(value.toFixed(precision))
     } else {
-      onChange(clamp(Number.parseFloat(numValue.toFixed(precision))))
+      const nextValue = clamp(Number.parseFloat(numValue.toFixed(precision)))
+      onChange(nextValue)
+      onCommit?.(nextValue)
     }
     setIsEditing(false)
-  }, [inputValue, onChange, clamp, precision, value])
+  }, [inputValue, onChange, onCommit, clamp, precision, value])
 
   const handleInputKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -192,12 +219,18 @@ export function SliderControl({
         setIsEditing(false)
       } else if (e.key === 'ArrowUp') {
         e.preventDefault()
-        const newV = clamp(value + step)
+        const adjustedStep = getAdjustedStep(step, e)
+        const newV = clamp(
+          Number.parseFloat((value + adjustedStep).toFixed(stepPrecision(adjustedStep))),
+        )
         onChange(newV)
         setInputValue(newV.toFixed(precision))
       } else if (e.key === 'ArrowDown') {
         e.preventDefault()
-        const newV = clamp(value - step)
+        const adjustedStep = getAdjustedStep(step, e)
+        const newV = clamp(
+          Number.parseFloat((value - adjustedStep).toFixed(stepPrecision(adjustedStep))),
+        )
         onChange(newV)
         setInputValue(newV.toFixed(precision))
       }
@@ -262,7 +295,7 @@ export function SliderControl({
             className="flex cursor-text items-center text-foreground/60 transition-colors hover:text-foreground"
             onClick={handleValueClick}
           >
-            <span className="font-mono tabular-nums tracking-tight">
+            <span className="font-mono tabular-nums tracking-tight" suppressHydrationWarning>
               {Number(value.toFixed(precision)).toFixed(precision)}
             </span>
             {unit && <span className="ml-[1px] text-muted-foreground">{unit}</span>}

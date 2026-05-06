@@ -1,7 +1,6 @@
 import { useFrame, useThree } from '@react-three/fiber'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Color, Layers, UnsignedByteType } from 'three'
-import { outline } from 'three/addons/tsl/display/OutlineNode.js'
+import { Color, Layers, type Object3D, UnsignedByteType } from 'three'
 import { ssgi } from 'three/addons/tsl/display/SSGINode.js'
 import { denoise } from 'three/examples/jsm/tsl/display/DenoiseNode.js'
 import {
@@ -23,6 +22,7 @@ import {
 } from 'three/tsl'
 import { RenderPipeline, type WebGPURenderer } from 'three/webgpu'
 import { SCENE_LAYER, ZONE_LAYER } from '../../lib/layers'
+import { mergedOutline } from '../../lib/merged-outline-node'
 import useViewer from '../../store/use-viewer'
 
 // SSGI Parameters - adjust these to fine-tune global illumination and ambient occlusion
@@ -47,12 +47,53 @@ const RETRY_DELAY_MS = 500
 const DARK_BG = '#1f2433'
 const LIGHT_BG = '#ffffff'
 
-const PostProcessingPasses = () => {
-  const { gl: renderer, scene, camera } = useThree()
+export type HoverStyle = {
+  visibleColor: number
+  hiddenColor: number
+  strength: number
+  pulse: boolean
+}
+
+export type HoverStyles = {
+  default: HoverStyle
+} & Record<string, HoverStyle>
+
+const DEFAULT_HOVER_STYLE: HoverStyle = {
+  visibleColor: 0x00_aa_ff,
+  hiddenColor: 0xf3_ff_47,
+  strength: 5,
+  pulse: true,
+}
+
+export const DEFAULT_HOVER_STYLES: HoverStyles = {
+  default: DEFAULT_HOVER_STYLE,
+}
+
+function sanitizeOutlineObjects(objects: Object3D[]) {
+  let nextIndex = 0
+
+  for (const object of objects) {
+    if (!(object && typeof object.id === 'number' && object.parent)) {
+      continue
+    }
+
+    objects[nextIndex] = object
+    nextIndex++
+  }
+
+  objects.length = nextIndex
+}
+
+const PostProcessingPasses = ({
+  hoverStyles = DEFAULT_HOVER_STYLES,
+}: {
+  hoverStyles?: HoverStyles
+}) => {
+  const { gl: renderer, invalidate, scene, camera } = useThree()
   const renderPipelineRef = useRef<RenderPipeline | null>(null)
   const hasPipelineErrorRef = useRef(false)
   const retryCountRef = useRef(0)
-  const [isInitialized, setIsInitialized] = useState(false)
+  const rebuildTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Background color uniform — updated every frame via lerp, read by the TSL pipeline.
   // Initialised from the current theme so there's no flash on first render.
@@ -67,6 +108,11 @@ const PostProcessingPasses = () => {
     l.disable(SCENE_LAYER)
     return l
   }, [])
+  const hoverHighlightMode = useViewer((s) => s.hoverHighlightMode)
+  const hoverVisibleColor = useMemo(() => uniform(new Color(DEFAULT_HOVER_STYLE.visibleColor)), [])
+  const hoverHiddenColor = useMemo(() => uniform(new Color(DEFAULT_HOVER_STYLE.hiddenColor)), [])
+  const hoverStrength = useMemo(() => uniform(DEFAULT_HOVER_STYLE.strength), [])
+  const hoverPulseMix = useMemo(() => uniform(DEFAULT_HOVER_STYLE.pulse ? 0 : 1), [])
 
   // Subscribe to projectId so the pipeline rebuilds on project switch
   const projectId = useViewer((s) => s.projectId)
@@ -75,54 +121,100 @@ const PostProcessingPasses = () => {
   const [pipelineVersion, setPipelineVersion] = useState(0)
 
   const requestPipelineRebuild = useCallback(() => {
+    if (rebuildTimeoutRef.current !== null) {
+      clearTimeout(rebuildTimeoutRef.current)
+      rebuildTimeoutRef.current = null
+    }
+
     setPipelineVersion((v) => v + 1)
   }, [])
 
-  // Renderer initialization
+  // Reset retry state when project changes
+  useEffect(() => {
+    // Intentionally touch projectId so the effect reruns on project switches.
+    void projectId
+    retryCountRef.current = 0
+    if (rebuildTimeoutRef.current !== null) {
+      clearTimeout(rebuildTimeoutRef.current)
+      rebuildTimeoutRef.current = null
+    }
+  }, [projectId])
 
   useEffect(() => {
-    let mounted = true
-
-    const initRenderer = async () => {
-      try {
-        if (renderer && (renderer as any).init) {
-          await (renderer as any).init()
-        }
-
-        if (mounted) {
-          setIsInitialized(true)
-        }
-      } catch (error) {
-        console.error('[viewer] Failed to initialize renderer for post-processing.', error)
-        if (mounted) {
-          setIsInitialized(false)
-        }
+    return () => {
+      if (rebuildTimeoutRef.current !== null) {
+        clearTimeout(rebuildTimeoutRef.current)
+        rebuildTimeoutRef.current = null
       }
     }
-
-    initRenderer()
-
-    return () => {
-      mounted = false
-    }
-  }, [renderer])
-
-  // Reset retry count when project changes
-  useEffect(() => {
-    retryCountRef.current = 0
   }, [])
+
+  useEffect(() => {
+    const style = hoverStyles[hoverHighlightMode] ?? hoverStyles.default
+    hoverVisibleColor.value.setHex(style.visibleColor)
+    hoverHiddenColor.value.setHex(style.hiddenColor)
+    hoverStrength.value = style.strength
+    hoverPulseMix.value = style.pulse ? 0 : 1
+    invalidate()
+  }, [
+    hoverHiddenColor,
+    hoverHighlightMode,
+    hoverPulseMix,
+    hoverStrength,
+    hoverStyles,
+    hoverVisibleColor,
+    invalidate,
+  ])
 
   // Build / rebuild the post-processing pipeline
   useEffect(() => {
-    if (!(renderer && scene && camera && isInitialized)) {
+    // Intentionally touch these so React/biome treat project switches and retry bumps
+    // as explicit rebuild triggers instead of accidental extra dependencies.
+    void projectId
+    void pipelineVersion
+
+    if (!(renderer && scene && camera)) {
+      console.warn('[viewer/post-processing] Skipping pipeline build — missing dependency.', {
+        hasRenderer: !!renderer,
+        hasScene: !!scene,
+        hasCamera: !!camera,
+      })
       return
     }
 
+    console.log('[viewer/post-processing] Building pipeline', {
+      version: pipelineVersion,
+      ssgi: SSGI_PARAMS.enabled,
+      hoverHighlightMode,
+      projectId,
+      rendererCtor: (renderer as any).constructor?.name,
+    })
+
     hasPipelineErrorRef.current = false
+
+    // WebGPU availability check: SSGI, denoise, and RenderPipeline are all
+    // WebGPU-only APIs. When the browser falls back to WebGL2 (no
+    // `navigator.gpu`, or the device couldn't be created), building the
+    // pipeline either throws silently or produces a broken output where
+    // the scene renders for a few frames and then goes black as the retry
+    // loop fights the direct-render fallback path. Short-circuit here so
+    // `useFrame` uses the direct `renderer.render(scene, camera)` path
+    // exclusively and never attempts the TSL pipeline.
+    const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator
+    if (!hasWebGPU) {
+      console.warn(
+        '[viewer] WebGPU unavailable — rendering without post-processing (SSGI, outlines, denoise).',
+      )
+      hasPipelineErrorRef.current = true
+      renderPipelineRef.current = null
+      return
+    }
 
     // Clear outliner arrays synchronously to prevent stale Object3D refs
     // from the previous project leaking into the new pipeline's outline passes.
     const outliner = useViewer.getState().outliner
+    sanitizeOutlineObjects(outliner.selectedObjects)
+    sanitizeOutlineObjects(outliner.hoveredObjects)
     outliner.selectedObjects.length = 0
     outliner.hoveredObjects.length = 0
 
@@ -197,60 +289,36 @@ const PostProcessingPasses = () => {
         )
       }
 
-      function generateSelectedOutlinePass() {
-        const edgeStrength = uniform(3)
-        const edgeGlow = uniform(0)
-        const edgeThickness = uniform(1)
-        const visibleEdgeColor = uniform(new Color(0xff_ff_ff))
-        const hiddenEdgeColor = uniform(new Color(0xf3_ff_47))
+      // Single merged outline node: one shared depth pass for both selected + hovered groups.
+      const outliner = useViewer.getState().outliner
+      const outlineNode = mergedOutline(scene, camera, {
+        primaryObjects: outliner.selectedObjects,
+        secondaryObjects: outliner.hoveredObjects,
+        primaryEdgeThickness: uniform(1),
+        secondaryEdgeThickness: uniform(1.5),
+      })
 
-        const outlinePass = outline(scene, camera, {
-          selectedObjects: useViewer.getState().outliner.selectedObjects,
-          edgeGlow,
-          edgeThickness,
-        })
-        const { visibleEdge, hiddenEdge } = outlinePass
+      // Selected: white visible, yellow hidden
+      const selectedVisibleColor = uniform(new Color(0xff_ff_ff))
+      const selectedHiddenColor = uniform(new Color(0xf3_ff_47))
+      const selectedStrength = uniform(3)
+      const selectedOutline = outlineNode.primaryVisibleEdge
+        .mul(selectedVisibleColor)
+        .add(outlineNode.primaryHiddenEdge.mul(selectedHiddenColor))
+        .mul(selectedStrength)
 
-        const outlineColor = visibleEdge
-          .mul(visibleEdgeColor)
-          .add(hiddenEdge.mul(hiddenEdgeColor))
-          .mul(edgeStrength)
-
-        return outlineColor
-      }
-
-      function generateHoverOutlinePass() {
-        const edgeStrength = uniform(5)
-        const edgeGlow = uniform(0.5)
-        const edgeThickness = uniform(1.5)
-        const pulsePeriod = uniform(3)
-        const visibleEdgeColor = uniform(new Color(0x00_aa_ff))
-        const hiddenEdgeColor = uniform(new Color(0xf3_ff_47))
-
-        const outlinePass = outline(scene, camera, {
-          selectedObjects: useViewer.getState().outliner.hoveredObjects,
-          edgeGlow,
-          edgeThickness,
-        })
-        const { visibleEdge, hiddenEdge } = outlinePass
-
-        const period = time.div(pulsePeriod).mul(2)
-        const osc = oscSine(period).mul(0.5).add(0.5) // osc [ 0.5, 1.0 ]
-
-        const outlineColor = visibleEdge
-          .mul(visibleEdgeColor)
-          .add(hiddenEdge.mul(hiddenEdgeColor))
-          .mul(edgeStrength)
-        const outlinePulse = pulsePeriod.greaterThan(0).select(outlineColor.mul(osc), outlineColor)
-
-        return outlinePulse
-      }
-
-      const selectedOutlinePass = generateSelectedOutlinePass()
-      const hoverOutlinePass = generateHoverOutlinePass()
+      // Hovered: blue visible, yellow hidden, pulsing
+      const pulsePeriod = uniform(3)
+      const oscillating = oscSine(time.div(pulsePeriod).mul(2)).mul(0.5).add(0.5)
+      const osc = mix(oscillating, float(1), hoverPulseMix)
+      const hoverOutline = outlineNode.secondaryVisibleEdge
+        .mul(hoverVisibleColor)
+        .add(outlineNode.secondaryHiddenEdge.mul(hoverHiddenColor))
+        .mul(hoverStrength)
+        .mul(osc)
 
       const compositeWithOutlines = vec4(
-        add(sceneColor.rgb, selectedOutlinePass.add(hoverOutlinePass)),
+        add(sceneColor.rgb, selectedOutline.add(hoverOutline)),
         sceneColor.a,
       )
 
@@ -262,10 +330,17 @@ const PostProcessingPasses = () => {
       const renderPipeline = new RenderPipeline(renderer as unknown as WebGPURenderer)
       renderPipeline.outputNode = finalOutput
       renderPipelineRef.current = renderPipeline
+      retryCountRef.current = 0
+      console.log('[viewer/post-processing] Pipeline built OK', { version: pipelineVersion })
     } catch (error) {
       hasPipelineErrorRef.current = true
       console.error(
-        '[viewer] Failed to set up post-processing pipeline. Rendering without post FX.',
+        '[viewer/post-processing] Failed to set up post-processing pipeline. Rendering without post FX.',
+        {
+          version: pipelineVersion,
+          ssgi: SSGI_PARAMS.enabled,
+          rendererCtor: (renderer as any).constructor?.name,
+        },
         error,
       )
       if (renderPipelineRef.current) {
@@ -280,7 +355,18 @@ const PostProcessingPasses = () => {
       }
       renderPipelineRef.current = null
     }
-  }, [renderer, scene, camera, isInitialized, zoneLayers])
+  }, [
+    camera,
+    hoverHiddenColor,
+    hoverPulseMix,
+    hoverStrength,
+    hoverVisibleColor,
+    pipelineVersion,
+    projectId,
+    renderer,
+    scene,
+    zoneLayers,
+  ])
 
   useFrame((_, delta) => {
     // Animate background colour toward the current theme target (same lerp as AnimatedBackground)
@@ -288,7 +374,19 @@ const PostProcessingPasses = () => {
     bgCurrent.current.lerp(bgTarget.current, Math.min(delta, 0.1) * 4)
     bgUniform.current.value.copy(bgCurrent.current)
 
+    const outliner = useViewer.getState().outliner
+    sanitizeOutlineObjects(outliner.selectedObjects)
+    sanitizeOutlineObjects(outliner.hoveredObjects)
+
     if (hasPipelineErrorRef.current || !renderPipelineRef.current) {
+      try {
+        if ((renderer as any).setClearAlpha) {
+          ;(renderer as any).setClearAlpha(1)
+        }
+        ;(renderer as any).render(scene, camera)
+      } catch (fallbackError) {
+        console.error('[viewer/post-processing] Fallback render failed.', fallbackError)
+      }
       return
     }
 
@@ -299,7 +397,11 @@ const PostProcessingPasses = () => {
       renderPipelineRef.current.render()
     } catch (error) {
       hasPipelineErrorRef.current = true
-      console.error('[viewer] Post-processing render pass failed.', error)
+      console.error('[viewer/post-processing] Render pass failed.', {
+        retryCount: retryCountRef.current,
+        rendererCtor: (renderer as any).constructor?.name,
+        error,
+      })
       if (renderPipelineRef.current) {
         renderPipelineRef.current.dispose()
       }
@@ -309,12 +411,15 @@ const PostProcessingPasses = () => {
         // Auto-retry: schedule a pipeline rebuild if we haven't exceeded the retry limit
         retryCountRef.current++
         console.warn(
-          `[viewer] Scheduling post-processing rebuild (attempt ${retryCountRef.current}/${MAX_PIPELINE_RETRIES})`,
+          `[viewer/post-processing] Scheduling pipeline rebuild (attempt ${retryCountRef.current}/${MAX_PIPELINE_RETRIES})`,
         )
-        setTimeout(requestPipelineRebuild, RETRY_DELAY_MS)
+        if (rebuildTimeoutRef.current !== null) {
+          clearTimeout(rebuildTimeoutRef.current)
+        }
+        rebuildTimeoutRef.current = setTimeout(requestPipelineRebuild, RETRY_DELAY_MS)
       } else {
         console.error(
-          '[viewer] Post-processing retries exhausted. Rendering without post FX for this session.',
+          '[viewer/post-processing] Retries exhausted. Rendering without post FX for this session.',
         )
       }
     }

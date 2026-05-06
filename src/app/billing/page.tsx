@@ -673,8 +673,9 @@ export default function BillingPage() {
               {t('planChangeInfo') || 'Switching plans takes effect immediately. You\'ll only be charged the prorated difference for the remaining billing period. Your top-up credits are always preserved.'}
             </p>
           </div>
-          </div>
         )}
+        </div>
+      )}
       </div>
     </AppLayout>
   );

@@ -9,21 +9,28 @@ import {
   resolveLevelId,
   sceneRegistry,
   spatialGridManager,
+  useLiveTransforms,
   useScene,
   useSpatialQuery,
   type WallEvent,
   type WallNode,
 } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
-import { useFrame } from '@react-three/fiber'
-import { useEffect, useRef } from 'react'
+import { Html } from '@react-three/drei'
+import { createPortal, useFrame } from '@react-three/fiber'
+import { useEffect, useRef, useState } from 'react'
 import {
   BoxGeometry,
+  Box3,
+  BufferGeometry,
   EdgesGeometry,
   Euler,
+  Float32BufferAttribute,
   type Group,
   type LineSegments,
+  Matrix4,
   type Mesh,
+  type Object3D,
   PlaneGeometry,
   Quaternion,
   Vector3,
@@ -32,6 +39,8 @@ import { distance, smoothstep, uv, vec2 } from 'three/tsl'
 import { LineBasicNodeMaterial, MeshBasicNodeMaterial } from 'three/webgpu'
 import { EDITOR_LAYER } from '../../../lib/constants'
 import { sfxEmitter } from '../../../lib/sfx-bus'
+import useEditor from '../../../store/use-editor'
+import { getGridAlignedDimensions, snapToGrid, snapUpToGridStep } from './placement-math'
 import {
   ceilingStrategy,
   checkCanPlace,
@@ -44,11 +53,179 @@ import type { DraftNodeHandle } from './use-draft-node'
 
 const DEFAULT_DIMENSIONS: [number, number, number] = [1, 1, 1]
 
+function formatMeasurement(value: number, unit: 'metric' | 'imperial') {
+  if (unit === 'imperial') {
+    const feet = value * 3.280_84
+    const wholeFeet = Math.floor(feet)
+    const inches = Math.round((feet - wholeFeet) * 12)
+    if (inches === 12) return `${wholeFeet + 1}'0"`
+    return `${wholeFeet}'${inches}"`
+  }
+  return `${Number.parseFloat(value.toFixed(2))}m`
+}
+
+type PreviewBounds = {
+  min: [number, number, number]
+  max: [number, number, number]
+  dimensions: [number, number, number]
+  center: [number, number, number]
+}
+
+/**
+ * Expand `bounds` outward so each axis is rounded up to the active grid step.
+ * The wireframe stays centered on the original bounds centre on each axis we
+ * expand, so an off-centre mesh bbox stays off-centre. Wall-side items keep
+ * `max.z = 0` (flush with the wall plane); the bottom (`min.y`) is preserved
+ * so the box still sits on the floor / attachment plane.
+ *
+ * Floor / ceiling / item-surface: X and Z expand; Y stays exact.
+ * Wall / wall-side: X and Y expand; Z stays exact.
+ */
+function expandBoundsToGrid(
+  bounds: PreviewBounds,
+  attachTo: AssetInput['attachTo'] | null | undefined,
+  step: number,
+): PreviewBounds {
+  const [w, h, d] = bounds.dimensions
+  const [cx, , cz] = bounds.center
+  const onWall = attachTo === 'wall' || attachTo === 'wall-side'
+  const expandedW = snapUpToGridStep(w, step)
+  const expandedH = onWall ? snapUpToGridStep(h, step) : h
+  const expandedD = onWall ? d : snapUpToGridStep(d, step)
+
+  const minX = cx - expandedW / 2
+  const maxX = cx + expandedW / 2
+  const minY = bounds.min[1]
+  const maxY = minY + expandedH
+
+  let minZ: number
+  let maxZ: number
+  let newCz: number
+  if (attachTo === 'wall-side') {
+    maxZ = 0
+    minZ = -expandedD
+    newCz = -expandedD / 2
+  } else {
+    minZ = cz - expandedD / 2
+    maxZ = cz + expandedD / 2
+    newCz = cz
+  }
+
+  return {
+    min: [minX, minY, minZ],
+    max: [maxX, maxY, maxZ],
+    dimensions: [expandedW, expandedH, expandedD],
+    center: [cx, (minY + maxY) / 2, newCz],
+  }
+}
+
+function getPreviewBoundsFromObject(object: Object3D | null): PreviewBounds | null {
+  if (!object) return null
+
+  object.updateWorldMatrix(true, true)
+
+  const inverseRootMatrix = new Matrix4().copy(object.matrixWorld).invert()
+  const localMatrix = new Matrix4()
+  const localBounds = new Box3()
+  const scratchBounds = new Box3()
+  const hasBounds = { current: false }
+  const registeredNodeObjects = new Set(sceneRegistry.nodes.values())
+
+  const expandBounds = (child: Object3D) => {
+    if (child !== object && registeredNodeObjects.has(child)) {
+      return
+    }
+
+    const mesh = child as Object3D & {
+      isMesh?: boolean
+      name?: string
+      geometry?: {
+        boundingBox: Box3 | null
+        computeBoundingBox?: () => void
+      }
+    }
+
+    if (mesh.isMesh && mesh.name !== 'cutout' && mesh.geometry) {
+      if (!mesh.geometry.boundingBox && mesh.geometry.computeBoundingBox) {
+        mesh.geometry.computeBoundingBox()
+      }
+
+      if (mesh.geometry.boundingBox) {
+        localMatrix.copy(inverseRootMatrix).multiply(mesh.matrixWorld)
+        scratchBounds.copy(mesh.geometry.boundingBox).applyMatrix4(localMatrix)
+        if (Number.isFinite(scratchBounds.min.x) && Number.isFinite(scratchBounds.max.x)) {
+          if (!hasBounds.current) {
+            localBounds.copy(scratchBounds)
+            hasBounds.current = true
+          } else {
+            localBounds.union(scratchBounds)
+          }
+        }
+      }
+    }
+
+    for (const grandchild of child.children) {
+      expandBounds(grandchild)
+    }
+  }
+
+  for (const child of object.children) {
+    expandBounds(child)
+  }
+
+  if (!hasBounds.current) return null
+
+  const size = new Vector3()
+  const center = new Vector3()
+  localBounds.getSize(size)
+  localBounds.getCenter(center)
+
+  if (size.x <= 0 || size.y <= 0 || size.z <= 0) {
+    return null
+  }
+
+  return {
+    min: [localBounds.min.x, localBounds.min.y, localBounds.min.z],
+    max: [localBounds.max.x, localBounds.max.y, localBounds.max.z],
+    dimensions: [size.x, size.y, size.z],
+    center: [center.x, center.y, center.z],
+  }
+}
+
+function getFallbackPreviewBounds(
+  item: import('@pascal-app/core').ItemNode | null,
+  asset: AssetInput,
+  attachTo: AssetInput['attachTo'],
+): PreviewBounds {
+  const dims = item ? getScaledDimensions(item) : (asset.dimensions ?? DEFAULT_DIMENSIONS)
+  return {
+    min: [
+      -dims[0] / 2,
+      0,
+      attachTo === 'wall-side' ? -dims[2] : -dims[2] / 2,
+    ],
+    max: [
+      dims[0] / 2,
+      dims[1],
+      attachTo === 'wall-side' ? 0 : dims[2] / 2,
+    ],
+    dimensions: dims,
+    center: [0, dims[1] / 2, attachTo === 'wall-side' ? -dims[2] / 2 : 0],
+  }
+}
+
 // Shared materials for placement cursor - we just change colors, not swap materials
 // Note: EdgesGeometry doesn't work with dashed lines, so using solid lines
 const edgeMaterial = new LineBasicNodeMaterial({
   color: 0xef_44_44, // red-500 (invalid)
   linewidth: 3,
+  depthTest: false,
+  depthWrite: false,
+})
+
+const measurementMaterial = new LineBasicNodeMaterial({
+  color: 0x0f_17_2a,
+  linewidth: 2,
   depthTest: false,
   depthWrite: false,
 })
@@ -67,7 +244,7 @@ const radialOpacity = smoothstep(0, 0.7, dist).mul(0.6)
 basePlaneMaterial.opacityNode = radialOpacity
 
 export interface PlacementCoordinatorConfig {
-  asset: AssetInput
+  asset: AssetInput | null
   draftNode: DraftNodeHandle
   initDraft: (gridPosition: Vector3) => void
   onCommitted: () => boolean
@@ -80,12 +257,23 @@ export interface PlacementCoordinatorConfig {
 export function usePlacementCoordinator(config: PlacementCoordinatorConfig): React.ReactNode {
   const cursorGroupRef = useRef<Group>(null!)
   const edgesRef = useRef<LineSegments>(null!)
+  const measurementWidthRef = useRef<LineSegments>(null!)
+  const measurementDepthRef = useRef<LineSegments>(null!)
+  const measurementHeightRef = useRef<LineSegments>(null!)
   const basePlaneRef = useRef<Mesh>(null!)
   const gridPosition = useRef(new Vector3(0, 0, 0))
+  const lastRawPos = useRef(new Vector3(0, 0, 0))
   const placementState = useRef<PlacementState>(
     config.initialState ?? { surface: 'floor', wallId: null, ceilingId: null, surfaceItemId: null },
   )
   const shiftFreeRef = useRef(false)
+  const previewBoundsSignatureRef = useRef<string | null>(null)
+  const meshPreviewAppliedRef = useRef(false)
+  const dimensionBoundsRef = useRef<PreviewBounds | null>(null)
+  const [measurementTargetState, setMeasurementTargetState] = useState<{
+    id: string
+    object: Object3D
+  } | null>(null)
 
   // Store config callbacks in refs to avoid re-running effect when they change
   const configRef = useRef(config)
@@ -93,9 +281,128 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
 
   const { canPlaceOnFloor, canPlaceOnWall, canPlaceOnCeiling } = useSpatialQuery()
   const { asset, draftNode } = config
+  const unit = useViewer((state) => state.unit)
+  const gridSnapStep = useEditor((s) => s.gridSnapStep)
+  const updatePreviewGeometry = (bounds: PreviewBounds) => {
+    const [width, height, depth] = bounds.dimensions
+    const [centerX, centerY, centerZ] = bounds.center
+    const signature = `${width.toFixed(4)}:${height.toFixed(4)}:${depth.toFixed(4)}:${centerX.toFixed(4)}:${centerY.toFixed(4)}:${centerZ.toFixed(4)}`
+
+    if (previewBoundsSignatureRef.current === signature) return
+    previewBoundsSignatureRef.current = signature
+
+    const nextBoxGeometry = new BoxGeometry(width, height, depth)
+    nextBoxGeometry.translate(centerX, centerY, centerZ)
+    const nextEdgesGeometry = new EdgesGeometry(nextBoxGeometry)
+
+    const nextBasePlaneGeometry = new PlaneGeometry(width, depth)
+    nextBasePlaneGeometry.rotateX(-Math.PI / 2)
+    nextBasePlaneGeometry.translate(centerX, 0.01, centerZ)
+
+    edgesRef.current.geometry.dispose()
+    edgesRef.current.geometry = nextEdgesGeometry
+    basePlaneRef.current.geometry.dispose()
+    basePlaneRef.current.geometry = nextBasePlaneGeometry
+    nextBoxGeometry.dispose()
+  }
+
+  const updateDimensionGuides = (bounds: PreviewBounds) => {
+    dimensionBoundsRef.current = bounds
+    const [width, , depth] = bounds.dimensions
+    const [centerX, , centerZ] = bounds.center
+    const minX = centerX - width / 2
+    const maxX = centerX + width / 2
+    const minZ = centerZ - depth / 2
+    const maxZ = centerZ + depth / 2
+    const guideOffset = 0.18
+    const tick = 0.08
+    const y = 0.02
+
+    const widthPoints = [
+      minX,
+      y,
+      maxZ + guideOffset,
+      maxX,
+      y,
+      maxZ + guideOffset,
+
+      minX,
+      y,
+      maxZ + guideOffset - tick,
+      minX,
+      y,
+      maxZ + guideOffset + tick,
+
+      maxX,
+      y,
+      maxZ + guideOffset - tick,
+      maxX,
+      y,
+      maxZ + guideOffset + tick,
+    ]
+
+    const depthPoints = [
+      maxX + guideOffset,
+      y,
+      minZ,
+      maxX + guideOffset,
+      y,
+      maxZ,
+
+      maxX + guideOffset - tick,
+      y,
+      minZ,
+      maxX + guideOffset + tick,
+      y,
+      minZ,
+
+      maxX + guideOffset - tick,
+      y,
+      maxZ,
+      maxX + guideOffset + tick,
+      y,
+      maxZ,
+    ]
+
+    const heightPoints = [
+      minX - guideOffset,
+      0,
+      minZ,
+      minX - guideOffset,
+      bounds.dimensions[1],
+      minZ,
+
+      minX - guideOffset - tick,
+      0,
+      minZ,
+      minX - guideOffset + tick,
+      0,
+      minZ,
+
+      minX - guideOffset - tick,
+      bounds.dimensions[1],
+      minZ,
+      minX - guideOffset + tick,
+      bounds.dimensions[1],
+      minZ,
+    ]
+
+    const applyPoints = (ref: React.RefObject<LineSegments>, points: number[]) => {
+      const geometry = new BufferGeometry()
+      geometry.setAttribute('position', new Float32BufferAttribute(points, 3))
+      ref.current!.geometry.dispose()
+      ref.current!.geometry = geometry
+    }
+
+    applyPoints(measurementWidthRef, widthPoints)
+    applyPoints(measurementDepthRef, depthPoints)
+    applyPoints(measurementHeightRef, heightPoints)
+  }
 
   useEffect(() => {
+    if (!asset) return
     useScene.temporal.getState().pause()
+    meshPreviewAppliedRef.current = false
 
     const validators = { canPlaceOnFloor, canPlaceOnWall, canPlaceOnCeiling }
 
@@ -115,6 +422,7 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
       draftItem: draftNode.current,
       gridPosition: gridPosition.current,
       state: { ...placementState.current },
+      currentCursorRotationY: cursorGroupRef.current.rotation.y,
     })
 
     const getActiveValidators = () =>
@@ -134,11 +442,21 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
       return placeable
     }
 
+    // Tool visuals are rendered inside the building-local ToolManager group, so all cursor
+    // positions must be in building-local space. Wall/ceiling/item-surface strategies return
+    // world-space cursor positions (from their event.position); convert them here.
+    const worldToBuildingLocal = (x: number, y: number, z: number): Vector3 => {
+      const buildingId = useViewer.getState().selection.buildingId
+      const buildingMesh = buildingId ? sceneRegistry.nodes.get(buildingId as AnyNodeId) : null
+      return buildingMesh ? buildingMesh.worldToLocal(new Vector3(x, y, z)) : new Vector3(x, y, z)
+    }
+
     const applyTransition = (result: TransitionResult) => {
       Object.assign(placementState.current, result.stateUpdate)
       gridPosition.current.set(...result.gridPosition)
 
-      cursorGroupRef.current.position.set(...result.cursorPosition)
+      const c = worldToBuildingLocal(...result.cursorPosition)
+      cursorGroupRef.current.position.set(c.x, c.y, c.z)
       cursorGroupRef.current.rotation.y = result.cursorRotationY
 
       const draft = draftNode.current
@@ -151,7 +469,8 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
 
     const ensureDraft = (result: TransitionResult) => {
       gridPosition.current.set(...result.gridPosition)
-      cursorGroupRef.current.position.set(...result.cursorPosition)
+      const c = worldToBuildingLocal(...result.cursorPosition)
+      cursorGroupRef.current.position.set(c.x, c.y, c.z)
       cursorGroupRef.current.rotation.y = result.cursorRotationY
 
       draftNode.create(
@@ -180,7 +499,10 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
     if (draftNode.current) {
       const mesh = sceneRegistry.nodes.get(draftNode.current.id)
       if (mesh) {
-        mesh.getWorldPosition(cursorGroupRef.current.position)
+        const worldPos = new Vector3()
+        mesh.getWorldPosition(worldPos)
+        const localPos = worldToBuildingLocal(worldPos.x, worldPos.y, worldPos.z)
+        cursorGroupRef.current.position.copy(localPos)
         // Extract world Y rotation (handles wall-parented items correctly)
         const q = new Quaternion()
         mesh.getWorldQuaternion(q)
@@ -198,6 +520,12 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
     let previousGridPos: [number, number, number] | null = null
 
     const onGridMove = (event: GridEvent) => {
+      // Lazy draft creation: if no draft yet (e.g. level wasn't ready during init), create now
+      if (draftNode.current === null && asset.attachTo === undefined) {
+        configRef.current.initDraft(gridPosition.current)
+      }
+
+      lastRawPos.current.set(event.localPosition[0], event.localPosition[1], event.localPosition[2])
       const result = floorStrategy.move(getContext(), event)
       if (!result) return
 
@@ -219,6 +547,14 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
       const draft = draftNode.current
       if (draft) draft.position = result.gridPosition
 
+      // Publish live transform for 2D floorplan
+      if (draft) {
+        useLiveTransforms.getState().set(draft.id, {
+          position: result.gridPosition,
+          rotation: cursorGroupRef.current.rotation.y,
+        })
+      }
+
       revalidate()
     }
 
@@ -228,6 +564,11 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
 
       // Preserve cursor rotation for the next draft
       const currentRotation: [number, number, number] = [0, cursorGroupRef.current.rotation.y, 0]
+
+      // Clear live transform before commit
+      if (draftNode.current) {
+        useLiveTransforms.getState().clear(draftNode.current.id)
+      }
 
       draftNode.commit(result.nodeUpdate)
       if (configRef.current.onCommitted()) {
@@ -320,7 +661,8 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
       }
 
       gridPosition.current.set(...result.gridPosition)
-      cursorGroupRef.current.position.set(...result.cursorPosition)
+      const wc = worldToBuildingLocal(...result.cursorPosition)
+      cursorGroupRef.current.position.set(wc.x, wc.y, wc.z)
       cursorGroupRef.current.rotation.y = result.cursorRotationY
 
       const draft = draftNode.current
@@ -353,6 +695,12 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
         if (result.dirtyNodeId && posChanged) {
           useScene.getState().dirtyNodes.add(result.dirtyNodeId)
         }
+
+        // Publish live transform for 2D floorplan
+        useLiveTransforms.getState().set(draft.id, {
+          position: result.cursorPosition,
+          rotation: result.cursorRotationY,
+        })
       }
     }
 
@@ -361,6 +709,10 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
       if (!result) return
 
       event.stopPropagation()
+      // Clear live transform before commit
+      if (draftNode.current) {
+        useLiveTransforms.getState().clear(draftNode.current.id)
+      }
       draftNode.commit(result.nodeUpdate)
       if (result.dirtyNodeId) {
         useScene.getState().dirtyNodes.add(result.dirtyNodeId)
@@ -456,13 +808,15 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
         return
       }
 
+      lastRawPos.current.set(event.position[0], event.position[1], event.position[2])
       const result = itemSurfaceStrategy.move(ctx, event)
       if (!result) return
 
       event.stopPropagation()
 
       gridPosition.current.set(...result.gridPosition)
-      cursorGroupRef.current.position.set(...result.cursorPosition)
+      const ic = worldToBuildingLocal(...result.cursorPosition)
+      cursorGroupRef.current.position.set(ic.x, ic.y, ic.z)
       cursorGroupRef.current.rotation.y = result.cursorRotationY
 
       const draft = draftNode.current
@@ -470,6 +824,12 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
         draft.position = result.gridPosition
         const mesh = sceneRegistry.nodes.get(draft.id)
         if (mesh) mesh.position.set(...result.gridPosition)
+
+        // Publish live transform for 2D floorplan
+        useLiveTransforms.getState().set(draft.id, {
+          position: result.cursorPosition,
+          rotation: result.cursorRotationY,
+        })
       }
 
       revalidate()
@@ -481,14 +841,24 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
 
       event.stopPropagation()
 
-      // Transition back to floor using event world position
-      const wx = Math.round(event.position[0] * 2) / 2
-      const wz = Math.round(event.position[2] * 2) / 2
+      // `event.localPosition` from useNodeEvents is in the LEAVING item's
+      // local space (the sofa/table the draft is detaching from), not
+      // building-local. Convert from world via worldToBuildingLocal instead,
+      // otherwise the wireframe jumps to a surface-local-coordinate ghost
+      // position until the next mouse move.
+      const buildingLocalLeave = worldToBuildingLocal(
+        event.position[0],
+        event.position[1],
+        event.position[2],
+      )
+      const wx = Math.round(buildingLocalLeave.x * 2) / 2
+      const wz = Math.round(buildingLocalLeave.z * 2) / 2
       const floorPos: [number, number, number] = [wx, 0, wz]
 
       Object.assign(placementState.current, { surface: 'floor', surfaceItemId: null })
       gridPosition.current.set(wx, 0, wz)
-      cursorGroupRef.current.position.set(wx, event.position[1], wz)
+      cursorGroupRef.current.position.x = wx
+      cursorGroupRef.current.position.z = wz
 
       const draft = draftNode.current
       if (draft) {
@@ -508,6 +878,10 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
       if (!result) return
 
       event.stopPropagation()
+      // Clear live transform before commit
+      if (draftNode.current) {
+        useLiveTransforms.getState().clear(draftNode.current.id)
+      }
       draftNode.commit(result.nodeUpdate)
 
       if (configRef.current.onCommitted()) {
@@ -553,6 +927,11 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
         return
       }
 
+      lastRawPos.current.set(
+        event.localPosition[0],
+        event.localPosition[1],
+        event.localPosition[2],
+      )
       const result = ceilingStrategy.move(getContext(), event)
       if (!result) return
 
@@ -569,7 +948,8 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
       }
 
       gridPosition.current.set(...result.gridPosition)
-      cursorGroupRef.current.position.set(...result.cursorPosition)
+      const cc = worldToBuildingLocal(...result.cursorPosition)
+      cursorGroupRef.current.position.set(cc.x, cc.y, cc.z)
 
       revalidate()
 
@@ -578,6 +958,12 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
         draft.position = result.gridPosition
         const mesh = sceneRegistry.nodes.get(draft.id)
         if (mesh) mesh.position.copy(gridPosition.current)
+
+        // Publish live transform for 2D floorplan
+        useLiveTransforms.getState().set(draft.id, {
+          position: result.cursorPosition,
+          rotation: cursorGroupRef.current.rotation.y,
+        })
       }
     }
 
@@ -586,6 +972,10 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
       if (!result) return
 
       event.stopPropagation()
+      // Clear live transform before commit
+      if (draftNode.current) {
+        useLiveTransforms.getState().clear(draftNode.current.id)
+      }
       draftNode.commit(result.nodeUpdate)
 
       if (configRef.current.onCommitted()) {
@@ -639,12 +1029,19 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
         return
       }
 
+      // Don't intercept keys when focus is inside a text input
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return
+      }
+
       const draft = draftNode.current
       if (!draft) return
 
       let rotationDelta = 0
-      if (event.key === 'r' || event.key === 'R') rotationDelta = ROTATION_STEP
-      else if (event.key === 't' || event.key === 'T') rotationDelta = -ROTATION_STEP
+      if ((event.key === 'r' || event.key === 'R') && !event.metaKey && !event.ctrlKey)
+        rotationDelta = ROTATION_STEP
+      else if ((event.key === 't' || event.key === 'T') && !event.metaKey && !event.ctrlKey)
+        rotationDelta = -ROTATION_STEP
 
       if (rotationDelta !== 0) {
         event.preventDefault()
@@ -657,6 +1054,60 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
         cursorGroupRef.current.rotation.y = newRotationY
         const mesh = sceneRegistry.nodes.get(draft.id)
         if (mesh) mesh.rotation.y = newRotationY
+
+        // Re-snap position immediately with updated rotation (dimX/dimZ may swap at 90°)
+        const surface = placementState.current.surface
+        if (surface === 'floor' || surface === 'ceiling') {
+          const dims = getScaledDimensions(draft)
+          const [dimX, , dimZ] = dims
+          const swapDims = Math.abs(Math.sin(newRotationY)) > 0.9
+          const x = snapToGrid(lastRawPos.current.x, swapDims ? dimZ : dimX)
+          const z = snapToGrid(lastRawPos.current.z, swapDims ? dimX : dimZ)
+          gridPosition.current.set(x, gridPosition.current.y, z)
+          draft.position = [x, gridPosition.current.y, z]
+          cursorGroupRef.current.position.x = x
+          cursorGroupRef.current.position.z = z
+          if (mesh) {
+            mesh.position.x = x
+            mesh.position.z = z
+          }
+        } else if (surface === 'item-surface' && placementState.current.surfaceItemId) {
+          const surfaceMesh = sceneRegistry.nodes.get(placementState.current.surfaceItemId)
+          if (surfaceMesh) {
+            const localPos = surfaceMesh.worldToLocal(lastRawPos.current.clone())
+            const dims = getScaledDimensions(draft)
+            const [dimX, , dimZ] = dims
+            const swapDims = Math.abs(Math.sin(newRotationY)) > 0.9
+            const x = snapToGrid(localPos.x, swapDims ? dimZ : dimX)
+            const z = snapToGrid(localPos.z, swapDims ? dimX : dimZ)
+            const y = gridPosition.current.y
+            gridPosition.current.set(x, y, z)
+            draft.position = [x, y, z]
+            const worldSnapped = surfaceMesh.localToWorld(new Vector3(x, y, z))
+            const localSnapped = worldToBuildingLocal(
+              worldSnapped.x,
+              worldSnapped.y,
+              worldSnapped.z,
+            )
+            cursorGroupRef.current.position.set(localSnapped.x, localSnapped.y, localSnapped.z)
+            if (mesh) mesh.position.set(x, y, z)
+          }
+        }
+
+        // Update live transform for 2D floorplan with post-snap position
+        const currentLive = useLiveTransforms.getState().get(draft.id)
+        if (currentLive) {
+          useLiveTransforms.getState().set(draft.id, {
+            ...currentLive,
+            position: [
+              cursorGroupRef.current.position.x,
+              cursorGroupRef.current.position.y,
+              cursorGroupRef.current.position.z,
+            ] as [number, number, number],
+            rotation: newRotationY,
+          })
+        }
+
         revalidate()
       }
     }
@@ -691,11 +1142,44 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
     // ---- Bounding box geometry ----
 
     const draft = draftNode.current
-    const dims = draft ? getScaledDimensions(draft) : (asset.dimensions ?? DEFAULT_DIMENSIONS)
-    const boxGeometry = new BoxGeometry(dims[0], dims[1], dims[2])
-    boxGeometry.translate(0, dims[1] / 2, 0)
-    const edgesGeometry = new EdgesGeometry(boxGeometry)
-    edgesRef.current.geometry = edgesGeometry
+    const fallbackBounds = expandBoundsToGrid(
+      getFallbackPreviewBounds(draft, asset, asset.attachTo),
+      asset.attachTo,
+      gridSnapStep,
+    )
+    updatePreviewGeometry(
+      draft
+        ? (expandBoundsToGrid(
+            getPreviewBoundsFromObject(sceneRegistry.nodes.get(draft.id) ?? null) ?? getFallbackPreviewBounds(draft, asset, asset.attachTo),
+            asset.attachTo,
+            gridSnapStep,
+          ))
+        : fallbackBounds,
+    )
+    updateDimensionGuides(fallbackBounds)
+
+    // ---- Undo protection ----
+    // Undo replaces the entire `nodes` object with a previous snapshot, which doesn't
+    // include the draft (created while temporal was paused). Re-insert it so the mesh
+    // doesn't disappear mid-placement.
+    // We defer via queueMicrotask to avoid nested setState during the undo callback.
+    // Temporal is already paused during placement, so createNode won't enter the undo stack.
+    let tearingDown = false
+    const unsubDraftWatch = useScene.subscribe((state) => {
+      if (tearingDown) return
+      const draft = draftNode.current
+      if (draft === null) return
+      if (draft.id in state.nodes) return
+
+      queueMicrotask(() => {
+        if (tearingDown) return
+        const draft = draftNode.current
+        if (draft === null) return
+        if (draft.id in useScene.getState().nodes) return
+        // Temporal is paused during placement, createNode won't be tracked
+        useScene.getState().createNode(draft, draft.parentId as AnyNodeId)
+      })
+    })
 
     // ---- Subscribe ----
 
@@ -715,6 +1199,13 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
     emitter.on('ceiling:leave', onCeilingLeave)
 
     return () => {
+      tearingDown = true
+      meshPreviewAppliedRef.current = false
+      unsubDraftWatch()
+      // Clear live transform for any remaining draft
+      if (draftNode.current) {
+        useLiveTransforms.getState().clear(draftNode.current.id)
+      }
       draftNode.destroy()
       useScene.temporal.getState().resume()
       emitter.off('grid:move', onGridMove)
@@ -738,10 +1229,28 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
     }
   }, [asset, canPlaceOnFloor, canPlaceOnWall, canPlaceOnCeiling, draftNode])
 
-  // Reparent floor draft to the new level when the user switches levels mid-placement.
+  // Refresh wireframe when the grid step changes mid-placement so the green/red
+  // box snaps to the new cell size right away.
+  useEffect(() => {
+    if (!asset) return
+    const draft = draftNode.current
+    const fallbackBounds = expandBoundsToGrid(
+      getFallbackPreviewBounds(draft, asset, asset.attachTo),
+      asset.attachTo,
+      gridSnapStep,
+    )
+    const meshBounds = draft
+      ? getPreviewBoundsFromObject(sceneRegistry.nodes.get(draft.id) ?? null)
+      : null
+    updatePreviewGeometry(
+      meshBounds ? expandBoundsToGrid(meshBounds, asset.attachTo, gridSnapStep) : fallbackBounds,
+    )
+    updateDimensionGuides(fallbackBounds)
+  }, [gridSnapStep, asset, draftNode])
   // Wall/ceiling items are managed by their own surface entry events (ensureDraft / reparent).
   const viewerLevelId = useViewer((s) => s.selection.levelId)
   useEffect(() => {
+    if (!asset) return
     const draft = draftNode.current
     if (!(draft && viewerLevelId) || asset.attachTo) return
     if (draft.parentId === viewerLevelId) return
@@ -750,9 +1259,26 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
   }, [viewerLevelId, draftNode, asset])
 
   useFrame((_, delta) => {
+    if (!asset) return
     if (!draftNode.current) return
     const mesh = sceneRegistry.nodes.get(draftNode.current.id)
     if (!mesh) return
+    if (
+      measurementTargetState?.id !== draftNode.current.id ||
+      measurementTargetState.object !== mesh
+    ) {
+      setMeasurementTargetState({ id: draftNode.current.id, object: mesh })
+    }
+
+    if (!meshPreviewAppliedRef.current) {
+      const previewBounds = getPreviewBoundsFromObject(mesh)
+      if (previewBounds) {
+        updatePreviewGeometry(
+            expandBoundsToGrid(previewBounds, asset.attachTo, useEditor.getState().gridSnapStep),
+          )
+        meshPreviewAppliedRef.current = true
+      }
+    }
 
     // Hide wall/ceiling-attached items when between surfaces (only cursor visible)
     if (asset.attachTo && placementState.current.surface === 'floor') {
@@ -776,40 +1302,157 @@ export function usePlacementCoordinator(config: PlacementCoordinatorConfig): Rea
         const slabElevation = spatialGridManager.getSlabElevationForItem(
           levelId,
           [gridPosition.current.x, gridPosition.current.y, gridPosition.current.z],
-          getScaledDimensions(draftNode.current),
+          getGridAlignedDimensions(
+            getScaledDimensions(draftNode.current),
+            draftNode.current.asset.attachTo,
+          ),
           draftNode.current.rotation,
         )
         mesh.position.y = slabElevation
-        // Cursor group is at the world root (not inside a level group), so add the
-        // level group's current world Y to convert from level-local to world space.
-        const levelGroup = sceneRegistry.nodes.get(levelId as AnyNodeId)
-        cursorGroupRef.current.position.y = slabElevation + (levelGroup?.position.y ?? 0)
       }
     }
   })
 
   const initialDraft = draftNode.current
-  const dims = initialDraft
+  const initialAttachTo = config.asset?.attachTo
+  const rawDims = initialDraft
     ? getScaledDimensions(initialDraft)
-    : (config.asset.dimensions ?? DEFAULT_DIMENSIONS)
+    : (config.asset?.dimensions ?? DEFAULT_DIMENSIONS)
+  const dims = getGridAlignedDimensions(rawDims, initialAttachTo, gridSnapStep)
   const initialBoxGeometry = new BoxGeometry(dims[0], dims[1], dims[2])
-  initialBoxGeometry.translate(0, dims[1] / 2, 0)
+  const wallSideZOffset = initialAttachTo === 'wall-side' ? -dims[2] / 2 : 0
+  initialBoxGeometry.translate(0, dims[1] / 2, wallSideZOffset)
 
   // Base plane geometry (colored rectangle on the ground)
   const basePlaneGeometry = new PlaneGeometry(dims[0], dims[2])
   basePlaneGeometry.rotateX(-Math.PI / 2) // Make it horizontal
-  basePlaneGeometry.translate(0, 0.01, 0) // Slightly above ground to avoid z-fighting
+  basePlaneGeometry.translate(0, 0.01, wallSideZOffset) // Slightly above ground to avoid z-fighting
+  const initialDimensionBounds = expandBoundsToGrid(
+    getFallbackPreviewBounds(initialDraft, config.asset!, initialAttachTo),
+    initialAttachTo,
+    gridSnapStep,
+  )
+  const widthLabel = formatMeasurement(initialDimensionBounds.dimensions[0], unit)
+  const depthLabel = formatMeasurement(initialDimensionBounds.dimensions[2], unit)
+  const heightLabel = formatMeasurement(initialDimensionBounds.dimensions[1], unit)
+  const widthLabelPosition: [number, number, number] = [
+    initialDimensionBounds.center[0],
+    0.04,
+    initialDimensionBounds.center[2] + initialDimensionBounds.dimensions[2] / 2 + 0.24,
+  ]
+  const depthLabelPosition: [number, number, number] = [
+    initialDimensionBounds.center[0] + initialDimensionBounds.dimensions[0] / 2 + 0.24,
+    0.04,
+    initialDimensionBounds.center[2],
+  ]
+  const heightLabelPosition: [number, number, number] = [
+    initialDimensionBounds.center[0] - initialDimensionBounds.dimensions[0] / 2 - 0.24,
+    initialDimensionBounds.dimensions[1] / 2,
+    initialDimensionBounds.center[2] - initialDimensionBounds.dimensions[2] / 2,
+  ]
+
+  const measurementTarget =
+    draftNode.current && measurementTargetState?.id === draftNode.current.id
+      ? measurementTargetState.object
+      : null
+  const measurementContent = (
+    <>
+      <lineSegments
+        layers={EDITOR_LAYER}
+        material={measurementMaterial}
+        ref={measurementWidthRef}
+        renderOrder={998}
+      >
+        <bufferGeometry />
+      </lineSegments>
+      <lineSegments
+        layers={EDITOR_LAYER}
+        material={measurementMaterial}
+        ref={measurementDepthRef}
+        renderOrder={998}
+      >
+        <bufferGeometry />
+      </lineSegments>
+      <lineSegments
+        layers={EDITOR_LAYER}
+        material={measurementMaterial}
+        ref={measurementHeightRef}
+        renderOrder={998}
+      >
+        <bufferGeometry />
+      </lineSegments>
+      <Html center position={widthLabelPosition} style={{ pointerEvents: 'none' }}>
+        <div
+          style={{
+            background: 'rgba(15, 23, 42, 0.86)',
+            border: '1px solid rgba(15, 23, 42, 0.65)',
+            borderRadius: '999px',
+            color: '#f8fafc',
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+            fontSize: '11px',
+            fontWeight: 600,
+            lineHeight: 1,
+            padding: '4px 8px',
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {widthLabel}
+        </div>
+      </Html>
+      <Html center position={depthLabelPosition} style={{ pointerEvents: 'none' }}>
+        <div
+          style={{
+            background: 'rgba(15, 23, 42, 0.86)',
+            border: '1px solid rgba(15, 23, 42, 0.65)',
+            borderRadius: '999px',
+            color: '#f8fafc',
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+            fontSize: '11px',
+            fontWeight: 600,
+            lineHeight: 1,
+            padding: '4px 8px',
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {depthLabel}
+        </div>
+      </Html>
+      <Html center position={heightLabelPosition} style={{ pointerEvents: 'none' }}>
+        <div
+          style={{
+            background: 'rgba(15, 23, 42, 0.86)',
+            border: '1px solid rgba(15, 23, 42, 0.65)',
+            borderRadius: '999px',
+            color: '#f8fafc',
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+            fontSize: '11px',
+            fontWeight: 600,
+            lineHeight: 1,
+            padding: '4px 8px',
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {heightLabel}
+        </div>
+      </Html>
+    </>
+  )
 
   return (
     <group ref={cursorGroupRef}>
-      <lineSegments layers={EDITOR_LAYER} material={edgeMaterial} ref={edgesRef}>
+      <lineSegments layers={EDITOR_LAYER} material={edgeMaterial} ref={edgesRef} renderOrder={999}>
         <edgesGeometry args={[initialBoxGeometry]} />
       </lineSegments>
+      {measurementTarget ? createPortal(measurementContent, measurementTarget) : measurementContent}
       <mesh
         geometry={basePlaneGeometry}
         layers={EDITOR_LAYER}
         material={basePlaneMaterial}
         ref={basePlaneRef}
+        renderOrder={999}
       />
     </group>
   )

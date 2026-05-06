@@ -2,18 +2,57 @@ import {
   type AnyNode,
   type AnyNodeId,
   type BuildingNode,
+  type CeilingNode,
+  type ColumnNode,
   emitter,
+  type FenceNode,
+  getMaterialPresetByRef,
   type ItemNode,
   type NodeEvent,
+  type RoofEvent,
+  type RoofNode,
+  type RoofSegmentEvent,
   resolveLevelId,
+  resolveMaterial,
+  type SlabNode,
+  type StairEvent,
+  type StairNode,
+  type StairSegmentEvent,
+  type StairSurfaceMaterialRole,
   sceneRegistry,
   useScene,
+  type WallEvent,
+  type WallNode,
+  type WallSurfaceSide,
 } from '@pascal-app/core'
 
-import { useViewer } from '@pascal-app/viewer'
-import { useEffect, useRef } from 'react'
+import {
+  applyMaterialPresetToMaterials,
+  createMaterial,
+  createMaterialFromPresetRef,
+  getRoofMaterialArray,
+  getStairBodyMaterials,
+  getStairRailingMaterial,
+  getVisibleWallMaterials,
+  useViewer,
+} from '@pascal-app/viewer'
+import { useCallback, useEffect, useRef } from 'react'
+import { type BufferGeometry, Color, type Material, type Mesh, type Object3D } from 'three'
+import {
+  type ActivePaintMaterial,
+  buildRoofSurfaceMaterialPatch,
+  buildSingleSurfaceMaterialPatch,
+  buildStairSurfaceMaterialPatch,
+  buildWallSurfaceMaterialPatch,
+  hasActivePaintMaterial,
+  resolveActivePaintMaterialFromSelection,
+} from '../../lib/material-paint'
 import { sfxEmitter } from '../../lib/sfx-bus'
-import useEditor, { type Phase, type StructureLayer } from './../../store/use-editor'
+import useEditor, {
+  type MaterialTargetRole,
+  type Phase,
+  type StructureLayer,
+} from './../../store/use-editor'
 import { boxSelectHandled } from '../tools/select/box-select-tool'
 
 const isNodeInCurrentLevel = (node: AnyNode): boolean => {
@@ -25,7 +64,9 @@ const isNodeInCurrentLevel = (node: AnyNode): boolean => {
 
 type SelectableNodeType =
   | 'wall'
+  | 'fence'
   | 'item'
+  | 'column'
   | 'building'
   | 'zone'
   | 'slab'
@@ -34,12 +75,23 @@ type SelectableNodeType =
   | 'roof-segment'
   | 'stair'
   | 'stair-segment'
+  | 'spawn'
   | 'window'
   | 'door'
 
 type ModifierKeys = {
   meta: boolean
   ctrl: boolean
+}
+
+type PaintPreviewCleanup = () => void
+
+type PaintInteraction = {
+  key: string
+  apply: (() => void) | null
+  hoverMode: HoverHighlightMode
+  hoveredId: AnyNodeId
+  preview: (() => PaintPreviewCleanup | null) | null
 }
 
 interface SelectionStrategy {
@@ -64,6 +116,415 @@ export const resolveBuildingId = (
     return level.parentId
   }
   return null
+}
+
+function resolveWallMaterialTarget(event: WallEvent): WallSurfaceSide | null {
+  const materialIndex = getIntersectionMaterialIndex(getEventObject(event), event.faceIndex)
+  if (materialIndex === 1) return 'interior'
+  if (materialIndex === 2) return 'exterior'
+
+  const normalZ = event.normal?.[2]
+  const localZ = event.localPosition[2]
+  const thickness = event.node.thickness ?? 0.1
+
+  if (
+    normalZ === undefined ||
+    Math.abs(normalZ) < 0.65 ||
+    Math.abs(localZ) < Math.max(thickness * 0.2, 0.01)
+  ) {
+    return null
+  }
+
+  const hitFace = localZ >= 0 ? 'front' : 'back'
+  const semantic = hitFace === 'front' ? event.node.frontSide : event.node.backSide
+
+  if (semantic === 'interior' || semantic === 'exterior') {
+    return semantic
+  }
+
+  return hitFace === 'front' ? 'interior' : 'exterior'
+}
+
+function resolveStairMaterialTarget(
+  event: StairEvent | StairSegmentEvent,
+): StairSurfaceMaterialRole | null {
+  const hitObjectName = event.nativeEvent.object?.name ?? ''
+  const materialIndex = getIntersectionMaterialIndex(getEventObject(event), event.faceIndex)
+
+  if (hitObjectName.startsWith('stair-railing')) {
+    return 'railing'
+  }
+
+  if (hitObjectName.startsWith('stair-side')) {
+    return 'side'
+  }
+
+  if (materialIndex === 0) {
+    return 'tread'
+  }
+
+  if (materialIndex === 1) {
+    return 'side'
+  }
+
+  const normalY = event.normal?.[1]
+  if (normalY !== undefined && normalY > 0.75) {
+    return 'tread'
+  }
+
+  if (normalY !== undefined && Math.abs(normalY) <= 0.75) {
+    return 'side'
+  }
+
+  return null
+}
+
+function resolveRoofMaterialTarget(
+  event: RoofEvent | RoofSegmentEvent,
+): 'top' | 'edge' | 'wall' | null {
+  const materialIndex = getIntersectionMaterialIndex(getEventObject(event), event.faceIndex)
+  if (materialIndex === 3) return 'top'
+  if (materialIndex === 0) return 'edge'
+  if (materialIndex === 1 || materialIndex === 2) return 'wall'
+
+  const normalY = event.normal?.[1]
+  if (normalY !== undefined && normalY > 0.35) return 'top'
+  if (normalY !== undefined && Math.abs(normalY) <= 0.35) return 'edge'
+  if (normalY !== undefined && normalY < -0.35) return 'wall'
+
+  return null
+}
+
+function getEventObject(event: NodeEvent): Object3D {
+  const eventWithObject = event as NodeEvent & { object?: Object3D }
+  return eventWithObject.object ?? event.nativeEvent.object
+}
+
+function getIntersectionMaterialIndex(
+  object: Object3D,
+  faceIndex: number | undefined,
+): number | undefined {
+  if (faceIndex === undefined) return undefined
+
+  const geometry = (object as Mesh).geometry as BufferGeometry | undefined
+  if (!geometry || geometry.groups.length === 0) return undefined
+
+  const triangleStart = faceIndex * 3
+  const group = geometry.groups.find(
+    (entry) => triangleStart >= entry.start && triangleStart < entry.start + entry.count,
+  )
+
+  return group?.materialIndex
+}
+
+function getRegisteredNodeObject(nodeId: string): Object3D | null {
+  return sceneRegistry.nodes.get(nodeId) ?? null
+}
+
+function getRegisteredMesh(nodeId: string): Mesh | null {
+  const object = getRegisteredNodeObject(nodeId)
+  return object && (object as Mesh).isMesh ? (object as Mesh) : null
+}
+
+function previewMeshMaterial(mesh: Mesh, material: Material | Material[]): PaintPreviewCleanup {
+  const previousMaterial = mesh.material
+  mesh.material = material
+  return () => {
+    mesh.material = previousMaterial
+  }
+}
+
+function previewCursor(cursor: string): PaintPreviewCleanup {
+  const previousCursor = document.body.style.cursor
+  document.body.style.cursor = cursor
+  return () => {
+    document.body.style.cursor = previousCursor
+  }
+}
+
+function getSingleSurfacePreviewMaterial(material: ActivePaintMaterial): Material | null {
+  if (material.materialPreset) {
+    return createMaterialFromPresetRef(material.materialPreset)
+  }
+
+  if (material.material) {
+    return createMaterial(material.material)
+  }
+
+  return null
+}
+
+function applyWallPaintPreview(
+  node: WallNode,
+  role: WallSurfaceSide,
+  material: ActivePaintMaterial,
+): PaintPreviewCleanup | null {
+  const mesh = getRegisteredMesh(node.id)
+  if (!mesh) return null
+
+  const previewNode = {
+    ...node,
+    ...buildWallSurfaceMaterialPatch(node, role, material.material, material.materialPreset),
+  }
+
+  return previewMeshMaterial(mesh, getVisibleWallMaterials(previewNode))
+}
+
+function applyRoofPaintPreview(
+  node: RoofNode,
+  role: 'top' | 'edge' | 'wall',
+  material: ActivePaintMaterial,
+): PaintPreviewCleanup | null {
+  const root = getRegisteredNodeObject(node.id)
+  const mesh = root?.getObjectByName('merged-roof') as Mesh | undefined
+  if (!mesh) return null
+
+  const previewNode = {
+    ...node,
+    ...buildRoofSurfaceMaterialPatch(node, role, material.material, material.materialPreset),
+  }
+  const previewMaterial = getRoofMaterialArray(previewNode)
+  if (!previewMaterial) return null
+
+  return previewMeshMaterial(mesh, previewMaterial)
+}
+
+function applyStairPaintPreview(
+  node: StairNode,
+  role: StairSurfaceMaterialRole,
+  material: ActivePaintMaterial,
+): PaintPreviewCleanup | null {
+  const root = getRegisteredNodeObject(node.id)
+  if (!root) return null
+
+  const previewNode = {
+    ...node,
+    ...buildStairSurfaceMaterialPatch(node, role, material.material, material.materialPreset),
+  }
+  const bodyMaterials = getStairBodyMaterials(previewNode)
+  const railingMaterial = getStairRailingMaterial(previewNode)
+  const restores: PaintPreviewCleanup[] = []
+
+  root.traverse((object) => {
+    if (!(object as Mesh).isMesh) return
+    const mesh = object as Mesh
+    if (mesh.name.startsWith('stair-railing')) {
+      restores.push(previewMeshMaterial(mesh, railingMaterial))
+      return
+    }
+    if (Array.isArray(mesh.material) && mesh.material.length === 2) {
+      restores.push(previewMeshMaterial(mesh, bodyMaterials))
+      return
+    }
+    if (mesh.name === 'merged-stair') {
+      restores.push(previewMeshMaterial(mesh, bodyMaterials))
+      return
+    }
+    if (mesh.name.startsWith('stair-side')) {
+      restores.push(previewMeshMaterial(mesh, bodyMaterials[1]))
+    }
+  })
+
+  if (restores.length === 0) return null
+
+  return () => {
+    for (let index = restores.length - 1; index >= 0; index -= 1) {
+      restores[index]?.()
+    }
+  }
+}
+
+function applySingleSurfacePaintPreview(
+  node: FenceNode | ColumnNode | SlabNode | CeilingNode,
+  material: ActivePaintMaterial,
+): PaintPreviewCleanup | null {
+  if (node.type === 'ceiling') {
+    const root = getRegisteredMesh(node.id)
+    const overlay = root?.getObjectByName('ceiling-grid') as Mesh | undefined
+    if (!root || !overlay) return null
+
+    const previewColor =
+      getMaterialPresetByRef(material.materialPreset)?.mapProperties.color ??
+      resolveMaterial(material.material).color ??
+      '#999999'
+
+    const previousRootMaterial = root.material
+    const previousOverlayMaterial = overlay.material
+    const rootPreviewMaterial = Array.isArray(previousRootMaterial)
+      ? previousRootMaterial.map((entry) => entry.clone())
+      : previousRootMaterial.clone()
+    const overlayPreviewMaterial = Array.isArray(previousOverlayMaterial)
+      ? previousOverlayMaterial.map((entry) => entry.clone())
+      : previousOverlayMaterial.clone()
+
+    const applyColor = (input: Material | Material[]) => {
+      const materials = Array.isArray(input) ? input : [input]
+      for (const entry of materials) {
+        const materialWithColor = entry as Material & { color?: Color; needsUpdate?: boolean }
+        if (materialWithColor.color instanceof Color) {
+          materialWithColor.color = new Color(previewColor)
+        }
+        materialWithColor.needsUpdate = true
+      }
+    }
+
+    applyColor(rootPreviewMaterial)
+    applyColor(overlayPreviewMaterial)
+    root.material = rootPreviewMaterial
+    overlay.material = overlayPreviewMaterial
+
+    return () => {
+      root.material = previousRootMaterial
+      overlay.material = previousOverlayMaterial
+    }
+  }
+
+  const registeredObject = getRegisteredNodeObject(node.id)
+  const mesh =
+    registeredObject && (registeredObject as Mesh).isMesh ? (registeredObject as Mesh) : null
+
+  const previewMaterial = getSingleSurfacePreviewMaterial(material)
+  if (!previewMaterial) return null
+
+  if (node.type === 'column') {
+    if (!registeredObject) return null
+    const restores: PaintPreviewCleanup[] = []
+
+    registeredObject.traverse((object) => {
+      if (!(object as Mesh).isMesh) return
+      restores.push(previewMeshMaterial(object as Mesh, previewMaterial))
+    })
+
+    if (restores.length === 0) return null
+    return () => {
+      for (let index = restores.length - 1; index >= 0; index -= 1) {
+        restores[index]?.()
+      }
+    }
+  }
+
+  if (!mesh) return null
+
+  if (node.type === 'slab') {
+    const slabMaterial = previewMaterial.clone()
+    applyMaterialPresetToMaterials(slabMaterial, getMaterialPresetByRef(material.materialPreset))
+    const previewMeshMaterialInput = slabMaterial as Material & {
+      alphaMap?: unknown
+      depthWrite?: boolean
+      needsUpdate?: boolean
+      opacity?: number
+      side?: number
+      transparent?: boolean
+    }
+    previewMeshMaterialInput.transparent = false
+    previewMeshMaterialInput.opacity = 1
+    previewMeshMaterialInput.alphaMap = null
+    previewMeshMaterialInput.depthWrite = true
+    previewMeshMaterialInput.needsUpdate = true
+    return previewMeshMaterial(mesh, slabMaterial)
+  }
+
+  return previewMeshMaterial(mesh, previewMaterial)
+}
+
+function setSelectedMaterialTargetForNode(node: AnyNode, role: MaterialTargetRole | null) {
+  if (!role) {
+    const currentTarget = useEditor.getState().selectedMaterialTarget
+    if (currentTarget?.nodeId !== node.id) {
+      useEditor.getState().setSelectedMaterialTarget(null)
+    }
+    return
+  }
+
+  useEditor.getState().setSelectedMaterialTarget({
+    nodeId: node.id as AnyNodeId,
+    role,
+  })
+}
+
+const HIGHLIGHT_PROFILES = {
+  delete: {
+    color: new Color('#dc2626'),
+    blend: 0.76,
+    emissiveBlend: 0.92,
+    emissiveIntensity: 0.46,
+  },
+  selection: {
+    color: new Color('#818cf8'),
+    blend: 0.32,
+    emissiveBlend: 0.7,
+    emissiveIntensity: 0.42,
+  },
+} as const
+
+type HighlightKind = keyof typeof HIGHLIGHT_PROFILES
+type HoverHighlightMode = 'default' | 'delete' | 'paint-ready' | 'paint-disabled'
+
+type HighlightableMaterial = Material & {
+  color?: Color
+  emissive?: Color
+  emissiveIntensity?: number
+  opacity?: number
+  transparent?: boolean
+  needsUpdate?: boolean
+}
+
+function isHighlightableMesh(object: Object3D): object is Mesh {
+  return Boolean(
+    (object as Mesh).isMesh &&
+      (object as Mesh).material &&
+      object.visible &&
+      object.name !== 'collision-mesh',
+  )
+}
+
+function createHighlightedMaterial(material: Material, kind: HighlightKind): Material {
+  const highlightedMaterial = material.clone() as HighlightableMaterial
+  const profile = HIGHLIGHT_PROFILES[kind]
+
+  if (highlightedMaterial.color instanceof Color) {
+    highlightedMaterial.color = highlightedMaterial.color.clone().lerp(profile.color, profile.blend)
+  }
+
+  if (highlightedMaterial.emissive instanceof Color) {
+    highlightedMaterial.emissive = highlightedMaterial.emissive
+      .clone()
+      .lerp(profile.color, profile.emissiveBlend)
+    highlightedMaterial.emissiveIntensity = Math.max(
+      highlightedMaterial.emissiveIntensity ?? 0,
+      profile.emissiveIntensity,
+    )
+  }
+
+  if (typeof highlightedMaterial.opacity === 'number' && highlightedMaterial.opacity < 1) {
+    highlightedMaterial.transparent = true
+    highlightedMaterial.opacity = Math.min(1, highlightedMaterial.opacity + 0.08)
+  }
+
+  highlightedMaterial.needsUpdate = true
+  return highlightedMaterial
+}
+
+function createHighlightedMaterials(
+  material: Material | Material[],
+  kind: HighlightKind,
+): Material | Material[] {
+  if (Array.isArray(material)) {
+    return material.map((entry) => createHighlightedMaterial(entry, kind))
+  }
+
+  return createHighlightedMaterial(material, kind)
+}
+
+function disposeHighlightedMaterials(material: Material | Material[]) {
+  if (Array.isArray(material)) {
+    material.forEach((entry) => {
+      entry.dispose()
+    })
+    return
+  }
+
+  material.dispose()
 }
 
 const computeNextIds = (
@@ -99,7 +560,22 @@ const SELECTION_STRATEGIES: Record<string, SelectionStrategy> = {
   },
 
   structure: {
-    types: ['wall', 'item', 'zone', 'slab', 'ceiling', 'roof', 'roof-segment', 'window', 'door'],
+    types: [
+      'wall',
+      'fence',
+      'item',
+      'column',
+      'zone',
+      'slab',
+      'ceiling',
+      'roof',
+      'roof-segment',
+      'stair',
+      'stair-segment',
+      'spawn',
+      'window',
+      'door',
+    ],
     handleSelect: (node, nativeEvent, modifierKeys) => {
       const { selection, setSelection } = useViewer.getState()
       const nodes = useScene.getState().nodes
@@ -141,10 +617,15 @@ const SELECTION_STRATEGIES: Record<string, SelectionStrategy> = {
       }
       if (
         node.type === 'wall' ||
+        node.type === 'fence' ||
+        node.type === 'column' ||
         node.type === 'slab' ||
         node.type === 'ceiling' ||
         node.type === 'roof' ||
-        node.type === 'roof-segment'
+        node.type === 'roof-segment' ||
+        node.type === 'stair' ||
+        node.type === 'stair-segment' ||
+        node.type === 'spawn'
       )
         return true
       if (node.type === 'item') {
@@ -200,10 +681,15 @@ const getSelectionTarget = (node: AnyNode): SelectionTarget | null => {
 
   if (
     node.type === 'wall' ||
+    node.type === 'fence' ||
+    node.type === 'column' ||
     node.type === 'slab' ||
     node.type === 'ceiling' ||
     node.type === 'roof' ||
     node.type === 'roof-segment' ||
+    node.type === 'stair' ||
+    node.type === 'stair-segment' ||
+    node.type === 'spawn' ||
     node.type === 'window' ||
     node.type === 'door'
   ) {
@@ -233,6 +719,7 @@ const getSelectionTarget = (node: AnyNode): SelectionTarget | null => {
 export const SelectionManager = () => {
   const phase = useEditor((s) => s.phase)
   const mode = useEditor((s) => s.mode)
+  const setHoverHighlightMode = useViewer((s) => s.setHoverHighlightMode)
   const modifierKeysRef = useRef<ModifierKeys>({
     meta: false,
     ctrl: false,
@@ -240,6 +727,301 @@ export const SelectionManager = () => {
   const clickHandledRef = useRef(false)
 
   const movingNode = useEditor((s) => s.movingNode)
+  const curvingWall = useEditor((s) => s.curvingWall)
+  const curvingFence = useEditor((s) => s.curvingFence)
+
+  useEffect(() => {
+    const nextHoverMode: HoverHighlightMode = mode === 'delete' ? 'delete' : 'default'
+    setHoverHighlightMode(nextHoverMode)
+
+    return () => {
+      setHoverHighlightMode('default')
+    }
+  }, [mode, setHoverHighlightMode])
+
+  useEffect(() => {
+    if (mode !== 'material-paint') return
+    if (movingNode || curvingWall) return
+
+    let activePreview: { key: string; restore: PaintPreviewCleanup } | null = null
+
+    const clearActivePreview = () => {
+      activePreview?.restore()
+      activePreview = null
+    }
+
+    const resolveActivePaintMaterial = () =>
+      useEditor.getState().activePaintMaterial ??
+      resolveActivePaintMaterialFromSelection({
+        nodes: useScene.getState().nodes,
+        selectedId:
+          useViewer.getState().selection.selectedIds.length === 1
+            ? (useViewer.getState().selection.selectedIds[0] ?? null)
+            : null,
+        selectedMaterialTarget: useEditor.getState().selectedMaterialTarget,
+      })
+
+    const getPaintInteraction = (event: NodeEvent): PaintInteraction | null => {
+      const activePaintMaterial = resolveActivePaintMaterial()
+      const node = event.node
+
+      if (!isNodeInCurrentLevel(node)) return null
+
+      if (node.type === 'wall') {
+        const role = resolveWallMaterialTarget(event as WallEvent)
+        const compatible = role !== null && hasActivePaintMaterial(activePaintMaterial)
+        return {
+          key: `wall:${node.id}:${role ?? 'unsupported'}`,
+          hoveredId: node.id as AnyNodeId,
+          hoverMode:
+            compatible && hasActivePaintMaterial(activePaintMaterial) && role
+              ? 'paint-ready'
+              : 'paint-disabled',
+          apply:
+            compatible && hasActivePaintMaterial(activePaintMaterial)
+              ? () => {
+                  useScene
+                    .getState()
+                    .updateNode(
+                      node.id as AnyNodeId,
+                      buildWallSurfaceMaterialPatch(
+                        node as WallNode,
+                        role!,
+                        activePaintMaterial.material,
+                        activePaintMaterial.materialPreset,
+                      ),
+                    )
+                }
+              : null,
+          preview:
+            compatible && hasActivePaintMaterial(activePaintMaterial) && role
+              ? () => applyWallPaintPreview(node as WallNode, role, activePaintMaterial)
+              : () => previewCursor('not-allowed'),
+        }
+      }
+
+      if (node.type === 'roof' || node.type === 'roof-segment') {
+        const roofNode =
+          node.type === 'roof'
+            ? node
+            : node.parentId
+              ? useScene.getState().nodes[node.parentId as AnyNodeId]
+              : null
+        if (!roofNode || roofNode.type !== 'roof') return null
+
+        const role = resolveRoofMaterialTarget(event as RoofEvent | RoofSegmentEvent)
+        const compatible = role !== null && hasActivePaintMaterial(activePaintMaterial)
+        return {
+          key: `roof:${roofNode.id}:${role ?? 'unsupported'}`,
+          hoveredId: roofNode.id as AnyNodeId,
+          hoverMode:
+            compatible && hasActivePaintMaterial(activePaintMaterial) && role
+              ? 'paint-ready'
+              : 'paint-disabled',
+          apply:
+            compatible && hasActivePaintMaterial(activePaintMaterial)
+              ? () => {
+                  useScene
+                    .getState()
+                    .updateNode(
+                      roofNode.id as AnyNodeId,
+                      buildRoofSurfaceMaterialPatch(
+                        roofNode as RoofNode,
+                        role!,
+                        activePaintMaterial.material,
+                        activePaintMaterial.materialPreset,
+                      ),
+                    )
+                }
+              : null,
+          preview:
+            compatible && hasActivePaintMaterial(activePaintMaterial) && role
+              ? () => applyRoofPaintPreview(roofNode as RoofNode, role, activePaintMaterial)
+              : () => previewCursor('not-allowed'),
+        }
+      }
+
+      if (node.type === 'stair' || node.type === 'stair-segment') {
+        const stairNode =
+          node.type === 'stair'
+            ? node
+            : node.parentId
+              ? useScene.getState().nodes[node.parentId as AnyNodeId]
+              : null
+        if (!stairNode || stairNode.type !== 'stair') return null
+
+        const role = resolveStairMaterialTarget(event as StairEvent | StairSegmentEvent)
+        const compatible = role !== null && hasActivePaintMaterial(activePaintMaterial)
+        return {
+          key: `stair:${stairNode.id}:${role ?? 'unsupported'}`,
+          hoveredId: stairNode.id as AnyNodeId,
+          hoverMode:
+            compatible && hasActivePaintMaterial(activePaintMaterial) && role
+              ? 'paint-ready'
+              : 'paint-disabled',
+          apply:
+            compatible && hasActivePaintMaterial(activePaintMaterial)
+              ? () => {
+                  useScene
+                    .getState()
+                    .updateNode(
+                      stairNode.id as AnyNodeId,
+                      buildStairSurfaceMaterialPatch(
+                        stairNode as StairNode,
+                        role!,
+                        activePaintMaterial.material,
+                        activePaintMaterial.materialPreset,
+                      ),
+                    )
+                }
+              : null,
+          preview:
+            compatible && hasActivePaintMaterial(activePaintMaterial) && role
+              ? () => applyStairPaintPreview(stairNode as StairNode, role, activePaintMaterial)
+              : () => previewCursor('not-allowed'),
+        }
+      }
+
+      if (
+        node.type === 'fence' ||
+        node.type === 'column' ||
+        node.type === 'slab' ||
+        node.type === 'ceiling'
+      ) {
+        const compatible = hasActivePaintMaterial(activePaintMaterial)
+
+        return {
+          key: `${node.type}:${node.id}:surface`,
+          hoveredId: node.id as AnyNodeId,
+          hoverMode: compatible ? 'paint-ready' : 'paint-disabled',
+          apply: compatible
+            ? () => {
+                useScene
+                  .getState()
+                  .updateNode(
+                    node.id as AnyNodeId,
+                    buildSingleSurfaceMaterialPatch<
+                      FenceNode | ColumnNode | SlabNode | CeilingNode
+                    >(activePaintMaterial.material, activePaintMaterial.materialPreset),
+                  )
+              }
+            : null,
+          preview: compatible
+            ? () =>
+                applySingleSurfacePaintPreview(
+                  node as FenceNode | ColumnNode | SlabNode | CeilingNode,
+                  activePaintMaterial,
+                )
+            : () => previewCursor('not-allowed'),
+        }
+      }
+
+      const disabledNodeTypes = ['item', 'window', 'door', 'zone']
+      if (disabledNodeTypes.includes(node.type)) {
+        return {
+          key: `${node.type}:${node.id}:unsupported`,
+          hoveredId: node.id as AnyNodeId,
+          hoverMode: 'paint-disabled',
+          apply: null,
+          preview: () => previewCursor('not-allowed'),
+        }
+      }
+
+      return null
+    }
+
+    const onEnter = (event: NodeEvent) => {
+      if (boxSelectHandled) return
+
+      const interaction = getPaintInteraction(event)
+      if (!interaction) return
+
+      event.stopPropagation()
+
+      if (activePreview?.key === interaction.key) {
+        return
+      }
+
+      clearActivePreview()
+      useViewer.setState({ hoveredId: interaction.hoveredId })
+      setHoverHighlightMode(interaction.hoverMode)
+
+      const restore = interaction.preview?.()
+      if (restore) {
+        activePreview = { key: interaction.key, restore }
+      }
+    }
+
+    const onLeave = (event: NodeEvent) => {
+      const interaction = getPaintInteraction(event)
+      if (!interaction) return
+
+      if (activePreview?.key !== interaction.key) {
+        return
+      }
+
+      clearActivePreview()
+      if (useViewer.getState().hoveredId === interaction.hoveredId) {
+        useViewer.setState({ hoveredId: null })
+      }
+      setHoverHighlightMode('default')
+    }
+
+    const onClick = (event: NodeEvent) => {
+      if (boxSelectHandled) return
+
+      const interaction = getPaintInteraction(event)
+      if (!interaction) return
+
+      event.stopPropagation()
+
+      if (!interaction.apply) {
+        return
+      }
+
+      interaction.apply()
+      if (activePreview?.key === interaction.key) {
+        activePreview = null
+      } else {
+        clearActivePreview()
+      }
+      setHoverHighlightMode(interaction.hoverMode)
+    }
+
+    const allTypes = [
+      'wall',
+      'fence',
+      'item',
+      'column',
+      'slab',
+      'ceiling',
+      'roof',
+      'roof-segment',
+      'stair',
+      'stair-segment',
+      'spawn',
+      'window',
+      'door',
+      'zone',
+    ] as const
+
+    for (const type of allTypes) {
+      emitter.on(`${type}:enter` as any, onEnter as any)
+      emitter.on(`${type}:leave` as any, onLeave as any)
+      emitter.on(`${type}:click` as any, onClick as any)
+    }
+
+    return () => {
+      for (const type of allTypes) {
+        emitter.off(`${type}:enter` as any, onEnter as any)
+        emitter.off(`${type}:leave` as any, onLeave as any)
+        emitter.off(`${type}:click` as any, onClick as any)
+      }
+      clearActivePreview()
+      useViewer.setState({ hoveredId: null })
+      setHoverHighlightMode('default')
+    }
+  }, [curvingWall, mode, movingNode, setHoverHighlightMode])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -270,7 +1052,7 @@ export const SelectionManager = () => {
 
   useEffect(() => {
     if (mode !== 'select') return
-    if (movingNode) return
+    if (movingNode || curvingWall || curvingFence) return
 
     const onClick = (event: NodeEvent) => {
       // Skip if box-select just completed (drag ended over a node)
@@ -281,7 +1063,8 @@ export const SelectionManager = () => {
       let currentStructureLayer = useEditor.getState().structureLayer
 
       // Auto-switch between zones, structure, and furnish when clicking elements on the same level.
-      if (currentPhase === 'structure' || currentPhase === 'furnish') {
+      // Also auto-switch from site phase when clicking structural/furnish elements (e.g. 2D floorplan).
+      if (currentPhase === 'structure' || currentPhase === 'furnish' || currentPhase === 'site') {
         if (isNodeInCurrentLevel(node)) {
           const target = getSelectionTarget(node)
           if (target) {
@@ -314,8 +1097,58 @@ export const SelectionManager = () => {
             nodeToSelect = parentNode
           }
         }
+        if (node.type === 'stair-segment' && node.parentId) {
+          const parentNode = useScene.getState().nodes[node.parentId as AnyNodeId]
+          if (parentNode && parentNode.type === 'stair') {
+            nodeToSelect = parentNode
+          }
+        }
 
         activeStrategy.handleSelect(nodeToSelect, event.nativeEvent, modifierKeysRef.current)
+
+        let nextMaterialTargetHandled = false
+
+        if (node.type === 'wall' && nodeToSelect.type === 'wall') {
+          setSelectedMaterialTargetForNode(
+            nodeToSelect,
+            resolveWallMaterialTarget(event as WallEvent),
+          )
+          nextMaterialTargetHandled = true
+        }
+
+        if (
+          (node.type === 'stair' || node.type === 'stair-segment') &&
+          nodeToSelect.type === 'stair'
+        ) {
+          setSelectedMaterialTargetForNode(
+            nodeToSelect,
+            resolveStairMaterialTarget(event as StairEvent | StairSegmentEvent),
+          )
+          nextMaterialTargetHandled = true
+        }
+
+        if (
+          (node.type === 'roof' || node.type === 'roof-segment') &&
+          nodeToSelect.type === 'roof'
+        ) {
+          setSelectedMaterialTargetForNode(
+            nodeToSelect,
+            resolveRoofMaterialTarget(event as RoofEvent | RoofSegmentEvent),
+          )
+          nextMaterialTargetHandled = true
+        }
+
+        if (
+          (node.type === 'fence' || node.type === 'slab' || node.type === 'ceiling') &&
+          nodeToSelect.type === node.type
+        ) {
+          setSelectedMaterialTargetForNode(nodeToSelect, 'surface')
+          nextMaterialTargetHandled = true
+        }
+
+        if (!nextMaterialTargetHandled && useEditor.getState().selectedMaterialTarget) {
+          useEditor.getState().setSelectedMaterialTarget(null)
+        }
 
         // Reset the handled flag after a short delay to allow grid:click to be ignored
         setTimeout(() => {
@@ -326,13 +1159,18 @@ export const SelectionManager = () => {
 
     const allTypes = [
       'wall',
+      'fence',
       'item',
+      'column',
       'building',
       'zone',
       'slab',
       'ceiling',
       'roof',
       'roof-segment',
+      'stair',
+      'stair-segment',
+      'spawn',
       'window',
       'door',
     ]
@@ -343,8 +1181,16 @@ export const SelectionManager = () => {
     const onGridClick = () => {
       if (clickHandledRef.current) return
       if (boxSelectHandled) return
-      const activeStrategy = SELECTION_STRATEGIES[useEditor.getState().phase]
+      const { phase, structureLayer } = useEditor.getState()
+      const activeStrategy = SELECTION_STRATEGIES[phase]
       if (activeStrategy) activeStrategy.handleDeselect()
+      useEditor.getState().setSelectedMaterialTarget(null)
+
+      // When deselecting from zone mode, return to structure select
+      if (phase === 'structure' && structureLayer === 'zones') {
+        useEditor.getState().setStructureLayer('elements')
+        useEditor.getState().setMode('select')
+      }
     }
     emitter.on('grid:click', onGridClick)
 
@@ -354,12 +1200,12 @@ export const SelectionManager = () => {
       })
       emitter.off('grid:click', onGridClick)
     }
-  }, [mode, movingNode])
+  }, [curvingFence, curvingWall, mode, movingNode])
 
   // Global double-click handler for auto-switching phases and cross-phase hover
   useEffect(() => {
     if (mode !== 'select') return
-    if (movingNode) return
+    if (movingNode || curvingWall || curvingFence) return
 
     const onEnter = (event: NodeEvent) => {
       const node = event.node
@@ -411,16 +1257,24 @@ export const SelectionManager = () => {
         }
       } else if (
         node.type === 'wall' ||
+        node.type === 'fence' ||
+        node.type === 'column' ||
         node.type === 'slab' ||
         node.type === 'ceiling' ||
         node.type === 'roof' ||
         node.type === 'roof-segment' ||
+        node.type === 'stair' ||
+        node.type === 'stair-segment' ||
+        node.type === 'spawn' ||
         node.type === 'window' ||
         node.type === 'door'
       ) {
         targetPhase = 'structure'
         if (node.type === 'roof-segment' && currentPhase === 'structure') {
           forceSelect = true // allow double click to dive into roof-segment even if already in structure phase
+        }
+        if (node.type === 'stair-segment' && currentPhase === 'structure') {
+          forceSelect = true // allow double click to dive into stair-segment even if already in structure phase
         }
       } else if (node.type === 'item') {
         const item = node as ItemNode
@@ -455,12 +1309,17 @@ export const SelectionManager = () => {
 
     const allTypes = [
       'wall',
+      'fence',
       'item',
+      'column',
       'building',
       'slab',
       'ceiling',
       'roof',
       'roof-segment',
+      'stair',
+      'stair-segment',
+      'spawn',
       'window',
       'door',
       'zone',
@@ -479,7 +1338,7 @@ export const SelectionManager = () => {
         emitter.off(`${type}:double-click` as any, onDoubleClick as any)
       })
     }
-  }, [mode, movingNode])
+  }, [curvingFence, curvingWall, mode, movingNode])
 
   // Delete mode: click-to-delete (sledgehammer tool)
   useEffect(() => {
@@ -524,11 +1383,15 @@ export const SelectionManager = () => {
 
     const allTypes = [
       'wall',
+      'fence',
       'item',
+      'column',
       'slab',
       'ceiling',
       'roof',
       'roof-segment',
+      'stair',
+      'stair-segment',
       'window',
       'door',
       'zone',
@@ -553,12 +1416,19 @@ export const SelectionManager = () => {
   return (
     <>
       <SelectionStateSync />
+      <SelectionMaterialSync />
       <EditorOutlinerSync />
     </>
   )
 }
 
 const SelectionStateSync = () => {
+  const selectedMaterialTarget = useEditor((s) => s.selectedMaterialTarget)
+  const setSelectedMaterialTarget = useEditor((s) => s.setSelectedMaterialTarget)
+  const singleSelectedId = useViewer((s) =>
+    s.selection.selectedIds.length === 1 ? s.selection.selectedIds[0] : null,
+  )
+
   useEffect(() => {
     return useScene.subscribe((state) => {
       const { buildingId, levelId, zoneId, selectedIds } = useViewer.getState().selection
@@ -587,12 +1457,183 @@ const SelectionStateSync = () => {
     })
   }, [])
 
+  useEffect(() => {
+    if (!selectedMaterialTarget) return
+
+    if (!singleSelectedId) {
+      setSelectedMaterialTarget(null)
+      return
+    }
+
+    const selectedNode = useScene.getState().nodes[singleSelectedId as AnyNodeId]
+    if (
+      !selectedNode ||
+      (selectedNode.type !== 'wall' &&
+        selectedNode.type !== 'fence' &&
+        selectedNode.type !== 'slab' &&
+        selectedNode.type !== 'ceiling' &&
+        selectedNode.type !== 'stair' &&
+        selectedNode.type !== 'roof')
+    ) {
+      setSelectedMaterialTarget(null)
+      return
+    }
+
+    if (selectedMaterialTarget.nodeId !== selectedNode.id) {
+      setSelectedMaterialTarget(null)
+    }
+  }, [selectedMaterialTarget, setSelectedMaterialTarget, singleSelectedId])
+
+  return null
+}
+
+const SelectionMaterialSync = () => {
+  const selectedIds = useViewer((s) => s.selection.selectedIds)
+  const previewSelectedIds = useViewer((s) => s.previewSelectedIds)
+  const hoveredId = useViewer((s) => s.hoveredId)
+  const hoverHighlightMode = useViewer((s) => s.hoverHighlightMode)
+  const activeHighlightKindsRef = useRef(new Map<string, HighlightKind>())
+  const highlightedMaterialsRef = useRef(
+    new Map<
+      Mesh,
+      {
+        originalMaterial: Material | Material[]
+        highlightedMaterial: Material | Material[]
+        kind: HighlightKind
+      }
+    >(),
+  )
+
+  const syncSelectionMaterials = useCallback(() => {
+    const activeMeshes = new Set<Mesh>()
+
+    for (const [id, kind] of activeHighlightKindsRef.current.entries()) {
+      const node = useScene.getState().nodes[id as AnyNodeId]
+      if (node?.type === 'wall') {
+        continue
+      }
+
+      const rootObject = sceneRegistry.nodes.get(id)
+      if (!rootObject) {
+        continue
+      }
+
+      rootObject.traverse((child) => {
+        if (!isHighlightableMesh(child)) {
+          return
+        }
+
+        activeMeshes.add(child)
+        const existingEntry = highlightedMaterialsRef.current.get(child)
+        if (existingEntry) {
+          const materialWasOverwritten = child.material !== existingEntry.highlightedMaterial
+          if (materialWasOverwritten || existingEntry.kind !== kind) {
+            disposeHighlightedMaterials(existingEntry.highlightedMaterial)
+            const originalMaterial = materialWasOverwritten
+              ? child.material
+              : existingEntry.originalMaterial
+            const highlightedMaterial = createHighlightedMaterials(originalMaterial, kind)
+            child.material = highlightedMaterial
+            highlightedMaterialsRef.current.set(child, {
+              originalMaterial,
+              highlightedMaterial,
+              kind,
+            })
+          }
+          return
+        }
+
+        const originalMaterial = child.material
+        const highlightedMaterial = createHighlightedMaterials(originalMaterial, kind)
+        child.material = highlightedMaterial
+        highlightedMaterialsRef.current.set(child, {
+          originalMaterial,
+          highlightedMaterial,
+          kind,
+        })
+      })
+    }
+
+    for (const [mesh, entry] of highlightedMaterialsRef.current.entries()) {
+      if (activeMeshes.has(mesh)) {
+        continue
+      }
+
+      if (mesh.material === entry.highlightedMaterial) {
+        mesh.material = entry.originalMaterial
+      }
+      disposeHighlightedMaterials(entry.highlightedMaterial)
+      highlightedMaterialsRef.current.delete(mesh)
+    }
+  }, [])
+
+  useEffect(() => {
+    const nextHighlightKinds = new Map<string, HighlightKind>()
+
+    for (const id of new Set([...selectedIds, ...previewSelectedIds])) {
+      nextHighlightKinds.set(id, 'selection')
+    }
+
+    if (hoverHighlightMode === 'delete' && hoveredId) {
+      nextHighlightKinds.set(hoveredId, 'delete')
+    }
+
+    activeHighlightKindsRef.current = nextHighlightKinds
+    syncSelectionMaterials()
+  }, [hoverHighlightMode, hoveredId, previewSelectedIds, selectedIds, syncSelectionMaterials])
+
+  useEffect(() => {
+    return useScene.subscribe((state, prevState) => {
+      if (state.nodes === prevState.nodes) return
+      syncSelectionMaterials()
+    })
+  }, [syncSelectionMaterials])
+
+  useEffect(() => {
+    const restoreForCapture = () => {
+      for (const [mesh, entry] of highlightedMaterialsRef.current.entries()) {
+        if (mesh.material === entry.highlightedMaterial) {
+          mesh.material = entry.originalMaterial
+        }
+      }
+    }
+
+    const reapplyAfterCapture = () => {
+      for (const [mesh, entry] of highlightedMaterialsRef.current.entries()) {
+        if (mesh.material === entry.originalMaterial) {
+          mesh.material = entry.highlightedMaterial
+        }
+      }
+    }
+
+    emitter.on('thumbnail:before-capture', restoreForCapture)
+    emitter.on('thumbnail:after-capture', reapplyAfterCapture)
+    return () => {
+      emitter.off('thumbnail:before-capture', restoreForCapture)
+      emitter.off('thumbnail:after-capture', reapplyAfterCapture)
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      for (const [mesh, entry] of highlightedMaterialsRef.current.entries()) {
+        if (mesh.material === entry.highlightedMaterial) {
+          mesh.material = entry.originalMaterial
+        }
+        disposeHighlightedMaterials(entry.highlightedMaterial)
+      }
+
+      highlightedMaterialsRef.current.clear()
+    }
+  }, [])
+
   return null
 }
 
 const EditorOutlinerSync = () => {
   const phase = useEditor((s) => s.phase)
   const selection = useViewer((s) => s.selection)
+  const previewSelectedIds = useViewer((s) => s.previewSelectedIds)
   const hoveredId = useViewer((s) => s.hoveredId)
   const outliner = useViewer((s) => s.outliner)
 
@@ -609,34 +1650,38 @@ const EditorOutlinerSync = () => {
       case 'structure':
         // Highlight selected items (walls/slabs)
         // We IGNORE buildingId even if it's set in the store
-        idsToHighlight = selection.selectedIds
+        idsToHighlight = Array.from(new Set([...selection.selectedIds, ...previewSelectedIds]))
         break
 
       case 'furnish':
         // Highlight selected furniture/items
-        idsToHighlight = selection.selectedIds
+        idsToHighlight = Array.from(new Set([...selection.selectedIds, ...previewSelectedIds]))
         break
 
       default:
         // Pure Viewer mode: Highlight based on the "deepest" selection
-        if (selection.selectedIds.length > 0) idsToHighlight = selection.selectedIds
-        else if (selection.levelId) idsToHighlight = [selection.levelId]
-        else if (selection.buildingId) idsToHighlight = [selection.buildingId]
+        if (selection.selectedIds.length > 0 || previewSelectedIds.length > 0) {
+          idsToHighlight = Array.from(new Set([...selection.selectedIds, ...previewSelectedIds]))
+        } else if (selection.levelId) {
+          idsToHighlight = [selection.levelId]
+        } else if (selection.buildingId) {
+          idsToHighlight = [selection.buildingId]
+        }
     }
 
     // 2. Sync with the imperative outliner arrays (mutate in place to keep references)
     outliner.selectedObjects.length = 0
     for (const id of idsToHighlight) {
       const obj = sceneRegistry.nodes.get(id)
-      if (obj) outliner.selectedObjects.push(obj)
+      if (obj?.parent) outliner.selectedObjects.push(obj)
     }
 
     outliner.hoveredObjects.length = 0
     if (hoveredId) {
       const obj = sceneRegistry.nodes.get(hoveredId)
-      if (obj) outliner.hoveredObjects.push(obj)
+      if (obj?.parent) outliner.hoveredObjects.push(obj)
     }
-  }, [phase, selection, hoveredId, outliner])
+  }, [phase, previewSelectedIds, selection, hoveredId, outliner])
 
   return null
 }

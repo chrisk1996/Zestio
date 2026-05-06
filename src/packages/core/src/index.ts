@@ -65,7 +65,8 @@ export {
   type ItemInteractiveState,
   useInteractive,
 } from './store/use-interactive'
-export { default as useLiveTransforms, type LiveTransform } from './store/use-live-transforms'
+export { default as useLiveTransforms } from './store/use-live-transforms'
+export type { LiveTransform } from './store/use-live-transforms'
 export { clearSceneHistory, default as useScene } from './store/use-scene'
 export { syncAutoStairOpenings } from './systems/stair/stair-opening-sync'
 export {
@@ -91,10 +92,12 @@ export {
   calculateLevelMiters,
   getAdjacentWallIds,
   getWallMiterBoundaryPoints,
-  type Point2D,
   pointToKey,
-  type WallMiterBoundaryPoints,
-  type WallMiterData,
+} from './systems/wall/wall-mitering'
+export type {
+  Point2D,
+  WallMiterBoundaryPoints,
+  WallMiterData,
 } from './systems/wall/wall-mitering'
 export type { SceneGraph } from './utils/clone-scene-graph'
 export { cloneLevelSubtree, cloneSceneGraph, forkSceneGraph } from './utils/clone-scene-graph'

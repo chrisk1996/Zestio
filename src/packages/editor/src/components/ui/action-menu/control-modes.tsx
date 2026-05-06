@@ -9,7 +9,15 @@ import { cn } from './../../../lib/utils'
 import useEditor from './../../../store/use-editor'
 import { ActionButton } from './action-button'
 
-type ControlId = 'select' | 'box-select' | 'site-edit' | 'build' | 'delete'
+type ControlId =
+  | 'select'
+  | 'box-select'
+  | 'site-edit'
+  | 'build'
+  | 'material-paint'
+  | 'furnish'
+  | 'zone'
+  | 'delete'
 
 type ControlConfig = {
   id: ControlId
@@ -55,6 +63,30 @@ const controls: ControlConfig[] = [
     activeColor: 'bg-green-500/20 text-green-400',
   },
   {
+    id: 'material-paint',
+    imageSrc: '/icons/paint.png',
+    label: 'Material Paint',
+    shortcut: 'P',
+    color: 'hover:bg-amber-500/20 hover:text-amber-400',
+    activeColor: 'bg-amber-500/20 text-amber-400',
+  },
+  {
+    id: 'furnish',
+    imageSrc: '/icons/couch.png',
+    label: 'Furnish',
+    shortcut: 'F',
+    color: 'hover:bg-green-500/20 hover:text-green-400',
+    activeColor: 'bg-green-500/20 text-green-400',
+  },
+  {
+    id: 'zone',
+    imageSrc: '/icons/zone.png',
+    label: 'Zone',
+    shortcut: 'Z',
+    color: 'hover:bg-green-500/20 hover:text-green-400',
+    activeColor: 'bg-green-500/20 text-green-400',
+  },
+  {
     id: 'delete',
     icon: Trash2,
     label: 'Delete',
@@ -72,21 +104,35 @@ export function ControlModes() {
   const setPhase = useEditor((state) => state.setPhase)
   const setStructureLayer = useEditor((state) => state.setStructureLayer)
   const setSelectionTool = useEditor((state) => state.setFloorplanSelectionTool)
+  const primeMaterialPaintFromSelection = useEditor((state) => state.primeMaterialPaintFromSelection)
   const levelId = useViewer((s) => s.selection.levelId)
 
-  const levelNode = useScene((state) =>
-    levelId ? (state.nodes[levelId] as LevelNode | undefined) : undefined,
-  )
+  // Only subscribe to the primitive `level` number — when walls are added to
+  // this level the object ref changes but this number doesn't, so Object.is
+  // dedupes and we avoid a re-render.
+  const levelIndex = useScene((state) => {
+    if (!levelId) return null
+    const node = state.nodes[levelId]
+    return node?.type === 'level' ? (node as LevelNode).level : null
+  })
 
   const isSiteEditing = phase === 'site'
-  const isGroundFloor = levelNode?.type === 'level' && levelNode.level === 0
+  const isGroundFloor = levelIndex === 0
   const canEnterSiteEdit = isGroundFloor || isSiteEditing
+
+  const structureLayer = useEditor((state) => state.structureLayer)
 
   const getIsActive = (id: ControlId): boolean => {
     if (isSiteEditing) return id === 'site-edit'
     if (id === 'select') return mode === 'select' && selectionTool === 'click'
     if (id === 'box-select') return mode === 'select' && selectionTool === 'marquee'
     if (id === 'site-edit') return false
+    if (id === 'build')
+      return mode === 'build' && phase === 'structure' && structureLayer === 'elements'
+    if (id === 'material-paint') return mode === 'material-paint'
+    if (id === 'furnish') return mode === 'build' && phase === 'furnish'
+    if (id === 'zone')
+      return mode === 'build' && phase === 'structure' && structureLayer === 'zones'
     return mode === id
   }
 
@@ -118,6 +164,39 @@ export function ControlModes() {
     } else if (id === 'box-select') {
       setMode('select')
       setSelectionTool('marquee')
+    } else if (id === 'build') {
+      // Toggle: if already in structure build, go back to select
+      if (getIsActive('build')) {
+        setMode('select')
+      } else {
+        setPhase('structure')
+        setStructureLayer('elements')
+        setMode('build')
+      }
+    } else if (id === 'material-paint') {
+      if (getIsActive('material-paint')) {
+        setMode('select')
+      } else {
+        primeMaterialPaintFromSelection()
+        setPhase('structure')
+        setStructureLayer('elements')
+        setMode('material-paint')
+      }
+    } else if (id === 'furnish') {
+      if (getIsActive('furnish')) {
+        setMode('select')
+      } else {
+        setPhase('furnish')
+        setMode('build')
+      }
+    } else if (id === 'zone') {
+      if (getIsActive('zone')) {
+        setMode('select')
+      } else {
+        setPhase('structure')
+        setStructureLayer('zones')
+        setMode('build')
+      }
     } else {
       setMode(id)
     }

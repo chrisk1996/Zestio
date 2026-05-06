@@ -2,6 +2,7 @@ import {
   type AnyNodeId,
   DoorNode,
   emitter,
+  isCurvedWall,
   sceneRegistry,
   spatialGridManager,
   useScene,
@@ -84,6 +85,11 @@ export const DoorTool: React.FC = () => {
 
     const onWallEnter = (event: WallEvent) => {
       if (!isValidWallSideFace(event.normal)) return
+      if (isCurvedWall(event.node)) {
+        destroyDraft()
+        hideCursor()
+        return
+      }
       const levelId = getLevelId()
       if (!levelId) return
       if (event.node.parentId !== levelId) return
@@ -130,6 +136,11 @@ export const DoorTool: React.FC = () => {
 
     const onWallMove = (event: WallEvent) => {
       if (!isValidWallSideFace(event.normal)) return
+      if (isCurvedWall(event.node)) {
+        destroyDraft()
+        hideCursor()
+        return
+      }
       if (event.node.parentId !== getLevelId()) return
 
       const side = getSideFromNormal(event.normal)
@@ -143,13 +154,25 @@ export const DoorTool: React.FC = () => {
       const { clampedX, clampedY } = clampToWall(event.node, localX, width, height)
 
       if (draftRef.current) {
-        useScene.getState().updateNode(draftRef.current.id, {
-          position: [clampedX, clampedY, 0],
-          rotation: [0, itemRotation, 0],
-          side,
-          parentId: event.node.id,
-          wallId: event.node.id,
-        })
+        if (event.node.id !== draftRef.current.parentId) {
+          // Wall changed without enter/leave: must updateNode to reparent
+          useScene.getState().updateNode(draftRef.current.id, {
+            position: [clampedX, clampedY, 0],
+            rotation: [0, itemRotation, 0],
+            side,
+            parentId: event.node.id,
+            wallId: event.node.id,
+          })
+        } else {
+          // Same wall: update Three.js mesh directly to avoid store churn
+          const draftMesh = sceneRegistry.nodes.get(draftRef.current.id as AnyNodeId)
+          if (draftMesh) {
+            draftMesh.position.set(clampedX, clampedY, 0)
+            draftMesh.rotation.set(0, itemRotation, 0)
+            draftMesh.updateMatrixWorld(true)
+          }
+          markWallDirty(event.node.id)
+        }
       }
 
       const valid = !hasWallChildOverlap(
@@ -178,6 +201,7 @@ export const DoorTool: React.FC = () => {
     const onWallClick = (event: WallEvent) => {
       if (!draftRef.current) return
       if (!isValidWallSideFace(event.normal)) return
+      if (isCurvedWall(event.node)) return
       if (event.node.parentId !== getLevelId()) return
 
       const side = getSideFromNormal(event.normal)

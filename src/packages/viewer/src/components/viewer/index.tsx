@@ -25,7 +25,9 @@ import { SceneRenderer } from '../renderers/scene-renderer'
 import FrameLimiter from './frame-limiter'
 import { Lights } from './lights'
 import { PerfMonitor } from './perf-monitor'
-import PostProcessing, { DEFAULT_HOVER_STYLES, type HoverStyles } from './post-processing'
+import PostProcessing from './post-processing';
+import { DEFAULT_HOVER_STYLES } from './post-processing';
+import type { HoverStyles } from './post-processing';
 import { SelectionManager } from './selection-manager'
 import { ViewerCamera } from './viewer-camera'
 

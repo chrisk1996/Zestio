@@ -22,8 +22,8 @@ type ViewerState = {
   selection: SelectionPath
   previewSelectedIds: BaseNode['id'][]
   setPreviewSelectedIds: (ids: BaseNode['id'][]) => void
-  hoverHighlightMode: 'default' | 'delete'
-  setHoverHighlightMode: (mode: 'default' | 'delete') => void
+  hoverHighlightMode: string
+  setHoverHighlightMode: (mode: string) => void
   hoveredId: AnyNode['id'] | ZoneNode['id'] | null
   setHoveredId: (id: AnyNode['id'] | ZoneNode['id'] | null) => void
 
@@ -71,6 +71,9 @@ type ViewerState = {
   debugColors: boolean
   setDebugColors: (enabled: boolean) => void
 
+  walkthroughMode: boolean
+  setWalkthroughMode: (mode: boolean) => void
+
   cameraDragging: boolean
   setCameraDragging: (dragging: boolean) => void
 }
@@ -82,9 +85,10 @@ const useViewer = create<ViewerState>()(
       previewSelectedIds: [],
       setPreviewSelectedIds: (ids) => set({ previewSelectedIds: ids }),
       hoverHighlightMode: 'default',
-      setHoverHighlightMode: (mode) => set({ hoverHighlightMode: mode }),
+      setHoverHighlightMode: (mode) =>
+        set((state) => (state.hoverHighlightMode === mode ? state : { hoverHighlightMode: mode })),
       hoveredId: null,
-      setHoveredId: (id) => set({ hoveredId: id }),
+      setHoveredId: (id) => set((state) => (state.hoveredId === id ? state : { hoveredId: id })),
 
       cameraMode: 'perspective',
       setCameraMode: (mode) => set({ cameraMode: mode }),
@@ -193,6 +197,9 @@ const useViewer = create<ViewerState>()(
 
       debugColors: false,
       setDebugColors: (enabled) => set({ debugColors: enabled }),
+
+      walkthroughMode: false,
+      setWalkthroughMode: (mode) => set({ walkthroughMode: mode }),
 
       cameraDragging: false,
       setCameraDragging: (dragging) => set({ cameraDragging: dragging }),

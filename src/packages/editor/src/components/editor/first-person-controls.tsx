@@ -1,178 +1,342 @@
 'use client'
 
+import '../../three-types'
+import { type AnyNodeId, sceneRegistry, useScene } from '@pascal-app/core'
+import { useViewer } from '@pascal-app/viewer'
+import { KeyboardControls } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
-import { useCallback, useEffect, useRef } from 'react'
-import { Euler, Vector3 } from 'three'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Box3, Euler, Matrix4, Ray, Raycaster, Vector2, Vector3 } from 'three'
 import useEditor from '../../store/use-editor'
+import {
+  buildFirstPersonColliderWorldFromRegistry,
+  deriveFirstPersonSpawn,
+  FIRST_PERSON_SPAWN_EYE_HEIGHT,
+  type FirstPersonColliderWorld,
+  type FirstPersonSpawn,
+} from './first-person/build-collider-world'
+import type { BVHEcctrlApi } from './first-person/bvh-ecctrl'
+import BVHEcctrl from './first-person/bvh-ecctrl'
 
-// Average human eye height in meters
-const EYE_HEIGHT = 1.65
-// Movement speed in meters per second
-const MOVE_SPEED = 5
-// Sprint multiplier when holding Shift
-const SPRINT_MULTIPLIER = 2
-// Vertical float speed in meters per second
-const VERTICAL_SPEED = 3
-// Mouse look sensitivity
-const MOUSE_SENSITIVITY = 0.002
-// Min Y position (eye height above ground)
-const MIN_Y = EYE_HEIGHT
+const CAMERA_EYE_OFFSET = 0.45
+const LOOK_SENSITIVITY = 0.002
+const CONTROLLER_CENTER_FROM_EYE = 0.85
+const DOOR_INTERACTION_DISTANCE = 2.5
+const DOOR_SWING_OPEN_ANGLE = Math.PI / 2
+const DOOR_LEAF_INTERACTION_DEPTH = 0.08
+const keyboardMap = [
+  { name: 'forward', keys: ['ArrowUp', 'KeyW'] },
+  { name: 'backward', keys: ['ArrowDown', 'KeyS'] },
+  { name: 'leftward', keys: ['ArrowLeft', 'KeyA'] },
+  { name: 'rightward', keys: ['ArrowRight', 'KeyD'] },
+  { name: 'jump', keys: ['Space'] },
+  { name: 'run', keys: ['ShiftLeft', 'ShiftRight'] },
+]
 
-// Reusable vectors to avoid allocations in the render loop
-const _forward = new Vector3()
-const _right = new Vector3()
-const _moveVector = new Vector3()
-const _euler = new Euler(0, 0, 0, 'YXZ')
+const cameraOffset = new Vector3(0, CAMERA_EYE_OFFSET, 0)
+const cameraEuler = new Euler(0, 0, 0, 'YXZ')
+const centerScreenPoint = new Vector2(0, 0)
+const doorInteractionRaycaster = new Raycaster()
+const doorLeafBox = new Box3()
+const doorLeafInverseMatrix = new Matrix4()
+const doorLeafLocalHit = new Vector3()
+const doorLeafLocalRay = new Ray()
+const doorLeafMatrix = new Matrix4()
+const doorLeafWorldHit = new Vector3()
+const spawnWorldPosition = new Vector3()
+const spawnWorldEuler = new Euler(0, 0, 0, 'YXZ')
+
+const resolvePlacedSpawnNode = (
+  nodes: ReturnType<typeof useScene.getState>['nodes'],
+  _levelId: string | null,
+) => {
+  const candidates = Object.values(nodes).filter((node) => node.type === 'spawn')
+  if (candidates.length === 0) return null
+
+  return [...candidates].sort((a, b) => a.id.localeCompare(b.id))[0] ?? null
+}
 
 export const FirstPersonControls = () => {
   const { camera, gl } = useThree()
-  const keysRef = useRef<Set<string>>(new Set())
+  const selectedLevelId = useViewer((state) => state.selection.levelId)
+  const placedSpawnNode = useScene((state) => resolvePlacedSpawnNode(state.nodes, selectedLevelId))
+  const controllerRef = useRef<BVHEcctrlApi | null>(null)
   const yawRef = useRef(0)
   const pitchRef = useRef(0)
-  const isLockedRef = useRef(false)
-  const initializedRef = useRef(false)
+  const interactableDoorIdRef = useRef<AnyNodeId | null>(null)
+  const worldRef = useRef<FirstPersonColliderWorld | null>(null)
+  const [world, setWorld] = useState<FirstPersonColliderWorld | null>(null)
+  const [controllerStart, setControllerStart] = useState<{
+    position: [number, number, number]
+    yaw: number
+  } | null>(null)
 
-  // Initialize camera for first-person view: start at center of scene, on the ground
-  useEffect(() => {
-    if (initializedRef.current) return
-    initializedRef.current = true
+  const replaceColliderWorld = useCallback((nextWorld: FirstPersonColliderWorld | null) => {
+    worldRef.current?.dispose()
+    worldRef.current = nextWorld
+    setWorld(nextWorld)
+  }, [])
 
-    // Place camera at the origin (center of grid) at eye height, looking along +X
-    camera.position.set(0, EYE_HEIGHT, 0)
-    yawRef.current = 0
-    pitchRef.current = 0
-  }, [camera])
+  const rebuildColliderWorld = useCallback(() => {
+    replaceColliderWorld(buildFirstPersonColliderWorldFromRegistry())
+  }, [replaceColliderWorld])
 
-  // Pointer lock and event handlers
-  useEffect(() => {
-    const canvas = gl.domElement
+  const resolveInteractableDoorId = useCallback((): AnyNodeId | null => {
+    const nodes = useScene.getState().nodes
+    camera.updateMatrixWorld(true)
+    doorInteractionRaycaster.setFromCamera(centerScreenPoint, camera)
 
-    const requestLock = () => {
-      if (!isLockedRef.current) {
-        canvas.requestPointerLock()
+    let closestDoorId: AnyNodeId | null = null
+    let closestDistance = DOOR_INTERACTION_DISTANCE
+
+    for (const doorId of sceneRegistry.byType.door) {
+      const node = nodes[doorId as AnyNodeId]
+      if (node?.type !== 'door') continue
+      if (node.openingKind === 'opening') continue
+      if (node.segments.every((segment) => segment.type === 'empty')) continue
+
+      const object = sceneRegistry.nodes.get(doorId)
+      if (!object) continue
+
+      object.updateWorldMatrix(true, true)
+
+      const placementHit = doorInteractionRaycaster
+        .intersectObject(object, true)
+        .find((intersection) => intersection.distance <= DOOR_INTERACTION_DISTANCE)
+      if (placementHit && placementHit.distance < closestDistance) {
+        closestDoorId = doorId as AnyNodeId
+        closestDistance = placementHit.distance
+      }
+
+      const leafW = node.width - 2 * node.frameThickness
+      const leafH = node.height - node.frameThickness
+      if (leafW <= 0 || leafH <= 0) continue
+
+      const leafCenterY = -node.frameThickness / 2
+      const hingeX = node.hingesSide === 'right' ? leafW / 2 : -leafW / 2
+      const swingDirectionSign = node.swingDirection === 'inward' ? 1 : -1
+      const hingeDirectionSign = node.hingesSide === 'right' ? 1 : -1
+      const clampedSwingAngle = Math.max(0, Math.min(DOOR_SWING_OPEN_ANGLE, node.swingAngle ?? 0))
+      const leafSwingRotation = clampedSwingAngle * swingDirectionSign * hingeDirectionSign
+
+      doorLeafMatrix
+        .copy(object.matrixWorld)
+        .multiply(new Matrix4().makeTranslation(hingeX, 0, 0))
+        .multiply(new Matrix4().makeRotationY(leafSwingRotation))
+        .multiply(new Matrix4().makeTranslation(-hingeX, leafCenterY, 0))
+      doorLeafInverseMatrix.copy(doorLeafMatrix).invert()
+      doorLeafBox.min.set(-leafW / 2, -leafH / 2, -DOOR_LEAF_INTERACTION_DEPTH / 2)
+      doorLeafBox.max.set(leafW / 2, leafH / 2, DOOR_LEAF_INTERACTION_DEPTH / 2)
+      doorLeafLocalRay.copy(doorInteractionRaycaster.ray).applyMatrix4(doorLeafInverseMatrix)
+
+      const localHit = doorLeafLocalRay.intersectBox(doorLeafBox, doorLeafLocalHit)
+      if (!localHit) continue
+
+      doorLeafWorldHit.copy(localHit).applyMatrix4(doorLeafMatrix)
+      const hitDistance = doorLeafWorldHit.distanceTo(doorInteractionRaycaster.ray.origin)
+
+      if (hitDistance <= DOOR_INTERACTION_DISTANCE && hitDistance < closestDistance) {
+        closestDoorId = doorId as AnyNodeId
+        closestDistance = hitDistance
       }
     }
 
-    const handlePointerLockChange = () => {
-      isLockedRef.current = document.pointerLockElement === canvas
+    return closestDoorId
+  }, [camera])
+
+  const toggleInteractableDoor = useCallback(() => {
+    const doorId = interactableDoorIdRef.current ?? resolveInteractableDoorId()
+    if (!doorId) return
+
+    const node = useScene.getState().nodes[doorId]
+    if (node?.type !== 'door' || node.openingKind === 'opening') return
+
+    const currentSwingAngle = node.swingAngle ?? 0
+    useScene.getState().updateNode(doorId, {
+      swingAngle: currentSwingAngle >= DOOR_SWING_OPEN_ANGLE / 2 ? 0 : DOOR_SWING_OPEN_ANGLE,
+    })
+
+    requestAnimationFrame(rebuildColliderWorld)
+  }, [rebuildColliderWorld, resolveInteractableDoorId])
+
+  const placedSpawn = useMemo<FirstPersonSpawn | null>(() => {
+    if (!(placedSpawnNode && placedSpawnNode.type === 'spawn')) return null
+
+    const spawnObject = sceneRegistry.nodes.get(placedSpawnNode.id)
+    if (spawnObject) {
+      spawnObject.updateWorldMatrix(true, false)
+      spawnObject.getWorldPosition(spawnWorldPosition)
+      spawnWorldEuler.setFromRotationMatrix(spawnObject.matrixWorld, 'YXZ')
+
+      return {
+        position: [
+          spawnWorldPosition.x,
+          spawnWorldPosition.y + FIRST_PERSON_SPAWN_EYE_HEIGHT,
+          spawnWorldPosition.z,
+        ],
+        yaw: spawnWorldEuler.y,
+      }
     }
 
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isLockedRef.current) return
+    return {
+      position: [
+        placedSpawnNode.position[0],
+        placedSpawnNode.position[1] + FIRST_PERSON_SPAWN_EYE_HEIGHT,
+        placedSpawnNode.position[2],
+      ],
+      yaw: placedSpawnNode.rotation,
+    }
+  }, [placedSpawnNode])
 
-      yawRef.current -= e.movementX * MOUSE_SENSITIVITY
-      pitchRef.current -= e.movementY * MOUSE_SENSITIVITY
-      // Clamp pitch to prevent flipping (almost straight up/down)
+  useEffect(() => {
+    rebuildColliderWorld()
+
+    return () => {
+      worldRef.current?.dispose()
+      worldRef.current = null
+      setWorld(null)
+    }
+  }, [rebuildColliderWorld])
+
+  useEffect(() => {
+    if (!world) return
+    if (controllerStart) return
+
+    const spawn = placedSpawn ?? deriveFirstPersonSpawn(camera, world)
+    const [x, y, z] = spawn.position
+    yawRef.current = spawn.yaw
+    pitchRef.current = 0
+    setControllerStart({
+      position: [x, y - CONTROLLER_CENTER_FROM_EYE, z],
+      yaw: spawn.yaw,
+    })
+  }, [camera, controllerStart, placedSpawn, world])
+
+  useEffect(() => {
+    const canvas = gl.domElement
+    const handleMouseMove = (e: MouseEvent) => {
+      if (document.pointerLockElement !== canvas) return
+
+      yawRef.current -= e.movementX * LOOK_SENSITIVITY
       pitchRef.current = Math.max(
-        -Math.PI / 2 + 0.05,
-        Math.min(Math.PI / 2 - 0.05, pitchRef.current),
+        -(Math.PI / 2 - 0.05),
+        Math.min(Math.PI / 2 - 0.05, pitchRef.current - e.movementY * LOOK_SENSITIVITY),
       )
     }
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Skip if user is typing in an input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target
+      if (!(target instanceof HTMLElement)) return
+      if (!canvas.contains(target)) return
+      if (document.pointerLockElement !== canvas) {
+        canvas.requestPointerLock?.()
+      }
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('click', handleClick)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('click', handleClick)
+      if (document.pointerLockElement === canvas) {
+        document.exitPointerLock()
+      }
+    }
+  }, [gl])
+
+  useEffect(() => {
+    const canvas = gl.domElement
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
         return
       }
 
-      const code = e.code
-
-      // Movement keys
-      if (
-        code === 'KeyW' ||
-        code === 'KeyA' ||
-        code === 'KeyS' ||
-        code === 'KeyD' ||
-        code === 'KeyQ' ||
-        code === 'KeyE' ||
-        code === 'ShiftLeft' ||
-        code === 'ShiftRight'
-      ) {
-        e.preventDefault()
-        e.stopPropagation()
-        keysRef.current.add(code)
-      }
-
-      // ESC exits first-person mode
-      if (code === 'Escape') {
-        e.preventDefault()
-        e.stopPropagation()
+      if (event.code === 'Escape') {
+        event.preventDefault()
+        event.stopPropagation()
         if (document.pointerLockElement === canvas) {
           document.exitPointerLock()
         }
         useEditor.getState().setFirstPersonMode(false)
+      } else if (event.code === 'KeyE') {
+        event.preventDefault()
+        event.stopPropagation()
+        toggleInteractableDoor()
       }
     }
 
-    const handleKeyUp = (e: KeyboardEvent) => {
-      keysRef.current.delete(e.code)
-    }
-
-    canvas.addEventListener('click', requestLock)
-    document.addEventListener('pointerlockchange', handlePointerLockChange)
-    document.addEventListener('mousemove', handleMouseMove)
-    // Use capture phase so we intercept movement keys before the global keyboard handler
     document.addEventListener('keydown', handleKeyDown, true)
-    document.addEventListener('keyup', handleKeyUp)
-
     return () => {
-      canvas.removeEventListener('click', requestLock)
-      document.removeEventListener('pointerlockchange', handlePointerLockChange)
-      document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('keydown', handleKeyDown, true)
-      document.removeEventListener('keyup', handleKeyUp)
-      if (document.pointerLockElement === canvas) {
-        document.exitPointerLock()
-      }
-      keysRef.current.clear()
     }
-  }, [gl])
+  }, [gl, toggleInteractableDoor])
 
-  // Per-frame movement and camera rotation
   useFrame((_, delta) => {
-    // Clamp delta to avoid huge jumps (e.g. tab switching)
-    const dt = Math.min(delta, 0.1)
-    const keys = keysRef.current
+    if (!controllerRef.current?.group) return
 
-    const isSprinting = keys.has('ShiftLeft') || keys.has('ShiftRight')
-    const speed = MOVE_SPEED * (isSprinting ? SPRINT_MULTIPLIER : 1)
+    const group = controllerRef.current.group
+    group.rotation.y = 0
+    camera.position.copy(group.position).add(cameraOffset)
+    cameraEuler.set(pitchRef.current, yawRef.current, 0, 'YXZ')
+    camera.quaternion.setFromEuler(cameraEuler)
+    camera.updateMatrixWorld(true)
 
-    // Calculate forward and right vectors on the XZ plane (ignore pitch for movement)
-    _forward.set(-Math.sin(yawRef.current), 0, -Math.cos(yawRef.current))
-    _right.set(Math.cos(yawRef.current), 0, -Math.sin(yawRef.current))
-
-    _moveVector.set(0, 0, 0)
-
-    if (keys.has('KeyW')) _moveVector.add(_forward)
-    if (keys.has('KeyS')) _moveVector.sub(_forward)
-    if (keys.has('KeyA')) _moveVector.sub(_right)
-    if (keys.has('KeyD')) _moveVector.add(_right)
-
-    // Normalize diagonal movement so it's not faster
-    if (_moveVector.lengthSq() > 0) {
-      _moveVector.normalize().multiplyScalar(speed * dt)
-      camera.position.add(_moveVector)
+    const nextInteractableDoorId = resolveInteractableDoorId()
+    if (interactableDoorIdRef.current !== nextInteractableDoorId) {
+      interactableDoorIdRef.current = nextInteractableDoorId
+      useViewer.getState().setHoveredId(nextInteractableDoorId)
     }
-
-    // Vertical movement (Q = up, E = down)
-    if (keys.has('KeyQ')) {
-      camera.position.y += VERTICAL_SPEED * dt
-    }
-    if (keys.has('KeyE')) {
-      camera.position.y -= VERTICAL_SPEED * dt
-    }
-
-    // Clamp Y so camera never goes below ground level + eye height
-    if (camera.position.y < MIN_Y) {
-      camera.position.y = MIN_Y
-    }
-
-    // Apply look rotation
-    _euler.set(pitchRef.current, yawRef.current, 0, 'YXZ')
-    camera.quaternion.setFromEuler(_euler)
   })
 
-  return null
+  useEffect(() => {
+    return () => {
+      if (useViewer.getState().hoveredId === interactableDoorIdRef.current) {
+        useViewer.getState().setHoveredId(null)
+      }
+    }
+  }, [])
+
+  if (!world) {
+    return null
+  }
+
+  return (
+    <>
+      {controllerStart && (
+        <KeyboardControls map={keyboardMap}>
+          <BVHEcctrl
+            ref={controllerRef}
+            key="first-person-controller"
+            colliderCapsuleArgs={[0.25, 0.8, 4, 8]}
+            colliderMeshes={[world.mesh]}
+            collisionCheckIteration={3}
+            collisionPushBackDamping={0.1}
+            collisionPushBackThreshold={0.001}
+            debug={false}
+            delay={0}
+            fallGravityFactor={4}
+            floatCheckType="BOTH"
+            floatDampingC={36}
+            floatHeight={0.5}
+            floatPullBackHeight={0.35}
+            floatSensorRadius={0.15}
+            floatSpringK={1200}
+            gravity={9.81}
+            jumpVel={6}
+            maxRunSpeed={5.5}
+            maxSlope={1.2}
+            maxWalkSpeed={4}
+            position={controllerStart.position}
+            acceleration={26}
+            airDragFactor={0.3}
+            deceleration={30}
+          />
+        </KeyboardControls>
+      )}
+    </>
+  )
 }
 
 /**
@@ -180,6 +344,23 @@ export const FirstPersonControls = () => {
  * Rendered as a regular DOM overlay (not inside the Canvas).
  */
 export const FirstPersonOverlay = ({ onExit }: { onExit: () => void }) => {
+  const [isLocked, setIsLocked] = useState(false)
+  const hasPlacedSpawn = useScene((state) =>
+    Object.values(state.nodes).some((node) => node.type === 'spawn'),
+  )
+
+  useEffect(() => {
+    const handlePointerLockChange = () => {
+      setIsLocked(document.pointerLockElement != null)
+    }
+
+    handlePointerLockChange()
+    document.addEventListener('pointerlockchange', handlePointerLockChange)
+    return () => {
+      document.removeEventListener('pointerlockchange', handlePointerLockChange)
+    }
+  }, [])
+
   const handleExit = useCallback(() => {
     if (document.pointerLockElement) {
       document.exitPointerLock()
@@ -189,15 +370,15 @@ export const FirstPersonOverlay = ({ onExit }: { onExit: () => void }) => {
 
   return (
     <>
-      {/* Crosshair */}
-      <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center">
-        <div className="relative h-6 w-6">
-          <div className="absolute top-1/2 left-0 h-px w-full -translate-y-1/2 bg-white/60" />
-          <div className="absolute top-0 left-1/2 h-full w-px -translate-x-1/2 bg-white/60" />
+      {isLocked && (
+        <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center">
+          <div className="relative h-7 w-7">
+            <div className="absolute top-1/2 left-1/2 h-px w-7 -translate-x-1/2 -translate-y-1/2 bg-white/60" />
+            <div className="absolute top-1/2 left-1/2 h-7 w-px -translate-x-1/2 -translate-y-1/2 bg-white/60" />
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Exit button — top-right */}
       <div className="fixed top-4 right-4 z-50">
         <button
           className="pointer-events-auto flex items-center gap-2 rounded-xl border border-border/40 bg-background/90 px-4 py-2 font-medium text-foreground text-sm shadow-lg backdrop-blur-xl transition-colors hover:bg-background"
@@ -211,30 +392,39 @@ export const FirstPersonOverlay = ({ onExit }: { onExit: () => void }) => {
         </button>
       </div>
 
-      {/* Controls hint — bottom-center */}
-      <div className="pointer-events-none fixed bottom-6 left-1/2 z-40 -translate-x-1/2">
-        <div className="flex items-center gap-4 rounded-2xl border border-border/35 bg-background/80 px-5 py-3 shadow-lg backdrop-blur-xl">
-          <ControlHint label="Move" keys={['W', 'A', 'S', 'D']} />
-          <div className="h-5 w-px bg-border/30" />
-          <ControlHint label="Up" keys={['Q']} />
-          <ControlHint label="Down" keys={['E']} />
-          <div className="h-5 w-px bg-border/30" />
-          <ControlHint label="Sprint" keys={['Shift']} />
-          <div className="h-5 w-px bg-border/30" />
-          <span className="text-muted-foreground/60 text-xs">Click to look around</span>
+      {!hasPlacedSpawn && (
+        <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2">
+          <div className="rounded-2xl border border-sky-300/35 bg-slate-950/88 px-4 py-2 text-center text-slate-100 text-sm shadow-lg backdrop-blur-xl">
+            Place a Spawn Point from the Build tab to control where walkthrough starts.
+          </div>
         </div>
-      </div>
+      )}
+
+      {isLocked && (
+        <div className="pointer-events-none fixed top-1/2 right-6 z-40 -translate-y-1/2">
+          <div className="flex min-w-[148px] flex-col gap-3 rounded-2xl border border-border/35 bg-background/80 px-4 py-4 shadow-lg backdrop-blur-xl">
+            <ControlHint label="Move" keys={['W', 'A', 'S', 'D']} />
+            <div className="h-px w-full bg-border/30" />
+            <InlineControlHint label="Jump" keyLabel="Space" />
+            <InlineControlHint label="Sprint" keyLabel="Shift" />
+            <div className="h-px w-full bg-border/30" />
+            <span className="text-center text-muted-foreground/60 text-xs">
+              Click to look around
+            </span>
+          </div>
+        </div>
+      )}
     </>
   )
 }
 
 function ControlHint({ label, keys }: { label: string; keys: string[] }) {
   return (
-    <div className="flex flex-col items-center gap-1.5">
+    <div className="flex flex-col items-center gap-1.5 text-center">
       <span className="font-medium text-[10px] text-muted-foreground/60 tracking-[0.03em]">
         {label}
       </span>
-      <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center justify-center gap-1">
         {keys.map((key) => (
           <kbd
             className="flex h-5 min-w-5 items-center justify-center rounded border border-border/50 bg-accent/40 px-1 font-mono text-[10px] text-foreground/80 leading-none"
@@ -244,6 +434,19 @@ function ControlHint({ label, keys }: { label: string; keys: string[] }) {
           </kbd>
         ))}
       </div>
+    </div>
+  )
+}
+
+function InlineControlHint({ label, keyLabel }: { label: string; keyLabel: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="font-medium text-[10px] text-muted-foreground/60 tracking-[0.03em] uppercase">
+        {label}
+      </span>
+      <kbd className="flex h-5 min-w-5 items-center justify-center rounded border border-border/50 bg-accent/40 px-1.5 font-mono text-[10px] text-foreground/80 leading-none">
+        {keyLabel}
+      </kbd>
     </div>
   )
 }

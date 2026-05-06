@@ -1,9 +1,12 @@
 'use client'
 
 import { type ReactNode, useCallback, useEffect, useRef } from 'react'
+import { useIsMobile } from '../../hooks/use-mobile'
 import useEditor from '../../store/use-editor'
+
 import { useSidebarStore } from '../ui/primitives/sidebar'
 import { type SidebarTab, TabBar } from '../ui/sidebar/tab-bar'
+import { EditorLayoutMobile } from './editor-layout-mobile'
 
 const SIDEBAR_MIN_WIDTH = 300
 const SIDEBAR_MAX_WIDTH = 800
@@ -14,9 +17,11 @@ const SIDEBAR_COLLAPSE_THRESHOLD = 220
 function LeftColumn({
   tabs,
   renderTabContent,
+  sidebarOverlay,
 }: {
   tabs: SidebarTab[]
   renderTabContent: (tabId: string) => ReactNode
+  sidebarOverlay?: ReactNode
 }) {
   const width = useSidebarStore((s) => s.width)
   const isCollapsed = useSidebarStore((s) => s.isCollapsed)
@@ -36,6 +41,15 @@ function LeftColumn({
       setActivePanel(tabs[0]!.id)
     }
   }, [tabs, activePanel, setActivePanel])
+
+  // Leaving the items tab while furnishing should drop back to select mode
+  useEffect(() => {
+    if (activePanel === 'items') return
+    const { phase, mode, setMode } = useEditor.getState()
+    if (phase === 'furnish' && mode === 'build') {
+      setMode('select')
+    }
+  }, [activePanel])
 
   const handleResizerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -108,7 +122,10 @@ function LeftColumn({
       }}
     >
       <TabBar activeTab={activePanel} onTabChange={setActivePanel} tabs={tabs} />
-      <div className="flex flex-1 flex-col overflow-hidden">{renderTabContent(activePanel)}</div>
+      <div className="relative flex flex-1 flex-col overflow-hidden">
+        {renderTabContent(activePanel)}
+        {sidebarOverlay && <div className="absolute inset-0 z-50">{sidebarOverlay}</div>}
+      </div>
 
       {/* Resize handle + hit area */}
       <div
@@ -171,6 +188,7 @@ export interface EditorLayoutV2Props {
   navbarSlot?: ReactNode
   sidebarTabs?: SidebarTab[]
   renderTabContent: (tabId: string) => ReactNode
+  sidebarOverlay?: ReactNode
   viewerToolbarLeft?: ReactNode
   viewerToolbarRight?: ReactNode
   viewerContent: ReactNode
@@ -181,11 +199,29 @@ export function EditorLayoutV2({
   navbarSlot,
   sidebarTabs = [],
   renderTabContent,
+  sidebarOverlay,
   viewerToolbarLeft,
   viewerToolbarRight,
   viewerContent,
   overlays,
 }: EditorLayoutV2Props) {
+  const isMobile = useIsMobile()
+
+  if (isMobile) {
+    return (
+      <EditorLayoutMobile
+        navbarSlot={navbarSlot}
+        overlays={overlays}
+        renderTabContent={renderTabContent}
+        sidebarOverlay={sidebarOverlay}
+        sidebarTabs={sidebarTabs}
+        viewerContent={viewerContent}
+        viewerToolbarLeft={viewerToolbarLeft}
+        viewerToolbarRight={viewerToolbarRight}
+      />
+    )
+  }
+
   return (
     <div className="dark flex h-full w-full flex-col bg-sidebar text-foreground">
       {/* Top navbar */}
@@ -194,7 +230,11 @@ export function EditorLayoutV2({
       {/* Main content: left column + right column */}
       <div className="flex min-h-0 flex-1">
         {sidebarTabs.length > 0 && (
-          <LeftColumn renderTabContent={renderTabContent} tabs={sidebarTabs} />
+          <LeftColumn
+            renderTabContent={renderTabContent}
+            sidebarOverlay={sidebarOverlay}
+            tabs={sidebarTabs}
+          />
         )}
         <RightColumn
           overlays={overlays}

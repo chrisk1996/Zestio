@@ -3,8 +3,8 @@
 import {
   type AnyNode,
   type AnyNodeId,
-  type MaterialSchema,
   type RoofNode,
+  type RoofSurfaceMaterialRole,
   RoofNode as RoofNodeSchema,
   type RoofSegmentNode,
   RoofSegmentNode as RoofSegmentNodeSchema,
@@ -13,25 +13,34 @@ import {
 import { useViewer } from '@pascal-app/viewer'
 import { Copy, Move, Plus, Trash2 } from 'lucide-react'
 import { useCallback } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { sfxEmitter } from '../../../lib/sfx-bus'
+import { duplicateRoofSubtree } from '../../../lib/roof-duplication'
 import useEditor from '../../../store/use-editor'
 import { ActionButton, ActionGroup } from '../controls/action-button'
-import { MaterialPicker } from '../controls/material-picker'
-import { MetricControl } from '../controls/metric-control'
 import { PanelSection } from '../controls/panel-section'
 import { SliderControl } from '../controls/slider-control'
 import { PanelWrapper } from './panel-wrapper'
 
 export function RoofPanel() {
-  const selectedIds = useViewer((s) => s.selection.selectedIds)
+  const selectedId = useViewer((s) => s.selection.selectedIds[0])
   const setSelection = useViewer((s) => s.setSelection)
-  const nodes = useScene((s) => s.nodes)
   const updateNode = useScene((s) => s.updateNode)
   const createNode = useScene((s) => s.createNode)
   const setMovingNode = useEditor((s) => s.setMovingNode)
 
-  const selectedId = selectedIds[0]
-  const node = selectedId ? (nodes[selectedId as AnyNode['id']] as RoofNode | undefined) : undefined
+  const node = useScene((s) =>
+    selectedId ? (s.nodes[selectedId as AnyNode['id']] as RoofNode | undefined) : undefined,
+  )
+  // Shallow selector — only re-renders when the segment list content changes.
+  const segments = useScene(
+    useShallow((s) => {
+      if (!node) return []
+      return (node.children ?? [])
+        .map((childId) => s.nodes[childId as AnyNodeId] as RoofSegmentNode | undefined)
+        .filter((n): n is RoofSegmentNode => n?.type === 'roof-segment')
+    }),
+  )
 
   const handleUpdate = useCallback(
     (updates: Partial<RoofNode>) => {
@@ -66,44 +75,15 @@ export function RoofPanel() {
   )
 
   const handleDuplicate = useCallback(() => {
-    if (!node?.parentId) return
+    if (!node) return
     sfxEmitter.emit('sfx:item-pick')
 
-    const duplicateInfo = structuredClone(node) as any
-    delete duplicateInfo.id
-    duplicateInfo.metadata = { ...duplicateInfo.metadata, isNew: true }
-    // Offset slightly so it's visible
-    duplicateInfo.position = [
-      duplicateInfo.position[0] + 1,
-      duplicateInfo.position[1],
-      duplicateInfo.position[2] + 1,
-    ]
-
     try {
-      const duplicate = RoofNodeSchema.parse(duplicateInfo)
-      useScene.getState().createNode(duplicate, duplicate.parentId as AnyNodeId)
-
-      // Also duplicate all child segments
-      const nodesState = useScene.getState().nodes
-      const children = node.children || []
-
-      for (const childId of children) {
-        const childNode = nodesState[childId]
-        if (childNode && childNode.type === 'roof-segment') {
-          const childDuplicateInfo = structuredClone(childNode) as any
-          delete childDuplicateInfo.id
-          childDuplicateInfo.metadata = { ...childDuplicateInfo.metadata, isNew: true }
-          const childDuplicate = RoofSegmentNodeSchema.parse(childDuplicateInfo)
-          useScene.getState().createNode(childDuplicate, duplicate.id as AnyNodeId)
-        }
-      }
-
-      setSelection({ selectedIds: [] })
-      setMovingNode(duplicate)
+      duplicateRoofSubtree(node.id as AnyNodeId, { mode: 'move' })
     } catch (e) {
       console.error('Failed to duplicate roof', e)
     }
-  }, [node, setSelection, setMovingNode])
+  }, [node])
 
   const handleMove = useCallback(() => {
     if (node) {
@@ -124,15 +104,7 @@ export function RoofPanel() {
     setSelection({ selectedIds: [] })
   }, [selectedId, node, setSelection])
 
-  const handleMaterialChange = useCallback((material: MaterialSchema) => {
-    handleUpdate({ material })
-  }, [handleUpdate])
-
-  if (!node || node.type !== 'roof' || selectedIds.length !== 1) return null
-
-  const segments = (node.children ?? [])
-    .map((childId) => nodes[childId as AnyNodeId] as RoofSegmentNode | undefined)
-    .filter((n): n is RoofSegmentNode => n?.type === 'roof-segment')
+  if (!(node && node.type === 'roof' && selectedId)) return null
 
   return (
     <PanelWrapper
@@ -155,15 +127,17 @@ export function RoofPanel() {
             </button>
           ))}
         </div>
-        <ActionButton
-          icon={<Plus className="h-3.5 w-3.5" />}
-          label="Add Segment"
-          onClick={handleAddSegment}
-        />
+        <ActionGroup>
+          <ActionButton
+            icon={<Plus className="h-3.5 w-3.5" />}
+            label="Add Segment"
+            onClick={handleAddSegment}
+          />
+        </ActionGroup>
       </PanelSection>
 
       <PanelSection title="Position">
-        <MetricControl
+        <SliderControl
           label="X"
           max={50}
           min={-50}
@@ -177,7 +151,7 @@ export function RoofPanel() {
           unit="m"
           value={Math.round(node.position[0] * 100) / 100}
         />
-        <MetricControl
+        <SliderControl
           label="Y"
           max={50}
           min={-50}
@@ -191,7 +165,7 @@ export function RoofPanel() {
           unit="m"
           value={Math.round(node.position[1] * 100) / 100}
         />
-        <MetricControl
+        <SliderControl
           label="Z"
           max={50}
           min={-50}
@@ -233,13 +207,6 @@ export function RoofPanel() {
             }}
           />
         </div>
-      </PanelSection>
-
-      <PanelSection title="Material">
-        <MaterialPicker
-          onChange={handleMaterialChange}
-          value={node.material}
-        />
       </PanelSection>
 
       <PanelSection title="Actions">

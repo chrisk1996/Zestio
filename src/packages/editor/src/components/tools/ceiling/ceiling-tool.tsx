@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
 import { CeilingNode, emitter, type GridEvent, type LevelNode, useScene } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -112,15 +111,15 @@ export const CeilingTool: React.FC = () => {
     const onGridMove = (event: GridEvent) => {
       if (!(cursorRef.current && gridCursorRef.current)) return
 
-      const gridX = Math.round(event.position[0] * 2) / 2
-      const gridZ = Math.round(event.position[2] * 2) / 2
+      const gridX = Math.round(event.localPosition[0] * 2) / 2
+      const gridZ = Math.round(event.localPosition[2] * 2) / 2
       const gridPosition: [number, number] = [gridX, gridZ]
 
       setCursorPosition(gridPosition)
-      setLevelY(event.position[1])
+      setLevelY(event.localPosition[1])
 
-      const ceilingY = event.position[1] + CEILING_HEIGHT
-      const gridY = event.position[1] + GRID_OFFSET
+      const ceilingY = event.localPosition[1] + CEILING_HEIGHT
+      const gridY = event.localPosition[1] + GRID_OFFSET
 
       // Calculate snapped display position (bypass snap when Shift is held)
       const lastPoint = points[points.length - 1]
@@ -310,7 +309,7 @@ export const CeilingTool: React.FC = () => {
       {/* Grid-level cursor indicator */}
       <mesh
         layers={EDITOR_LAYER}
-        ref={gridCursorRef as any}
+        ref={gridCursorRef}
         renderOrder={2}
         rotation={[-Math.PI / 2, 0, 0]}
       >
@@ -326,8 +325,8 @@ export const CeilingTool: React.FC = () => {
       </mesh>
 
       {/* Vertical connector: local y=0 at grid, y=H at ceiling; position.y set to gridY on move */}
-      {/* @ts-ignore R3F line element */}
-      <line geometry={verticalGeo} layers={EDITOR_LAYER} ref={verticalLineRef as any} renderOrder={1}>
+      {/* @ts-ignore */}
+      <line geometry={verticalGeo} layers={EDITOR_LAYER} ref={verticalLineRef} renderOrder={1}>
         <lineBasicNodeMaterial
           color="#818cf8"
           depthTest={false}
@@ -376,12 +375,12 @@ export const CeilingTool: React.FC = () => {
       )}
 
       {/* Main line */}
-      {/* @ts-ignore R3F line element */}
+      {/* @ts-ignore */}
       <line
         frustumCulled={false}
         layers={EDITOR_LAYER}
         // @ts-expect-error
-        ref={mainLineRef as any}
+        ref={mainLineRef}
         renderOrder={1}
         visible={false}
       >
@@ -390,12 +389,12 @@ export const CeilingTool: React.FC = () => {
       </line>
 
       {/* Closing line */}
-      {/* @ts-ignore R3F line element */}
+      {/* @ts-ignore */}
       <line
         frustumCulled={false}
         layers={EDITOR_LAYER}
         // @ts-expect-error
-        ref={closingLineRef as any}
+        ref={closingLineRef}
         renderOrder={1}
         visible={false}
       >
@@ -411,12 +410,12 @@ export const CeilingTool: React.FC = () => {
       </line>
 
       {/* Ground main line */}
-      {/* @ts-ignore R3F line element */}
+      {/* @ts-ignore */}
       <line
         frustumCulled={false}
         layers={EDITOR_LAYER}
         // @ts-expect-error
-        ref={groundMainLineRef as any}
+        ref={groundMainLineRef}
         renderOrder={1}
         visible={false}
       >
@@ -432,12 +431,12 @@ export const CeilingTool: React.FC = () => {
       </line>
 
       {/* Ground closing line */}
-      {/* @ts-ignore R3F line element */}
+      {/* @ts-ignore */}
       <line
         frustumCulled={false}
         layers={EDITOR_LAYER}
         // @ts-expect-error
-        ref={groundClosingLineRef as any}
+        ref={groundClosingLineRef}
         renderOrder={1}
         visible={false}
       >

@@ -1,8 +1,10 @@
 import {
   type AnyNodeId,
   emitter,
+  isCurvedWall,
   sceneRegistry,
   spatialGridManager,
+  useLiveTransforms,
   useScene,
   type WallEvent,
   WindowNode,
@@ -112,6 +114,10 @@ export const MoveWindowTool: React.FC<{ node: WindowNode }> = ({ node: movingWin
 
     const onWallEnter = (event: WallEvent) => {
       if (!isValidWallSideFace(event.normal)) return
+      if (isCurvedWall(event.node)) {
+        hideCursor()
+        return
+      }
       // Only interact with walls on the current level
       if (event.node.parentId !== getLevelId()) return
 
@@ -138,6 +144,10 @@ export const MoveWindowTool: React.FC<{ node: WindowNode }> = ({ node: movingWin
         side,
         parentId: event.node.id,
         wallId: event.node.id,
+      })
+      useLiveTransforms.getState().set(movingWindowNode.id, {
+        position: [clampedX, clampedY, 0],
+        rotation: itemRotation,
       })
 
       if (prevWallId && prevWallId !== event.node.id) markWallDirty(prevWallId)
@@ -168,6 +178,10 @@ export const MoveWindowTool: React.FC<{ node: WindowNode }> = ({ node: movingWin
 
     const onWallMove = (event: WallEvent) => {
       if (!isValidWallSideFace(event.normal)) return
+      if (isCurvedWall(event.node)) {
+        hideCursor()
+        return
+      }
       // Only interact with walls on the current level
       if (event.node.parentId !== getLevelId()) return
 
@@ -185,18 +199,31 @@ export const MoveWindowTool: React.FC<{ node: WindowNode }> = ({ node: movingWin
         movingWindowNode.height,
       )
 
-      useScene.getState().updateNode(movingWindowNode.id, {
-        position: [clampedX, clampedY, 0],
-        rotation: [0, itemRotation, 0],
-        side,
-        parentId: event.node.id,
-        wallId: event.node.id,
-      })
-
       if (currentWallId !== event.node.id) {
+        // Wall changed mid-move: must updateNode to reparent
+        useScene.getState().updateNode(movingWindowNode.id, {
+          position: [clampedX, clampedY, 0],
+          rotation: [0, itemRotation, 0],
+          side,
+          parentId: event.node.id,
+          wallId: event.node.id,
+        })
         markWallDirty(currentWallId)
         currentWallId = event.node.id
+      } else {
+        // Same wall: update Three.js mesh directly to avoid store churn
+        // collectCutoutBrushes reads cutoutMesh.matrixWorld, not scene store positions
+        const windowMesh = sceneRegistry.nodes.get(movingWindowNode.id as AnyNodeId)
+        if (windowMesh) {
+          windowMesh.position.set(clampedX, clampedY, 0)
+          windowMesh.rotation.set(0, itemRotation, 0)
+          windowMesh.updateMatrixWorld(true)
+        }
       }
+      useLiveTransforms.getState().set(movingWindowNode.id, {
+        position: [clampedX, clampedY, 0],
+        rotation: itemRotation,
+      })
       markWallDirty(event.node.id)
 
       const valid = !hasWallChildOverlap(
@@ -224,6 +251,7 @@ export const MoveWindowTool: React.FC<{ node: WindowNode }> = ({ node: movingWin
 
     const onWallClick = (event: WallEvent) => {
       if (!isValidWallSideFace(event.normal)) return
+      if (isCurvedWall(event.node)) return
       // Only interact with walls on the current level
       if (event.node.parentId !== getLevelId()) return
 
@@ -307,6 +335,7 @@ export const MoveWindowTool: React.FC<{ node: WindowNode }> = ({ node: movingWin
       }
 
       markWallDirty(event.node.id)
+      useLiveTransforms.getState().clear(movingWindowNode.id)
       useScene.temporal.getState().pause()
 
       sfxEmitter.emit('sfx:item-place')
@@ -318,6 +347,7 @@ export const MoveWindowTool: React.FC<{ node: WindowNode }> = ({ node: movingWin
 
     const onWallLeave = () => {
       hideCursor()
+      useLiveTransforms.getState().clear(movingWindowNode.id)
       if (isNew) return // No original to restore for duplicates
       // Move mode: restore to original position while off-wall
       if (currentWallId && currentWallId !== original.parentId) {
@@ -335,6 +365,7 @@ export const MoveWindowTool: React.FC<{ node: WindowNode }> = ({ node: movingWin
     }
 
     const onCancel = () => {
+      useLiveTransforms.getState().clear(movingWindowNode.id)
       if (isNew) {
         useScene.getState().deleteNode(movingWindowNode.id)
         if (currentWallId) markWallDirty(currentWallId)
@@ -382,6 +413,7 @@ export const MoveWindowTool: React.FC<{ node: WindowNode }> = ({ node: movingWin
           if (original.parentId) markWallDirty(original.parentId)
         }
       }
+      useLiveTransforms.getState().clear(movingWindowNode.id)
       useScene.temporal.getState().resume()
       emitter.off('wall:enter', onWallEnter)
       emitter.off('wall:move', onWallMove)

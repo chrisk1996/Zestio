@@ -3,7 +3,8 @@ export { BaseNode, generateId, Material, nodeType, objectId } from './base'
 // Camera
 export { CameraSchema } from './camera'
 // Collections
-export { type Collection, type CollectionId, generateCollectionId } from './collections'
+export { generateCollectionId } from './collections'
+export type { Collection, CollectionId } from './collections'
 export type {
   MaterialMapProperties,
   MaterialMaps,

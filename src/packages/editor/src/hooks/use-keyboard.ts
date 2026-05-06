@@ -1,8 +1,11 @@
 import { type AnyNodeId, emitter, useScene } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import { useEffect } from 'react'
+import { runRedo, runUndo } from '../lib/history'
 import { sfxEmitter } from '../lib/sfx-bus'
 import useEditor from '../store/use-editor'
+
+const DOOR_SWING_OPEN_ANGLE = Math.PI / 2
 
 // Tools call this in their onCancel handler when they have an active mid-action to cancel,
 // so that the global Escape handler knows not to also switch to select mode.
@@ -11,8 +14,18 @@ export const markToolCancelConsumed = () => {
   _toolCancelConsumed = true
 }
 
-export const useKeyboard = () => {
+export const useKeyboard = ({
+  isVersionPreviewMode = false,
+  disabled = false,
+}: {
+  isVersionPreviewMode?: boolean
+  disabled?: boolean
+} = {}) => {
   useEffect(() => {
+    if (disabled) {
+      return
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't handle shortcuts if user is typing in an input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
@@ -20,9 +33,6 @@ export const useKeyboard = () => {
       }
 
       if (e.key === 'Escape') {
-        // If in walkthrough mode, let WalkthroughControls handle ESC
-        if (useViewer.getState().walkthroughMode) return
-
         e.preventDefault()
         _toolCancelConsumed = false
         emitter.emit('tool:cancel')
@@ -30,9 +40,20 @@ export const useKeyboard = () => {
         // Only switch to select mode if no tool had an active mid-action to cancel.
         // (e.g. mid-wall draw or mid-slab polygon should only cancel the action, not exit the tool)
         if (!_toolCancelConsumed) {
-          // Return to the default select tool while keeping the active building/level context.
+          const currentPhase = useEditor.getState().phase
+          const currentStructureLayer = useEditor.getState().structureLayer
+
           useEditor.getState().setEditingHole(null)
-          useEditor.getState().setMode('select')
+
+          // From zone mode, return to structure select
+          if (currentPhase === 'structure' && currentStructureLayer === 'zones') {
+            useEditor.getState().setStructureLayer('elements')
+            useEditor.getState().setMode('select')
+          } else {
+            // Return to the default select tool while keeping the active building/level context.
+            useEditor.getState().setMode('select')
+          }
+
           useEditor.getState().setFloorplanSelectionTool('click')
 
           // Clear selections to close UI panels, but KEEP the active building and level context.
@@ -51,31 +72,47 @@ export const useKeyboard = () => {
         e.preventDefault()
         useEditor.getState().setPhase('furnish')
         useEditor.getState().setMode('select')
-      } else if (e.key === 's' && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault()
-        useEditor.getState().setPhase('structure')
-        useEditor.getState().setStructureLayer('elements')
       } else if (e.key === 'f' && !e.metaKey && !e.ctrlKey) {
+        if (isVersionPreviewMode) return
         e.preventDefault()
         useEditor.getState().setPhase('furnish')
+        useEditor.getState().setMode('build')
       } else if (e.key === 'z' && !e.metaKey && !e.ctrlKey) {
+        if (isVersionPreviewMode) return
         e.preventDefault()
         useEditor.getState().setPhase('structure')
         useEditor.getState().setStructureLayer('zones')
+        useEditor.getState().setMode('build')
       }
       if (e.key === 'v' && !e.metaKey && !e.ctrlKey) {
         e.preventDefault()
         useEditor.getState().setMode('select')
         useEditor.getState().setFloorplanSelectionTool('click')
       } else if (e.key === 'b' && !e.metaKey && !e.ctrlKey) {
+        if (isVersionPreviewMode) return
         e.preventDefault()
+        useEditor.getState().setPhase('structure')
+        useEditor.getState().setStructureLayer('elements')
         useEditor.getState().setMode('build')
+      } else if (e.key === 'd' && !e.metaKey && !e.ctrlKey) {
+        if (isVersionPreviewMode) return
+        e.preventDefault()
+        useEditor.getState().setMode('delete')
+      } else if (e.key === 'p' && !e.metaKey && !e.ctrlKey) {
+        if (isVersionPreviewMode) return
+        e.preventDefault()
+        useEditor.getState().primeMaterialPaintFromSelection()
+        useEditor.getState().setPhase('structure')
+        useEditor.getState().setStructureLayer('elements')
+        useEditor.getState().setMode('material-paint')
       } else if (e.key === 'z' && (e.metaKey || e.ctrlKey)) {
+        if (isVersionPreviewMode) return
         e.preventDefault()
-        useScene.temporal.getState().undo()
+        runUndo()
       } else if (e.key === 'Z' && e.shiftKey && (e.metaKey || e.ctrlKey)) {
+        if (isVersionPreviewMode) return
         e.preventDefault()
-        useScene.temporal.getState().redo()
+        runRedo()
       } else if (e.key === 'ArrowUp' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
         const { buildingId, levelId } = useViewer.getState().selection
@@ -108,12 +145,23 @@ export const useKeyboard = () => {
             }
           }
         }
-      } else if (e.key === 'r' || e.key === 'R') {
+      } else if ((e.key === 'r' || e.key === 'R') && !isVersionPreviewMode) {
         // Rotate selected node clockwise if it supports rotation (items, roofs, etc.)
+        // Doors use R to toggle their leaf open/closed around the hinge.
         const selectedNodeIds = useViewer.getState().selection.selectedIds as AnyNodeId[]
         if (selectedNodeIds.length === 1) {
           const node = useScene.getState().nodes[selectedNodeIds[0]!]
-          if (node && 'rotation' in node) {
+          if (node?.type === 'door') {
+            e.preventDefault()
+            if (node.openingKind !== 'opening') {
+              const currentSwingAngle = node.swingAngle ?? 0
+              useScene.getState().updateNode(node.id, {
+                swingAngle:
+                  currentSwingAngle >= DOOR_SWING_OPEN_ANGLE / 2 ? 0 : DOOR_SWING_OPEN_ANGLE,
+              })
+              sfxEmitter.emit('sfx:item-rotate')
+            }
+          } else if (node && 'rotation' in node) {
             e.preventDefault()
             const ROTATION_STEP = Math.PI / 4
 
@@ -128,12 +176,18 @@ export const useKeyboard = () => {
             sfxEmitter.emit('sfx:item-rotate')
           }
         }
-      } else if (e.key === 't' || e.key === 'T') {
+      } else if ((e.key === 't' || e.key === 'T') && !isVersionPreviewMode) {
         // Rotate selected node counter-clockwise
         const selectedNodeIds = useViewer.getState().selection.selectedIds as AnyNodeId[]
         if (selectedNodeIds.length === 1) {
           const node = useScene.getState().nodes[selectedNodeIds[0]!]
-          if (node && 'rotation' in node) {
+          if (node?.type === 'door') {
+            e.preventDefault()
+            if (node.openingKind !== 'opening') {
+              useScene.getState().updateNode(node.id, { swingAngle: 0 })
+              sfxEmitter.emit('sfx:item-rotate')
+            }
+          } else if (node && 'rotation' in node) {
             e.preventDefault()
             const ROTATION_STEP = Math.PI / 4
 
@@ -147,8 +201,29 @@ export const useKeyboard = () => {
             sfxEmitter.emit('sfx:item-rotate')
           }
         }
-      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && !isVersionPreviewMode) {
         e.preventDefault()
+
+        // Check for a selected reference (guide/scan) first
+        const selectedRefId = useEditor.getState().selectedReferenceId
+        if (selectedRefId) {
+          const refNode = useScene.getState().nodes[selectedRefId as AnyNodeId]
+          if (refNode && (refNode.type === 'guide' || refNode.type === 'scan')) {
+            sfxEmitter.emit('sfx:structure-delete')
+            useScene.getState().deleteNode(selectedRefId as AnyNodeId)
+            useEditor.getState().setSelectedReferenceId(null)
+            return
+          }
+        }
+
+        // Delete selected zone
+        const selectedZoneId = useViewer.getState().selection.zoneId
+        if (selectedZoneId) {
+          sfxEmitter.emit('sfx:structure-delete')
+          useScene.getState().deleteNode(selectedZoneId as AnyNodeId)
+          useViewer.getState().setSelection({ zoneId: null })
+          return
+        }
 
         const selectedNodeIds = useViewer.getState().selection.selectedIds as AnyNodeId[]
 
@@ -171,7 +246,7 @@ export const useKeyboard = () => {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [disabled, isVersionPreviewMode])
 
   return null
 }

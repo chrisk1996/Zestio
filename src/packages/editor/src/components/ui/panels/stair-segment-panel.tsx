@@ -4,7 +4,6 @@ import {
   type AnyNode,
   type AnyNodeId,
   type AttachmentSide,
-  type MaterialSchema,
   type StairSegmentNode,
   StairSegmentNode as StairSegmentNodeSchema,
   type StairSegmentType,
@@ -16,8 +15,6 @@ import { useCallback } from 'react'
 import { sfxEmitter } from '../../../lib/sfx-bus'
 import useEditor from '../../../store/use-editor'
 import { ActionButton, ActionGroup } from '../controls/action-button'
-import { MaterialPicker } from '../controls/material-picker'
-import { MetricControl } from '../controls/metric-control'
 import { PanelSection } from '../controls/panel-section'
 import { SegmentedControl } from '../controls/segmented-control'
 import { SliderControl } from '../controls/slider-control'
@@ -35,25 +32,24 @@ const ATTACHMENT_SIDE_OPTIONS: { label: string; value: AttachmentSide }[] = [
 ]
 
 export function StairSegmentPanel() {
-  const selectedIds = useViewer((s) => s.selection.selectedIds)
+  const selectedId = useViewer((s) => s.selection.selectedIds[0])
   const setSelection = useViewer((s) => s.setSelection)
-  const nodes = useScene((s) => s.nodes)
   const updateNode = useScene((s) => s.updateNode)
   const setMovingNode = useEditor((s) => s.setMovingNode)
 
-  const selectedId = selectedIds[0]
-  const node = selectedId
-    ? (nodes[selectedId as AnyNode['id']] as StairSegmentNode | undefined)
-    : undefined
+  const node = useScene((s) =>
+    selectedId ? (s.nodes[selectedId as AnyNode['id']] as StairSegmentNode | undefined) : undefined,
+  )
 
-  // Check if this is the first segment in the parent stair
-  const isFirstSegment = (() => {
+  // Boolean selector — re-renders only when this segment's position among the
+  // parent stair's children flips to/from "first".
+  const isFirstSegment = useScene((s) => {
     if (!node?.parentId) return true
-    const parent = nodes[node.parentId as AnyNodeId]
+    const parent = s.nodes[node.parentId as AnyNodeId]
     if (!parent || parent.type !== 'stair') return true
     const children = (parent as any).children ?? []
     return children[0] === node.id
-  })()
+  })
 
   const handleUpdate = useCallback(
     (updates: Partial<StairSegmentNode>) => {
@@ -61,13 +57,6 @@ export function StairSegmentPanel() {
       updateNode(selectedId as AnyNode['id'], updates)
     },
     [selectedId, updateNode],
-  )
-
-  const handleMaterialChange = useCallback(
-    (material: MaterialSchema) => {
-      handleUpdate({ material })
-    },
-    [handleUpdate],
   )
 
   const handleClose = useCallback(() => {
@@ -84,7 +73,7 @@ export function StairSegmentPanel() {
     if (!node?.parentId) return
     sfxEmitter.emit('sfx:item-pick')
 
-    const duplicateInfo = structuredClone(node) as any
+    let duplicateInfo = structuredClone(node) as any
     delete duplicateInfo.id
     duplicateInfo.metadata = { ...duplicateInfo.metadata, isNew: true }
     duplicateInfo.position = [
@@ -124,7 +113,7 @@ export function StairSegmentPanel() {
     }
   }, [selectedId, node, setSelection])
 
-  if (!node || node.type !== 'stair-segment' || selectedIds.length !== 1) return null
+  if (!(node && node.type === 'stair-segment' && selectedId)) return null
 
   return (
     <PanelWrapper
@@ -243,7 +232,7 @@ export function StairSegmentPanel() {
       </PanelSection>
 
       <PanelSection title="Position">
-        <MetricControl
+        <SliderControl
           label="X"
           max={50}
           min={-50}
@@ -257,7 +246,7 @@ export function StairSegmentPanel() {
           unit="m"
           value={Math.round(node.position[0] * 100) / 100}
         />
-        <MetricControl
+        <SliderControl
           label="Y"
           max={50}
           min={-50}
@@ -271,7 +260,7 @@ export function StairSegmentPanel() {
           unit="m"
           value={Math.round(node.position[1] * 100) / 100}
         />
-        <MetricControl
+        <SliderControl
           label="Z"
           max={50}
           min={-50}
@@ -330,9 +319,6 @@ export function StairSegmentPanel() {
             onClick={handleDelete}
           />
         </ActionGroup>
-      </PanelSection>
-      <PanelSection title="Material">
-        <MaterialPicker onChange={handleMaterialChange} value={node.material} />
       </PanelSection>
     </PanelWrapper>
   )
