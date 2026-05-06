@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect } from 'react';
 import { AppLayout } from '@/components/layout';
 import { CreditCard, Loader2, AlertCircle, Check, Zap, Crown, Building2, ArrowUpRight, Calendar, Clock, XCircle } from 'lucide-react';
 import { Skeleton } from '@/components/Skeleton';
@@ -366,7 +366,8 @@ export default function BillingPage() {
           </div>
         )}
 
-        {!loading && (<Fragment>
+        {!loading && (
+        <div>
         {/* Plan Change Review Modal */}
         {confirmPlanChange && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -647,14 +648,14 @@ export default function BillingPage() {
                       >
                         {checkoutLoading === plan.id ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (<Fragment>
+                        ) : (<span className="inline-flex items-center gap-1">
                             {user?.plan === 'free'
                               ? t('subscribe')
                               : isUpgrade
                                 ? t('upgrade') || 'Upgrade'
                                 : t('downgrade') || 'Downgrade'}
                             <ArrowUpRight className="w-4 h-4" />
-                          </Fragment>
+                          </span>
                         )}
                       </button>
                     );
@@ -672,7 +673,7 @@ export default function BillingPage() {
               {t('planChangeInfo') || 'Switching plans takes effect immediately. You\'ll only be charged the prorated difference for the remaining billing period. Your top-up credits are always preserved.'}
             </p>
           </div>
-          </Fragment>
+          </div>
         )}
       </div>
     </AppLayout>

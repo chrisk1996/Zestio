@@ -8,8 +8,281 @@ import type { Collection, CollectionId } from '../schema/collections'
 import { generateCollectionId } from '../schema/collections'
 import { LevelNode } from '../schema/nodes/level'
 import { SiteNode } from '../schema/nodes/site'
+import { StairNode as StairNodeSchema } from '../schema/nodes/stair'
+import { StairSegmentNode as StairSegmentNodeSchema } from '../schema/nodes/stair-segment'
 import type { AnyNode, AnyNodeId } from '../schema/types'
 import * as nodeActions from './actions/node-actions'
+import { resetSceneHistoryPauseDepth } from './history-control'
+
+function getFiniteNumber(value: unknown, fallback: number) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function getBoolean(value: unknown, fallback: boolean) {
+  return typeof value === 'boolean' ? value : fallback
+}
+
+function getEnumValue<T extends readonly string[]>(
+  value: unknown,
+  allowed: T,
+  fallback: T[number],
+): T[number] {
+  return typeof value === 'string' && allowed.includes(value) ? value : fallback
+}
+
+function getNullableString(value: unknown) {
+  return typeof value === 'string' ? value : null
+}
+
+function getStringArray(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === 'string')
+    : []
+}
+
+function getVector3(value: unknown, fallback: [number, number, number]): [number, number, number] {
+  if (!Array.isArray(value) || value.length < 3) {
+    return fallback
+  }
+
+  return [
+    getFiniteNumber(value[0], fallback[0]),
+    getFiniteNumber(value[1], fallback[1]),
+    getFiniteNumber(value[2], fallback[2]),
+  ]
+}
+
+function normalizeStairNode(node: Record<string, unknown>) {
+  const sanitized = {
+    ...node,
+    position: getVector3(node.position, [0, 0, 0]),
+    rotation: getFiniteNumber(node.rotation, 0),
+    stairType: getEnumValue(node.stairType, ['straight', 'curved', 'spiral'] as const, 'straight'),
+    fromLevelId: getNullableString(node.fromLevelId),
+    toLevelId: getNullableString(node.toLevelId),
+    slabOpeningMode: getEnumValue(node.slabOpeningMode, ['none', 'destination'] as const, 'none'),
+    openingOffset: getFiniteNumber(node.openingOffset, 0),
+    width: getFiniteNumber(node.width, 1),
+    totalRise: getFiniteNumber(node.totalRise, 2.5),
+    stepCount: getFiniteNumber(node.stepCount, 10),
+    thickness: getFiniteNumber(node.thickness, 0.25),
+    fillToFloor: getBoolean(node.fillToFloor, true),
+    innerRadius: getFiniteNumber(node.innerRadius, 0.9),
+    sweepAngle: getFiniteNumber(node.sweepAngle, Math.PI / 2),
+    topLandingMode: getEnumValue(node.topLandingMode, ['none', 'integrated'] as const, 'none'),
+    topLandingDepth: getFiniteNumber(node.topLandingDepth, 0.9),
+    showCenterColumn: getBoolean(node.showCenterColumn, true),
+    showStepSupports: getBoolean(node.showStepSupports, true),
+    railingMode: getEnumValue(node.railingMode, ['none', 'left', 'right', 'both'] as const, 'none'),
+    railingHeight: getFiniteNumber(node.railingHeight, 0.92),
+    children: getStringArray(node.children),
+  }
+
+  const parsed = StairNodeSchema.safeParse(sanitized)
+  return parsed.success ? parsed.data : null
+}
+
+function normalizeStairSegmentNode(node: Record<string, unknown>) {
+  const sanitized = {
+    ...node,
+    position: getVector3(node.position, [0, 0, 0]),
+    rotation: getFiniteNumber(node.rotation, 0),
+    segmentType: getEnumValue(node.segmentType, ['stair', 'landing'] as const, 'stair'),
+    width: getFiniteNumber(node.width, 1),
+    length: getFiniteNumber(node.length, 3),
+    height: getFiniteNumber(node.height, 2.5),
+    stepCount: getFiniteNumber(node.stepCount, 10),
+    attachmentSide: getEnumValue(node.attachmentSide, ['front', 'left', 'right'] as const, 'front'),
+    fillToFloor: getBoolean(node.fillToFloor, true),
+    thickness: getFiniteNumber(node.thickness, 0.25),
+  }
+
+  const parsed = StairSegmentNodeSchema.safeParse(sanitized)
+  return parsed.success ? parsed.data : null
+}
+
+function migrateWallSurfaceMaterials(node: Record<string, any>) {
+  const hasInterior =
+    node.interiorMaterial !== undefined || typeof node.interiorMaterialPreset === 'string'
+  const hasExterior =
+    node.exteriorMaterial !== undefined || typeof node.exteriorMaterialPreset === 'string'
+  const legacyFinish = {
+    material: node.material,
+    materialPreset: typeof node.materialPreset === 'string' ? node.materialPreset : undefined,
+  }
+
+  if (!hasInterior && !hasExterior) {
+    if (legacyFinish.material === undefined && legacyFinish.materialPreset === undefined) {
+      return node
+    }
+
+    return {
+      ...node,
+      interiorMaterial: legacyFinish.material,
+      interiorMaterialPreset: legacyFinish.materialPreset,
+      exteriorMaterial: legacyFinish.material,
+      exteriorMaterialPreset: legacyFinish.materialPreset,
+    }
+  }
+
+  if (!hasInterior) {
+    return {
+      ...node,
+      interiorMaterial: node.exteriorMaterial,
+      interiorMaterialPreset: node.exteriorMaterialPreset,
+    }
+  }
+
+  if (!hasExterior) {
+    return {
+      ...node,
+      exteriorMaterial: node.interiorMaterial,
+      exteriorMaterialPreset: node.interiorMaterialPreset,
+    }
+  }
+
+  return node
+}
+
+function migrateStairSurfaceMaterials(node: Record<string, any>) {
+  const hasRailing =
+    node.railingMaterial !== undefined || typeof node.railingMaterialPreset === 'string'
+  const hasTread = node.treadMaterial !== undefined || typeof node.treadMaterialPreset === 'string'
+  const hasSide = node.sideMaterial !== undefined || typeof node.sideMaterialPreset === 'string'
+  const legacyFinish = {
+    material: node.material,
+    materialPreset: typeof node.materialPreset === 'string' ? node.materialPreset : undefined,
+  }
+
+  const resolveBodyFallback = () => {
+    if (node.treadMaterial !== undefined || typeof node.treadMaterialPreset === 'string') {
+      return {
+        material: node.treadMaterial,
+        materialPreset:
+          typeof node.treadMaterialPreset === 'string' ? node.treadMaterialPreset : undefined,
+      }
+    }
+
+    if (node.sideMaterial !== undefined || typeof node.sideMaterialPreset === 'string') {
+      return {
+        material: node.sideMaterial,
+        materialPreset:
+          typeof node.sideMaterialPreset === 'string' ? node.sideMaterialPreset : undefined,
+      }
+    }
+
+    return legacyFinish
+  }
+
+  if (!hasRailing && !hasTread && !hasSide) {
+    if (legacyFinish.material === undefined && legacyFinish.materialPreset === undefined) {
+      return node
+    }
+
+    return {
+      ...node,
+      railingMaterial: legacyFinish.material,
+      railingMaterialPreset: legacyFinish.materialPreset,
+      treadMaterial: legacyFinish.material,
+      treadMaterialPreset: legacyFinish.materialPreset,
+      sideMaterial: legacyFinish.material,
+      sideMaterialPreset: legacyFinish.materialPreset,
+    }
+  }
+
+  const next = { ...node }
+
+  if (!hasTread) {
+    const fallback =
+      node.sideMaterial !== undefined || typeof node.sideMaterialPreset === 'string'
+        ? {
+            material: node.sideMaterial,
+            materialPreset:
+              typeof node.sideMaterialPreset === 'string' ? node.sideMaterialPreset : undefined,
+          }
+        : resolveBodyFallback()
+    next.treadMaterial = fallback.material
+    next.treadMaterialPreset = fallback.materialPreset
+  }
+
+  if (!hasSide) {
+    const fallback =
+      node.treadMaterial !== undefined || typeof node.treadMaterialPreset === 'string'
+        ? {
+            material: node.treadMaterial,
+            materialPreset:
+              typeof node.treadMaterialPreset === 'string' ? node.treadMaterialPreset : undefined,
+          }
+        : resolveBodyFallback()
+    next.sideMaterial = fallback.material
+    next.sideMaterialPreset = fallback.materialPreset
+  }
+
+  if (!hasRailing) {
+    const fallback = resolveBodyFallback()
+    next.railingMaterial = fallback.material
+    next.railingMaterialPreset = fallback.materialPreset
+  }
+
+  return next
+}
+
+function migrateRoofSurfaceMaterials(node: Record<string, any>) {
+  const hasTop = node.topMaterial !== undefined || typeof node.topMaterialPreset === 'string'
+  const hasEdge = node.edgeMaterial !== undefined || typeof node.edgeMaterialPreset === 'string'
+  const hasWall = node.wallMaterial !== undefined || typeof node.wallMaterialPreset === 'string'
+  const legacyFinish = {
+    material: node.material,
+    materialPreset: typeof node.materialPreset === 'string' ? node.materialPreset : undefined,
+  }
+
+  if (!hasTop && !hasEdge && !hasWall) {
+    if (legacyFinish.material === undefined && legacyFinish.materialPreset === undefined) {
+      return node
+    }
+
+    return {
+      ...node,
+      topMaterial: legacyFinish.material,
+      topMaterialPreset: legacyFinish.materialPreset,
+      edgeMaterial: legacyFinish.material,
+      edgeMaterialPreset: legacyFinish.materialPreset,
+      wallMaterial: legacyFinish.material,
+      wallMaterialPreset: legacyFinish.materialPreset,
+    }
+  }
+
+  const next = { ...node }
+
+  if (!hasTop) {
+    next.topMaterial = legacyFinish.material
+    next.topMaterialPreset = legacyFinish.materialPreset
+  }
+
+  if (!hasEdge) {
+    if (node.wallMaterial !== undefined || typeof node.wallMaterialPreset === 'string') {
+      next.edgeMaterial = node.wallMaterial
+      next.edgeMaterialPreset =
+        typeof node.wallMaterialPreset === 'string' ? node.wallMaterialPreset : undefined
+    } else {
+      next.edgeMaterial = legacyFinish.material
+      next.edgeMaterialPreset = legacyFinish.materialPreset
+    }
+  }
+
+  if (!hasWall) {
+    if (node.edgeMaterial !== undefined || typeof node.edgeMaterialPreset === 'string') {
+      next.wallMaterial = node.edgeMaterial
+      next.wallMaterialPreset =
+        typeof node.edgeMaterialPreset === 'string' ? node.edgeMaterialPreset : undefined
+    } else {
+      next.wallMaterial = legacyFinish.material
+      next.wallMaterialPreset = legacyFinish.materialPreset
+    }
+  }
+
+  return next
+}
 
 function migrateNodes(nodes: Record<string, any>): Record<string, AnyNode> {
   const patchedNodes = { ...nodes }
@@ -50,8 +323,91 @@ function migrateNodes(nodes: Record<string, any>): Record<string, AnyNode> {
         children: [segmentId],
       }
     }
+
+    if (node.type === 'stair') {
+      const normalized = normalizeStairNode(migrateStairSurfaceMaterials(node))
+      if (normalized) {
+        patchedNodes[id] = normalized
+      }
+    }
+
+    if (node.type === 'stair-segment') {
+      const normalized = normalizeStairSegmentNode(node)
+      if (normalized) {
+        patchedNodes[id] = normalized
+      }
+    }
+
+    if (node.type === 'wall') {
+      patchedNodes[id] = migrateWallSurfaceMaterials(patchedNodes[id])
+    }
+
+    if (node.type === 'roof') {
+      patchedNodes[id] = migrateRoofSurfaceMaterials(patchedNodes[id])
+    }
   }
   return patchedNodes as Record<string, AnyNode>
+}
+
+function getNodeChildIds(node: AnyNode): AnyNodeId[] {
+  if (!('children' in node) || !Array.isArray(node.children)) {
+    return []
+  }
+
+  return (node.children as unknown[])
+    .map((child) => {
+      if (typeof child === 'string') return child
+      if (child && typeof child === 'object' && 'id' in child && typeof child.id === 'string') {
+        return child.id
+      }
+      return null
+    })
+    .filter((id): id is AnyNodeId => typeof id === 'string')
+}
+
+function normalizeRootNodeIds(
+  nodes: Record<AnyNodeId, AnyNode>,
+  rootNodeIds: AnyNodeId[],
+): AnyNodeId[] {
+  const existingRootIds = rootNodeIds.filter((id) => Boolean(nodes[id]))
+  const siteRootIds = existingRootIds.filter((id) => nodes[id]?.type === 'site')
+
+  if (siteRootIds.length > 0) {
+    return siteRootIds
+  }
+
+  return existingRootIds.filter((id) => nodes[id]?.parentId === null)
+}
+
+function collectReachableNodeIds(
+  nodes: Record<AnyNodeId, AnyNode>,
+  rootNodeIds: AnyNodeId[],
+): Set<AnyNodeId> {
+  const reachable = new Set<AnyNodeId>()
+  const stack = [...rootNodeIds]
+  const childIdsByParentId = new Map<AnyNodeId, AnyNodeId[]>()
+
+  for (const node of Object.values(nodes)) {
+    if (!node.parentId) continue
+    const parentId = node.parentId as AnyNodeId
+    const children = childIdsByParentId.get(parentId) ?? []
+    children.push(node.id as AnyNodeId)
+    childIdsByParentId.set(parentId, children)
+  }
+
+  while (stack.length > 0) {
+    const id = stack.pop()
+    if (!id || reachable.has(id)) continue
+
+    const node = nodes[id]
+    if (!node) continue
+
+    reachable.add(id)
+    stack.push(...getNodeChildIds(node))
+    stack.push(...(childIdsByParentId.get(id) ?? []))
+  }
+
+  return reachable
 }
 
 export type SceneState = {
@@ -123,11 +479,6 @@ const useScene: UseSceneStore = create<SceneState>()(
       setReadOnly: (readOnly: boolean) => set({ readOnly }),
 
       unloadScene: () => {
-        // Clear temporal tracking to prevent memory leaks from stale node references
-        prevPastLength = 0
-        prevFutureLength = 0
-        prevNodesSnapshot = null
-
         set({
           nodes: {},
           rootNodeIds: [],
@@ -145,14 +496,39 @@ const useScene: UseSceneStore = create<SceneState>()(
         // Apply backward compatibility migrations
         const patchedNodes = migrateNodes(nodes)
 
+        // Remove orphans: nodes whose parentId points to a non-existent node
+        const cleanedNodes = { ...patchedNodes }
+        for (const node of Object.values(cleanedNodes)) {
+          if (node.parentId && !cleanedNodes[node.parentId]) {
+            console.warn(
+              '[Scene] Removing orphan node',
+              node.id,
+              '(parentId',
+              node.parentId,
+              'not found)',
+            )
+            delete cleanedNodes[node.id]
+          }
+        }
+
+        const normalizedRootNodeIds = normalizeRootNodeIds(cleanedNodes, rootNodeIds)
+        const reachableNodeIds = collectReachableNodeIds(cleanedNodes, normalizedRootNodeIds)
+        if (normalizedRootNodeIds.length > 0) {
+          for (const node of Object.values(cleanedNodes)) {
+            if (reachableNodeIds.has(node.id as AnyNodeId)) continue
+            console.warn('[Scene] Removing unreachable node', node.id)
+            delete cleanedNodes[node.id]
+          }
+        }
+
         set({
-          nodes: patchedNodes,
-          rootNodeIds,
+          nodes: cleanedNodes,
+          rootNodeIds: normalizedRootNodeIds,
           dirtyNodes: new Set<AnyNodeId>(),
           collections: {},
         })
         // Mark all nodes as dirty to trigger re-validation
-        Object.values(patchedNodes).forEach((node) => {
+        Object.values(cleanedNodes).forEach((node) => {
           get().markDirty(node.id)
         })
       },
@@ -292,7 +668,7 @@ const useScene: UseSceneStore = create<SceneState>()(
           if (!col) return state
           const nextCollections = {
             ...state.collections,
-            [id]: { ...col, nodeIds: col.nodeIds.filter((n: AnyNodeId) => n !== nodeId) },
+            [id]: { ...col, nodeIds: col.nodeIds.filter((n) => n !== nodeId) },
           }
           const node = state.nodes[nodeId]
           if (!(node && 'collectionIds' in node)) return { collections: nextCollections }
@@ -324,19 +700,12 @@ let prevPastLength = 0
 let prevFutureLength = 0
 let prevNodesSnapshot: Record<AnyNodeId, AnyNode> | null = null
 
-/**
- * Clears temporal history tracking variables to prevent memory leaks.
- * Should be called when unloading a scene to release node references.
- */
-export function clearTemporalTracking() {
+export function clearSceneHistory() {
+  useScene.temporal.getState().clear()
+  resetSceneHistoryPauseDepth()
   prevPastLength = 0
   prevFutureLength = 0
   prevNodesSnapshot = null
-}
-
-export function clearSceneHistory() {
-  useScene.temporal.getState().clear()
-  clearTemporalTracking()
 }
 
 // Subscribe to the temporal store (Undo/Redo events)
@@ -353,8 +722,9 @@ useScene.temporal.subscribe((state) => {
     // Capture the previous snapshot before RAF fires
     const snapshotBefore = prevNodesSnapshot
 
-    // Use RAF to ensure all middleware and store updates are complete
-    requestAnimationFrame(() => {
+    // Defer to a microtask so the scene store has settled before we diff,
+    // but still mark walls/items dirty before the next paint.
+    queueMicrotask(() => {
       const currentNodes = useScene.getState().nodes
       const { markDirty } = useScene.getState()
 
@@ -376,8 +746,8 @@ useScene.temporal.subscribe((state) => {
               // Mark sibling nodes dirty so they can update their geometry
               // (e.g. adjacent walls need to recalculate miter/junction geometry)
               const parent = currentNodes[parentId]
-              if (parent && 'children' in parent) {
-                for (const childId of (parent as AnyNode & { children: string[] }).children) {
+              if (parent && 'children' in parent && Array.isArray(parent.children)) {
+                for (const childId of parent.children) {
                   markDirty(childId as AnyNodeId)
                 }
               }

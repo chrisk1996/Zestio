@@ -3,7 +3,9 @@
 import { type AnyNode, useScene } from '@pascal-app/core'
 import { BuildingRenderer } from './building/building-renderer'
 import { CeilingRenderer } from './ceiling/ceiling-renderer'
+import { ColumnRenderer } from './column/column-renderer'
 import { DoorRenderer } from './door/door-renderer'
+import { FenceRenderer } from './fence/fence-renderer'
 import { GuideRenderer } from './guide/guide-renderer'
 import { ItemRenderer } from './item/item-renderer'
 import { LevelRenderer } from './level/level-renderer'
@@ -12,6 +14,7 @@ import { RoofSegmentRenderer } from './roof-segment/roof-segment-renderer'
 import { ScanRenderer } from './scan/scan-renderer'
 import { SiteRenderer } from './site/site-renderer'
 import { SlabRenderer } from './slab/slab-renderer'
+import { SpawnRenderer } from './spawn/spawn-renderer'
 import { StairRenderer } from './stair/stair-renderer'
 import { StairSegmentRenderer } from './stair-segment/stair-segment-renderer'
 import { WallRenderer } from './wall/wall-renderer'
@@ -28,10 +31,13 @@ export const NodeRenderer = ({ nodeId }: { nodeId: AnyNode['id'] }) => {
       {node.type === 'site' && <SiteRenderer node={node} />}
       {node.type === 'building' && <BuildingRenderer node={node} />}
       {node.type === 'ceiling' && <CeilingRenderer node={node} />}
+      {node.type === 'column' && <ColumnRenderer node={node} />}
       {node.type === 'level' && <LevelRenderer node={node} />}
       {node.type === 'item' && <ItemRenderer node={node} />}
       {node.type === 'slab' && <SlabRenderer node={node} />}
+      {node.type === 'spawn' && <SpawnRenderer node={node} />}
       {node.type === 'wall' && <WallRenderer node={node} />}
+      {node.type === 'fence' && <FenceRenderer node={node} />}
       {node.type === 'door' && <DoorRenderer node={node} />}
       {node.type === 'window' && <WindowRenderer node={node} />}
       {node.type === 'zone' && <ZoneRenderer node={node} />}

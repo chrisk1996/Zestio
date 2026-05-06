@@ -3,10 +3,14 @@ import {
   type BuildingNode,
   type CeilingEvent,
   type CeilingNode,
+  type ColumnEvent,
+  type ColumnNode,
   type DoorEvent,
   type DoorNode,
   type EventSuffix,
   emitter,
+  type FenceEvent,
+  type FenceNode,
   type ItemEvent,
   type ItemNode,
   type LevelEvent,
@@ -19,6 +23,8 @@ import {
   type SiteNode,
   type SlabEvent,
   type SlabNode,
+  type SpawnEvent,
+  type SpawnNode,
   type StairEvent,
   type StairNode,
   type StairSegmentEvent,
@@ -37,11 +43,14 @@ type NodeConfig = {
   site: { node: SiteNode; event: SiteEvent }
   item: { node: ItemNode; event: ItemEvent }
   wall: { node: WallNode; event: WallEvent }
+  fence: { node: FenceNode; event: FenceEvent }
   building: { node: BuildingNode; event: BuildingEvent }
   level: { node: LevelNode; event: LevelEvent }
   zone: { node: ZoneNode; event: ZoneEvent }
   slab: { node: SlabNode; event: SlabEvent }
+  spawn: { node: SpawnNode; event: SpawnEvent }
   ceiling: { node: CeilingNode; event: CeilingEvent }
+  column: { node: ColumnNode; event: ColumnEvent }
   roof: { node: RoofNode; event: RoofEvent }
   'roof-segment': { node: RoofSegmentNode; event: RoofSegmentEvent }
   stair: { node: StairNode; event: StairEvent }
@@ -61,6 +70,8 @@ export function useNodeEvents<T extends NodeType>(node: NodeConfig[T]['node'], t
       position: [e.point.x, e.point.y, e.point.z],
       localPosition: [localPoint.x, localPoint.y, localPoint.z],
       normal: e.face ? [e.face.normal.x, e.face.normal.y, e.face.normal.z] : undefined,
+      faceIndex: e.faceIndex ?? undefined,
+      object: e.object,
       stopPropagation: () => e.stopPropagation(),
       nativeEvent: e,
     } as NodeConfig[T]['event']

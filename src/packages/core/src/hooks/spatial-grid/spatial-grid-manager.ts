@@ -1,5 +1,6 @@
 import type { AnyNode, CeilingNode, ItemNode, SlabNode, WallNode } from '../../schema'
 import { getScaledDimensions } from '../../schema'
+import useScene from '../../store/use-scene'
 import { SpatialGrid } from './spatial-grid'
 import { WallSpatialGrid } from './wall-spatial-grid'
 
@@ -49,6 +50,86 @@ function getItemFootprint(
     [x + (halfW * cos - halfD * sin), z + (halfW * sin + halfD * cos)],
     [x + (-halfW * cos - halfD * sin), z + (-halfW * sin + halfD * cos)],
   ]
+}
+
+type ItemLocalBounds = {
+  min: [number, number, number]
+  max: [number, number, number]
+}
+
+type ItemParentAabb = {
+  minX: number
+  maxX: number
+  minY: number
+  maxY: number
+  minZ: number
+  maxZ: number
+}
+
+function getItemLocalBounds(item: ItemNode): ItemLocalBounds {
+  const [width, height, depth] = getScaledDimensions(item)
+  const minZ = item.asset.attachTo === 'wall-side' ? -depth : -depth / 2
+  const maxZ = item.asset.attachTo === 'wall-side' ? 0 : depth / 2
+  return {
+    min: [-width / 2, 0, minZ],
+    max: [width / 2, height, maxZ],
+  }
+}
+
+function getItemParentAabb(item: ItemNode): ItemParentAabb {
+  const bounds = getItemLocalBounds(item)
+  const corners: Array<[number, number, number]> = [
+    [bounds.min[0], bounds.min[1], bounds.min[2]],
+    [bounds.min[0], bounds.min[1], bounds.max[2]],
+    [bounds.min[0], bounds.max[1], bounds.min[2]],
+    [bounds.min[0], bounds.max[1], bounds.max[2]],
+    [bounds.max[0], bounds.min[1], bounds.min[2]],
+    [bounds.max[0], bounds.min[1], bounds.max[2]],
+    [bounds.max[0], bounds.max[1], bounds.min[2]],
+    [bounds.max[0], bounds.max[1], bounds.max[2]],
+  ]
+  const yRot = item.rotation[1] ?? 0
+  const cos = Math.cos(yRot)
+  const sin = Math.sin(yRot)
+
+  let minX = Number.POSITIVE_INFINITY
+  let minY = Number.POSITIVE_INFINITY
+  let minZ = Number.POSITIVE_INFINITY
+  let maxX = Number.NEGATIVE_INFINITY
+  let maxY = Number.NEGATIVE_INFINITY
+  let maxZ = Number.NEGATIVE_INFINITY
+
+  for (const [cx, cy, cz] of corners) {
+    const rotatedX = cx * cos + cz * sin
+    const rotatedZ = -cx * sin + cz * cos
+    const worldX = rotatedX + item.position[0]
+    const worldY = cy + item.position[1]
+    const worldZ = rotatedZ + item.position[2]
+    minX = Math.min(minX, worldX)
+    minY = Math.min(minY, worldY)
+    minZ = Math.min(minZ, worldZ)
+    maxX = Math.max(maxX, worldX)
+    maxY = Math.max(maxY, worldY)
+    maxZ = Math.max(maxZ, worldZ)
+  }
+
+  return { minX, maxX, minY, maxY, minZ, maxZ }
+}
+
+function intervalsOverlap(minA: number, maxA: number, minB: number, maxB: number, epsilon = 1e-4) {
+  return minA < maxB - epsilon && maxA > minB + epsilon
+}
+
+function resolveNodeLevelId(node: AnyNode, nodes: Record<string, AnyNode>): string {
+  if (node.type === 'level') return node.id
+
+  let current: AnyNode | undefined = node
+  while (current) {
+    if (current.type === 'level') return current.id
+    current = current.parentId ? nodes[current.parentId] : undefined
+  }
+
+  return 'default'
 }
 
 /**
@@ -348,15 +429,15 @@ export class SpatialGridManager {
             const [width, height] = getScaledDimensions(item)
             const halfW = width / wallLength / 2
             // Calculate t from local X position (position[0] is distance along wall)
-            const t = (item.position as [number, number, number])[0] / wallLength
+            const t = item.position[0] / wallLength
             // position[1] is the bottom of the item
             this.getWallGrid(levelId).insert({
               itemId: item.id,
               wallId,
               tStart: t - halfW,
               tEnd: t + halfW,
-              yStart: (item.position as [number, number, number])[1],
-              yEnd: (item.position as [number, number, number])[1] + height,
+              yStart: item.position[1],
+              yEnd: item.position[1] + height,
               attachType: item.asset.attachTo as 'wall' | 'wall-side',
               side: item.side,
             })
@@ -368,9 +449,9 @@ export class SpatialGridManager {
         if (ceilingId && this.ceilings.has(ceilingId)) {
           this.getCeilingGrid(ceilingId).insert(
             item.id,
-            item.position as [number, number, number],
+            item.position,
             getScaledDimensions(item),
-            (item.rotation as [number, number, number]),
+            item.rotation,
           )
           this.itemCeilingMap.set(item.id, ceilingId)
         }
@@ -378,9 +459,9 @@ export class SpatialGridManager {
         // Floor item
         this.getFloorGrid(levelId).insert(
           item.id,
-          item.position as [number, number, number],
+          item.position,
           getScaledDimensions(item),
-          (item.rotation as [number, number, number]),
+          item.rotation,
         )
       }
     }
@@ -406,15 +487,15 @@ export class SpatialGridManager {
             const [width, height] = getScaledDimensions(item)
             const halfW = width / wallLength / 2
             // Calculate t from local X position (position[0] is distance along wall)
-            const t = (item.position as [number, number, number])[0] / wallLength
+            const t = item.position[0] / wallLength
             // position[1] is the bottom of the item
             this.getWallGrid(levelId).insert({
               itemId: item.id,
               wallId,
               tStart: t - halfW,
               tEnd: t + halfW,
-              yStart: (item.position as [number, number, number])[1],
-              yEnd: (item.position as [number, number, number])[1] + height,
+              yStart: item.position[1],
+              yEnd: item.position[1] + height,
               attachType: item.asset.attachTo as 'wall' | 'wall-side',
               side: item.side,
             })
@@ -432,18 +513,18 @@ export class SpatialGridManager {
         if (ceilingId && this.ceilings.has(ceilingId)) {
           this.getCeilingGrid(ceilingId).insert(
             item.id,
-            item.position as [number, number, number],
+            item.position,
             getScaledDimensions(item),
-            (item.rotation as [number, number, number]),
+            item.rotation,
           )
           this.itemCeilingMap.set(item.id, ceilingId)
         }
       } else if (!item.asset.attachTo) {
         this.getFloorGrid(levelId).update(
           item.id,
-          item.position as [number, number, number],
+          item.position,
           getScaledDimensions(item),
-          (item.rotation as [number, number, number]),
+          item.rotation,
         )
       }
     }
@@ -481,8 +562,39 @@ export class SpatialGridManager {
     rotation: [number, number, number],
     ignoreIds?: string[],
   ) {
-    const grid = this.getFloorGrid(levelId)
-    return grid.canPlace(position, dimensions, rotation, ignoreIds)
+    const nodes = useScene.getState().nodes
+    const ignoreSet = new Set(ignoreIds ?? [])
+    const [width, , depth] = dimensions
+    const yRot = rotation[1]
+    const cos = Math.abs(Math.cos(yRot))
+    const sin = Math.abs(Math.sin(yRot))
+    const rotatedW = width * cos + depth * sin
+    const rotatedD = width * sin + depth * cos
+    const draftBounds = {
+      minX: position[0] - rotatedW / 2,
+      maxX: position[0] + rotatedW / 2,
+      minZ: position[2] - rotatedD / 2,
+      maxZ: position[2] + rotatedD / 2,
+    }
+
+    const conflicts: string[] = []
+    for (const node of Object.values(nodes)) {
+      if (node.type !== 'item') continue
+      const item = node as ItemNode
+      if (item.asset.attachTo) continue
+      if (ignoreSet.has(item.id)) continue
+      if (resolveNodeLevelId(item, nodes) !== levelId) continue
+
+      const bounds = getItemParentAabb(item)
+      if (
+        intervalsOverlap(draftBounds.minX, draftBounds.maxX, bounds.minX, bounds.maxX) &&
+        intervalsOverlap(draftBounds.minZ, draftBounds.maxZ, bounds.minZ, bounds.maxZ)
+      ) {
+        conflicts.push(item.id)
+      }
+    }
+
+    return { valid: conflicts.length === 0, conflictIds: conflicts }
   }
 
   /**
@@ -508,13 +620,13 @@ export class SpatialGridManager {
   ) {
     const wallLength = this.getWallLength(wallId)
     if (wallLength === 0) {
-      return { valid: false, conflictIds: [] as string[] }
+      return { valid: false, conflictIds: [] }
     }
     const wallHeight = this.getWallHeight(wallId)
     // Convert local X position to parametric t (0-1)
     const tCenter = localX / wallLength
     const [itemWidth, itemHeight] = dimensions
-    return this.getWallGrid(levelId).canPlaceOnWall(
+    const baseResult = this.getWallGrid(levelId).canPlaceOnWall(
       wallId,
       wallLength,
       wallHeight,
@@ -526,6 +638,44 @@ export class SpatialGridManager {
       side,
       ignoreIds,
     )
+
+    if (!baseResult.valid) return baseResult
+
+    const nodes = useScene.getState().nodes
+    const ignoreSet = new Set(ignoreIds ?? [])
+    const draftBounds = {
+      minX: localX - itemWidth / 2,
+      maxX: localX + itemWidth / 2,
+      minY: baseResult.adjustedY,
+      maxY: baseResult.adjustedY + itemHeight,
+    }
+
+    const conflicts: string[] = []
+    for (const node of Object.values(nodes)) {
+      if (node.type !== 'item') continue
+      const item = node as ItemNode
+      if (!(item.asset.attachTo === 'wall' || item.asset.attachTo === 'wall-side')) continue
+      if (ignoreSet.has(item.id)) continue
+      if (item.parentId !== wallId) continue
+
+      if (attachType === 'wall-side' && item.asset.attachTo === 'wall-side' && side && item.side) {
+        if (side !== item.side) continue
+      }
+
+      const bounds = getItemParentAabb(item)
+      if (
+        intervalsOverlap(draftBounds.minX, draftBounds.maxX, bounds.minX, bounds.maxX) &&
+        intervalsOverlap(draftBounds.minY, draftBounds.maxY, bounds.minY, bounds.maxY)
+      ) {
+        conflicts.push(item.id)
+      }
+    }
+
+    return {
+      ...baseResult,
+      valid: conflicts.length === 0,
+      conflictIds: conflicts,
+    }
   }
 
   getWallForItem(levelId: string, itemId: string): string | undefined {
@@ -542,12 +692,12 @@ export class SpatialGridManager {
 
     let maxElevation = 0
     for (const slab of slabMap.values()) {
-      if (slab.polygon.length >= 3 && pointInPolygon(x, z, slab.polygon as [number, number][])) {
+      if (slab.polygon.length >= 3 && pointInPolygon(x, z, slab.polygon)) {
         // Check if point is in any hole
         let inHole = false
         const holes = slab.holes || []
         for (const hole of holes) {
-          if (hole.length >= 3 && pointInPolygon(x, z, hole as [number, number][])) {
+          if (hole.length >= 3 && pointInPolygon(x, z, hole)) {
             inHole = true
             break
           }
@@ -582,7 +732,7 @@ export class SpatialGridManager {
     for (const slab of slabMap.values()) {
       if (
         slab.polygon.length >= 3 &&
-        itemOverlapsPolygon(position, dimensions, rotation, slab.polygon as [number, number][], 0.01)
+        itemOverlapsPolygon(position, dimensions, rotation, slab.polygon, 0.01)
       ) {
         // Check if item is entirely within a hole (if so, ignore this slab)
         // We consider it entirely in a hole if the item center is in the hole
@@ -590,7 +740,7 @@ export class SpatialGridManager {
         const [cx, , cz] = position
         const holes = slab.holes || []
         for (const hole of holes) {
-          if (hole.length >= 3 && pointInPolygon(cx, cz, hole as [number, number][])) {
+          if (hole.length >= 3 && pointInPolygon(cx, cz, hole)) {
             inHole = true
             break
           }
@@ -619,7 +769,7 @@ export class SpatialGridManager {
     let maxElevation = Number.NEGATIVE_INFINITY
     for (const slab of slabMap.values()) {
       if (slab.polygon.length < 3) continue
-      if (!wallOverlapsPolygon(start, end, slab.polygon as [number, number][])) continue
+      if (!wallOverlapsPolygon(start, end, slab.polygon)) continue
 
       const holes = slab.holes || []
       if (holes.length === 0) {
@@ -640,7 +790,7 @@ export class SpatialGridManager {
         const pz = start[1] + dz * t
         let inHole = false
         for (const hole of holes) {
-          if (hole.length >= 3 && pointInPolygon(px, pz, hole as [number, number][])) {
+          if (hole.length >= 3 && pointInPolygon(px, pz, hole)) {
             inHole = true
             break
           }
@@ -672,14 +822,14 @@ export class SpatialGridManager {
   ): { valid: boolean; conflictIds: string[] } {
     const ceiling = this.ceilings.get(ceilingId)
     if (!ceiling || ceiling.polygon.length < 3) {
-      return { valid: false, conflictIds: [] as string[] }
+      return { valid: false, conflictIds: [] }
     }
 
     // Check that the item footprint is entirely within the ceiling polygon
     const corners = getItemFootprint(position, dimensions, rotation)
     for (const [cx, cz] of corners) {
-      if (!pointInPolygon(cx, cz, ceiling.polygon as [number, number][])) {
-        return { valid: false, conflictIds: [] as string[] }
+      if (!pointInPolygon(cx, cz, ceiling.polygon)) {
+        return { valid: false, conflictIds: [] }
       }
     }
 
@@ -687,13 +837,44 @@ export class SpatialGridManager {
     const [centerX, , centerZ] = position
     const holes = ceiling.holes || []
     for (const hole of holes) {
-      if (hole.length >= 3 && pointInPolygon(centerX, centerZ, hole as [number, number][])) {
-        return { valid: false, conflictIds: [] as string[] }
+      if (hole.length >= 3 && pointInPolygon(centerX, centerZ, hole)) {
+        return { valid: false, conflictIds: [] }
       }
     }
 
-    // Check for overlaps with other ceiling items
-    return this.getCeilingGrid(ceilingId).canPlace(position, dimensions, rotation, ignoreIds)
+    const nodes = useScene.getState().nodes
+    const ignoreSet = new Set(ignoreIds ?? [])
+    const [width, , depth] = dimensions
+    const yRot = rotation[1]
+    const cos = Math.abs(Math.cos(yRot))
+    const sin = Math.abs(Math.sin(yRot))
+    const rotatedW = width * cos + depth * sin
+    const rotatedD = width * sin + depth * cos
+    const draftBounds = {
+      minX: position[0] - rotatedW / 2,
+      maxX: position[0] + rotatedW / 2,
+      minZ: position[2] - rotatedD / 2,
+      maxZ: position[2] + rotatedD / 2,
+    }
+
+    const conflicts: string[] = []
+    for (const node of Object.values(nodes)) {
+      if (node.type !== 'item') continue
+      const item = node as ItemNode
+      if (item.asset.attachTo !== 'ceiling') continue
+      if (ignoreSet.has(item.id)) continue
+      if (item.parentId !== ceilingId) continue
+
+      const bounds = getItemParentAabb(item)
+      if (
+        intervalsOverlap(draftBounds.minX, draftBounds.maxX, bounds.minX, bounds.maxX) &&
+        intervalsOverlap(draftBounds.minZ, draftBounds.maxZ, bounds.minZ, bounds.maxZ)
+      ) {
+        conflicts.push(item.id)
+      }
+    }
+
+    return { valid: conflicts.length === 0, conflictIds: conflicts }
   }
 
   clearLevel(levelId: string) {

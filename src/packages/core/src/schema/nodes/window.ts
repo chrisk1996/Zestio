@@ -8,8 +8,8 @@ export const WindowNode = BaseNode.extend({
   type: nodeType('window'),
   material: MaterialSchema.optional(),
 
-  position: z.array(z.number()).length(3).default([0, 0, 0]),
-  rotation: z.array(z.number()).length(3).default([0, 0, 0]),
+  position: z.tuple([z.number(), z.number(), z.number()]).default([0, 0, 0]),
+  rotation: z.tuple([z.number(), z.number(), z.number()]).default([0, 0, 0]),
   side: z.enum(['front', 'back']).optional(),
 
   // Wall reference
@@ -18,6 +18,17 @@ export const WindowNode = BaseNode.extend({
   // Overall dimensions
   width: z.number().default(1.5),
   height: z.number().default(1.5),
+
+  // Opening mode - when set to "opening", the window is only a shaped cutout
+  openingKind: z.enum(['window', 'opening']).default('window'),
+  openingShape: z.enum(['rectangle', 'rounded', 'arch']).default('rectangle'),
+  openingRadiusMode: z.enum(['all', 'individual']).default('all'),
+  openingCornerRadii: z
+    .tuple([z.number(), z.number(), z.number(), z.number()])
+    .default([0.15, 0.15, 0.15, 0.15]),
+  cornerRadius: z.number().default(0.15),
+  archHeight: z.number().default(0.35),
+  openingRevealRadius: z.number().default(0.025),
 
   // Frame
   frameThickness: z.number().default(0.05),
